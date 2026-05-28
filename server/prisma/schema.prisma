@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum PartieStatus {
+  EN_ATTENTE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum BuzzerStatus {
+  OFFLINE
+  ONLINE
+  IN_GAME
+  AWAITING_CLAIM
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  password     String
+  prenom       String
+  plan         Plan      @default(FREE)
+  planExpireAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  buzzers       Buzzer[]
+  partiesCreees Partie[]       @relation("AnimateurParties")
+  participations Participant[]
+  paiements     Paiement[]
+  refreshTokens RefreshToken[]
+}
+
+model Partie {
+  id          String       @id @default(cuid())
+  nom         String
+  code        String       @unique
+  status      PartieStatus @default(EN_ATTENTE)
+  animateurId String?
+  animateur   User?        @relation("AnimateurParties", fields: [animateurId], references: [id])
+  modeAuto    Boolean      @default(false)
+  modeVote    Boolean      @default(false)
+  questions   Json?
+  timerBuzz   Int          @default(10)
+  timerVote   Int          @default(15)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  participants Participant[]
+  votes        Vote[]
+}
+
+model Participant {
+  id          String   @id @default(cuid())
+  partieId    String
+  partie      Partie   @relation(fields: [partieId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  prenom      String
+  buzzerId    String?
+  buzzer      Buzzer?  @relation(fields: [buzzerId], references: [id])
+  isAnimateur Boolean  @default(false)
+  score       Int      @default(0)
+  rang        Int?
+  joinedAt    DateTime @default(now())
+
+  votes Vote[]
+
+  @@unique([partieId, userId])
+}
+
+model Buzzer {
+  id        String       @id @default(cuid())
+  mac       String       @unique
+  nom       String?
+  couleur   String       @default("#3B82F6")
+  ownerId   String?
+  owner     User?        @relation(fields: [ownerId], references: [id])
+  claimedAt DateTime?
+  status    BuzzerStatus @default(OFFLINE)
+  lastSeenAt DateTime?
+  firmware  String?
+  createdAt DateTime     @default(now())
+
+  participations Participant[]
+}
+
+model Vote {
+  id            String      @id @default(cuid())
+  partieId      String
+  partie        Partie      @relation(fields: [partieId], references: [id], onDelete: Cascade)
+  questionIndex Int
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+  valide        Boolean
+  createdAt     DateTime    @default(now())
+
+  @@unique([partieId, questionIndex, participantId])
+}
+
+model Paiement {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  montant   Float
+  plan      Plan
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
