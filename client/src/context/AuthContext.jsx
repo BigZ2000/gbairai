@@ -58,21 +58,31 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
-  async function register(email, password, prenom) {
+  async function register(email, password, prenom, username) {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, prenom }),
+      body: JSON.stringify({ email, password, prenom, username }),
     })
     if (!res.ok) {
       const err = await res.json()
-      throw new Error(err.error ?? 'Erreur d\'inscription')
+      throw new Error(err.error ?? "Erreur d'inscription")
     }
     const data = await res.json()
     localStorage.setItem('access', data.access)
     localStorage.setItem('refresh', data.refresh)
     setUser(data.user)
     return data.user
+  }
+
+  // Called after Google OAuth redirect — receives tokens from URL params
+  function loginWithTokens(access, refresh) {
+    localStorage.setItem('access', access)
+    localStorage.setItem('refresh', refresh)
+    // Fetch user info
+    return fetch('/api/auth/me', { headers: { Authorization: `Bearer ${access}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(u => { if (u) setUser(u); return u })
   }
 
   function logout() {
@@ -91,7 +101,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, apiFetch }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginWithTokens, logout, apiFetch }}>
       {children}
     </AuthContext.Provider>
   )

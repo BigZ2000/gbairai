@@ -11,6 +11,7 @@ import SalleAttente from './pages/SalleAttente.jsx'
 import AnimateurJeu from './pages/AnimateurJeu.jsx'
 import EcranPrincipal from './pages/EcranPrincipal.jsx'
 import MonCompte from './pages/MonCompte.jsx'
+import AuthCallback from './pages/AuthCallback.jsx'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/parties/new" element={<CreatePartie />} />

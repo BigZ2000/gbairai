@@ -3,6 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
+import {
+  ChevronRight, Square, Trophy, ThumbsUp, ThumbsDown,
+  Users, Hash, Loader2, Check, X,
+} from 'lucide-react'
 
 export default function AnimateurJeu() {
   const { partieCode } = useParams()
@@ -33,9 +37,7 @@ export default function AnimateurJeu() {
     setPartie(p)
     setParticipants(p.participants ?? [])
     const init = {}
-    p.participants.forEach(pt => {
-      if (pt.buzzer?.mac) init[pt.buzzer.mac] = 'ready'
-    })
+    p.participants.forEach(pt => { if (pt.buzzer?.mac) init[pt.buzzer.mac] = 'ready' })
     setBuzzerStatuts(init)
   }, [partieCode])
 
@@ -56,16 +58,12 @@ export default function AnimateurJeu() {
           return next
         })
       }
-      if (msg.type === 'vote_update') {
-        setVotes({ pour: msg.pour, contre: msg.contre, total: msg.total })
-      }
+      if (msg.type === 'vote_update') setVotes({ pour: msg.pour, contre: msg.contre, total: msg.total })
       if (msg.type === 'vote_result') {
         setVotes({ pour: msg.pour, contre: msg.contre, total: msg.total })
         setTimeout(() => nextQuestion(), 2000)
       }
-      if (msg.type === 'auto_next_question') {
-        startAutoCountdown(msg.countdown ?? 3)
-      }
+      if (msg.type === 'auto_next_question') startAutoCountdown(msg.countdown ?? 3)
       if (msg.type === 'question_changed') {
         setQuestionIndex(msg.index)
         setWinner(null)
@@ -77,24 +75,14 @@ export default function AnimateurJeu() {
           return next
         })
       }
-      if (msg.type === 'game_ended') {
-        navigate('/dashboard')
-      }
-      if (msg.type === 'participant_update') {
-        setParticipants(msg.participants ?? [])
-      }
+      if (msg.type === 'game_ended') navigate('/dashboard')
+      if (msg.type === 'participant_update') setParticipants(msg.participants ?? [])
       if (msg.type === 'buzzer_status_update') {
-        setBuzzerStatuts(prev => ({
-          ...prev,
-          [msg.mac]: msg.status === 'OFFLINE' ? 'offline' : 'ready',
-        }))
+        setBuzzerStatuts(prev => ({ ...prev, [msg.mac]: msg.status === 'OFFLINE' ? 'offline' : 'ready' }))
       }
     })
 
-    return () => {
-      unsub()
-      clearInterval(countdownRef.current)
-    }
+    return () => { unsub(); clearInterval(countdownRef.current) }
   }, [partieCode])
 
   function startAutoCountdown(seconds) {
@@ -102,19 +90,13 @@ export default function AnimateurJeu() {
     setAutoCountdown(seconds)
     countdownRef.current = setInterval(() => {
       setAutoCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownRef.current)
-          nextQuestion()
-          return null
-        }
+        if (prev <= 1) { clearInterval(countdownRef.current); nextQuestion(); return null }
         return prev - 1
       })
     }, 1000)
   }
 
-  function nextQuestion() {
-    send({ type: 'next_question', partieCode })
-  }
+  function nextQuestion() { send({ type: 'next_question', partieCode }) }
 
   function validateAnswer(valide) {
     if (!winner) return
@@ -133,25 +115,12 @@ export default function AnimateurJeu() {
     send({ type: 'submit_vote', partieCode, questionIndex, participantId: myParticipant?.id, valide })
   }
 
-  function endGame() {
-    send({ type: 'end_game', partieCode })
-    setEndConfirm(false)
-  }
+  function endGame() { send({ type: 'end_game', partieCode }); setEndConfirm(false) }
 
   if (!partie) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0F0A1E' }}>
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black text-white"
-            style={{ background: 'linear-gradient(135deg,#7C3AED,#A855F7)', boxShadow: '0 0 24px rgba(124,58,237,0.5)' }}>
-            G
-          </div>
-          <div className="flex gap-1.5">
-            {[0,1,2].map(i => (
-              <div key={i} className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#7C3AED', animationDelay: `${i * 0.15}s` }} />
-            ))}
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0E0E12' }}>
+        <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} />
       </div>
     )
   }
@@ -161,198 +130,179 @@ export default function AnimateurJeu() {
   const sortedParticipants = [...participants].sort((a, b) => b.score - a.score)
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0F0A1E' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#0E0E12' }}>
+
       {/* Header */}
-      <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-3"
-        style={{ background: 'rgba(15,10,30,0.85)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(124,58,237,0.15)' }}>
-        <div className="flex items-center gap-4">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black text-white"
-            style={{ background: 'linear-gradient(135deg,#7C3AED,#A855F7)' }}>G</div>
+      <header className="sticky top-0 z-30 flex items-center justify-between px-5 h-13"
+        style={{ background: 'rgba(14,14,18,0.9)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', minHeight: '52px' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white"
+            style={{ background: '#6366F1' }}>G</div>
           <div>
-            <p className="font-bold text-white leading-none">{partie.nom}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(196,181,253,0.55)' }}>
+            <p className="text-sm font-semibold leading-none" style={{ color: '#ECECF0' }}>{partie.nom}</p>
+            <p className="text-2xs mt-0.5" style={{ color: '#5A5A6E' }}>
               Q{questionIndex + 1}{questions.length > 0 ? `/${questions.length}` : ''}
-              {isModeAuto && ' · Auto'}
-              {isModeVote && ' · Vote'}
+              {isModeAuto && ' · Auto'}{isModeVote && ' · Vote'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="font-mono font-bold text-sm px-3 py-1 rounded-lg"
-            style={{ background: 'rgba(124,58,237,0.15)', color: '#C4B5FD', border: '1px solid rgba(124,58,237,0.3)' }}>
-            {partieCode}
-          </span>
+        <div className="flex items-center gap-2">
+          <span className="code-tag flex items-center gap-1"><Hash size={9} />{partieCode}</span>
           {isAnimateur && !isModeAuto && !isModeVote && (
-            <button onClick={nextQuestion} className="btn-ghost text-sm px-4 py-1.5">
-              Suivant →
+            <button onClick={nextQuestion} className="btn-secondary btn-sm gap-1">
+              Suivant <ChevronRight size={13} />
             </button>
           )}
           {isAnimateur && (
-            <button onClick={() => setEndConfirm(true)}
-              className="text-sm px-4 py-1.5 rounded-xl font-semibold transition-all"
-              style={{ background: 'rgba(244,63,94,0.12)', color: '#FB7185', border: '1px solid rgba(244,63,94,0.25)' }}>
-              Terminer
+            <button onClick={() => setEndConfirm(true)} className="btn-danger btn-sm gap-1">
+              <Square size={12} />Fin
             </button>
           )}
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Zone principale */}
-        <main className="flex-1 p-6 flex flex-col items-center justify-center gap-6 overflow-y-auto">
 
-          {/* Question */}
+        {/* Main */}
+        <main className="flex-1 p-6 flex flex-col items-center justify-center gap-5 overflow-y-auto">
+
           {currentQ ? (
-            <div className="card p-8 max-w-2xl w-full text-center animate-fadeIn">
-              <p className="text-xs uppercase tracking-widest font-semibold mb-3"
-                style={{ color: 'rgba(196,181,253,0.5)' }}>Question {questionIndex + 1}</p>
-              <p className="text-2xl font-bold text-white leading-snug">{currentQ.question ?? currentQ}</p>
+            <div className="card p-8 max-w-2xl w-full text-center animate-fadeUp">
+              <p className="text-2xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#5A5A6E' }}>
+                Question {questionIndex + 1}
+              </p>
+              <p className="text-2xl font-bold leading-snug" style={{ color: '#ECECF0' }}>{currentQ.question ?? currentQ}</p>
               {currentQ.reponse && (
-                <p className="mt-4 text-base font-medium" style={{ color: 'rgba(196,181,253,0.6)' }}>
-                  {currentQ.reponse}
-                </p>
+                <p className="mt-4 text-sm" style={{ color: '#9090A0' }}>{currentQ.reponse}</p>
               )}
             </div>
           ) : (
             <div className="card p-8 max-w-2xl w-full text-center">
-              <p className="text-5xl mb-4">🎯</p>
-              <p className="text-xl font-bold text-white mb-2">Aucune question configurée</p>
-              <p className="text-sm" style={{ color: 'rgba(156,163,175,0.6)' }}>
-                Appuyez sur un buzzer pour commencer !
-              </p>
+              <p className="text-lg font-semibold mb-2" style={{ color: '#ECECF0' }}>Aucune question configurée</p>
+              <p className="text-sm" style={{ color: '#5A5A6E' }}>Appuyez sur un buzzer pour commencer !</p>
             </div>
           )}
 
-          {/* Winner banner */}
+          {/* Winner */}
           {winner && (
-            <div className="max-w-md w-full rounded-2xl p-6 text-center animate-fadeIn"
-              style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', boxShadow: '0 0 32px rgba(16,185,129,0.15)' }}>
-              <p className="text-xs uppercase tracking-widest font-semibold mb-2" style={{ color: '#34D399' }}>PREMIER !</p>
-              <p className="text-3xl font-black text-white">{winner.prenom}</p>
+            <div className="max-w-md w-full rounded-xl p-6 text-center animate-fadeUp"
+              style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+              <p className="text-2xs uppercase tracking-widest font-semibold mb-2" style={{ color: '#4ADE80' }}>PREMIER</p>
+              <p className="text-3xl font-bold" style={{ color: '#ECECF0' }}>{winner.prenom}</p>
 
               {isModeAuto && autoCountdown && (
-                <p className="text-5xl font-black mt-3" style={{ color: '#FBBF24' }}>{autoCountdown}</p>
+                <p className="text-5xl font-black mt-3" style={{ color: '#F59E0B' }}>{autoCountdown}</p>
               )}
 
               {!isModeAuto && !isModeVote && isAnimateur && (
-                <div className="flex gap-3 justify-center mt-5">
-                  <button onClick={() => validateAnswer(true)}
-                    className="flex-1 py-3 rounded-xl font-bold text-sm transition-all"
-                    style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', color: '#34D399' }}>
-                    ✓ Bonne réponse
+                <div className="flex gap-2 justify-center mt-5">
+                  <button onClick={() => validateAnswer(true)} className="btn flex-1 gap-2"
+                    style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ADE80' }}>
+                    <ThumbsUp size={14} />Bonne
                   </button>
-                  <button onClick={() => validateAnswer(false)}
-                    className="flex-1 py-3 rounded-xl font-bold text-sm transition-all"
-                    style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.35)', color: '#FB7185' }}>
-                    ✗ Mauvaise réponse
+                  <button onClick={() => validateAnswer(false)} className="btn flex-1 gap-2"
+                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#F87171' }}>
+                    <ThumbsDown size={14} />Mauvaise
                   </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Vote collectif */}
+          {/* Vote */}
           {isModeVote && winner && (
-            <div className="card p-6 max-w-md w-full animate-fadeIn">
-              <p className="text-center text-sm font-semibold mb-5" style={{ color: 'rgba(196,181,253,0.7)' }}>
+            <div className="card p-5 max-w-md w-full animate-fadeUp">
+              <p className="text-sm font-medium text-center mb-4" style={{ color: '#9090A0' }}>
                 La réponse est-elle correcte ?
               </p>
-              <div className="flex gap-3 mb-5">
+              <div className="flex gap-2 mb-4">
                 <button onClick={() => handleVote(true)} disabled={myVote !== null}
-                  className="flex-1 py-3 rounded-xl font-bold text-lg transition-all disabled:opacity-40"
+                  className="btn flex-1 gap-2"
                   style={{
-                    background: myVote === true ? 'rgba(16,185,129,0.25)' : 'rgba(16,185,129,0.1)',
-                    border: `1px solid ${myVote === true ? 'rgba(16,185,129,0.5)' : 'rgba(16,185,129,0.2)'}`,
-                    color: '#34D399'
+                    background: myVote === true ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.06)',
+                    border: `1px solid rgba(34,197,94,${myVote === true ? '0.4' : '0.15'})`,
+                    color: '#4ADE80',
                   }}>
-                  👍 Bonne
+                  <ThumbsUp size={14} />Bonne
                 </button>
                 <button onClick={() => handleVote(false)} disabled={myVote !== null}
-                  className="flex-1 py-3 rounded-xl font-bold text-lg transition-all disabled:opacity-40"
+                  className="btn flex-1 gap-2"
                   style={{
-                    background: myVote === false ? 'rgba(244,63,94,0.25)' : 'rgba(244,63,94,0.1)',
-                    border: `1px solid ${myVote === false ? 'rgba(244,63,94,0.5)' : 'rgba(244,63,94,0.2)'}`,
-                    color: '#FB7185'
+                    background: myVote === false ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.06)',
+                    border: `1px solid rgba(239,68,68,${myVote === false ? '0.4' : '0.15'})`,
+                    color: '#F87171',
                   }}>
-                  👎 Mauvaise
+                  <ThumbsDown size={14} />Mauvaise
                 </button>
               </div>
               {votes.total > 0 && (
-                <div>
-                  <div className="flex justify-between text-xs mb-1.5" style={{ color: 'rgba(156,163,175,0.6)' }}>
-                    <span style={{ color: '#34D399' }}>{votes.pour} pour</span>
-                    <span style={{ color: '#FB7185' }}>{votes.contre} contre</span>
+                <>
+                  <div className="flex justify-between text-2xs mb-1.5" style={{ color: '#5A5A6E' }}>
+                    <span style={{ color: '#4ADE80' }}>{votes.pour} pour</span>
+                    <span style={{ color: '#F87171' }}>{votes.contre} contre</span>
                   </div>
-                  <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                     <div className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${(votes.pour / votes.total) * 100}%`, background: 'linear-gradient(90deg,#10B981,#34D399)' }} />
+                      style={{ width: `${(votes.pour / votes.total) * 100}%`, background: '#22C55E' }} />
                   </div>
-                  <p className="text-xs text-center mt-2" style={{ color: 'rgba(156,163,175,0.5)' }}>
-                    {votes.total}/{participants.length} vote{votes.total > 1 ? 's' : ''}
+                  <p className="text-2xs text-center mt-2" style={{ color: '#5A5A6E' }}>
+                    {votes.total}/{participants.length} vote{votes.total !== 1 ? 's' : ''}
                   </p>
-                </div>
+                </>
               )}
             </div>
           )}
         </main>
 
-        {/* Sidebar joueurs */}
-        <aside className="w-60 flex flex-col overflow-y-auto"
-          style={{ borderLeft: '1px solid rgba(124,58,237,0.12)', background: 'rgba(26,16,53,0.5)' }}>
-          <div className="p-4 pb-2">
-            <p className="text-xs uppercase tracking-widest font-semibold" style={{ color: 'rgba(196,181,253,0.4)' }}>
+        {/* Sidebar */}
+        <aside className="w-56 flex flex-col"
+          style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', background: '#141418' }}>
+          <div className="p-4 pb-2 flex items-center gap-1.5">
+            <Users size={13} style={{ color: '#5A5A6E' }} />
+            <p className="text-2xs uppercase tracking-wider font-semibold" style={{ color: '#5A5A6E' }}>
               Joueurs · {participants.length}
             </p>
           </div>
-          <div className="flex-1 p-3 space-y-2 overflow-y-auto">
+          <div className="flex-1 p-3 space-y-1.5 overflow-y-auto">
             {sortedParticipants.map((p, i) => {
               const statut = p.buzzer?.mac ? (buzzerStatuts[p.buzzer.mac] ?? 'offline') : 'offline'
               return (
-                <div key={p.id} className="flex items-center gap-3 rounded-xl p-3 transition-all"
-                  style={{ background: winner?.participantId === p.id ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${winner?.participantId === p.id ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.05)'}` }}>
-                  <BuzzerAnime couleur={p.buzzer?.couleur ?? '#6B7280'} statut={statut} size="sm" />
+                <div key={p.id} className="flex items-center gap-2.5 rounded-lg p-2.5 transition-all"
+                  style={{
+                    background: winner?.participantId === p.id ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${winner?.participantId === p.id ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                  }}>
+                  <BuzzerAnime couleur={p.buzzer?.couleur ?? '#6366F1'} statut={statut} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      {i === 0 && <span className="text-xs">🥇</span>}
-                      {i === 1 && <span className="text-xs">🥈</span>}
-                      {i === 2 && <span className="text-xs">🥉</span>}
-                      <p className="text-sm font-bold text-white truncate">{p.prenom}</p>
+                    <div className="flex items-center gap-1">
+                      {i === 0 && <Trophy size={10} style={{ color: '#F59E0B' }} />}
+                      <p className="text-xs font-medium truncate" style={{ color: '#ECECF0' }}>{p.prenom}</p>
                     </div>
-                    <p className="text-xs font-bold mt-0.5" style={{ color: '#FBBF24' }}>
+                    <p className="text-2xs font-bold" style={{ color: '#F59E0B' }}>
                       {p.score} pt{p.score !== 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
               )
             })}
-            {participants.length === 0 && (
-              <p className="text-xs text-center py-8" style={{ color: 'rgba(156,163,175,0.4)' }}>
-                Aucun joueur
-              </p>
-            )}
           </div>
         </aside>
       </div>
 
-      {/* Modal fin de partie */}
+      {/* End confirm modal */}
       {endConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
-          <div className="card p-6 max-w-sm w-full animate-fadeIn" style={{ border: '1px solid rgba(244,63,94,0.3)' }}>
-            <h3 className="text-xl font-bold mb-2" style={{ color: '#F43F5E' }}>Terminer la partie ?</h3>
-            <p className="text-sm mb-6" style={{ color: 'rgba(156,163,175,0.7)' }}>
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="card p-6 max-w-xs w-full animate-scaleIn"
+            style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
+            <h3 className="font-semibold mb-1" style={{ color: '#F87171' }}>Terminer la partie ?</h3>
+            <p className="text-sm mb-5" style={{ color: '#9090A0' }}>
               Tous les joueurs seront redirigés vers le tableau de bord.
             </p>
-            <div className="flex gap-3">
-              <button onClick={endGame}
-                className="flex-1 py-2.5 rounded-xl font-bold text-sm"
-                style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#F43F5E' }}>
-                Terminer
-              </button>
-              <button onClick={() => setEndConfirm(false)} className="btn-ghost flex-1 py-2.5 text-sm">
-                Annuler
-              </button>
+            <div className="flex gap-2">
+              <button onClick={endGame} className="btn-danger flex-1">Terminer</button>
+              <button onClick={() => setEndConfirm(false)} className="btn-ghost flex-1">Annuler</button>
             </div>
           </div>
         </div>

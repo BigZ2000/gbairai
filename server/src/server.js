@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
 import authRoutes from './routes/auth.js'
+import googleAuthRoutes from './routes/auth.google.js'
 import partiesRoutes from './routes/parties.js'
 import buzzersRoutes from './routes/buzzers.js'
 import { initWsServer } from './ws/wsServer.js'
@@ -14,6 +15,7 @@ app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', creden
 app.use(express.json())
 
 app.use('/api/auth', authRoutes)
+app.use('/api/auth/google', googleAuthRoutes)
 app.use('/api/parties', partiesRoutes)
 app.use('/api/buzzers', buzzersRoutes)
 

@@ -1,12 +1,24 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
+
+const GOOGLE_ERRORS = {
+  google_not_configured: 'Google OAuth non configuré sur ce serveur.',
+  google_cancelled: 'Connexion annulée.',
+  google_token_failed: 'Échec de la connexion Google. Réessayez.',
+  google_server_error: 'Erreur serveur. Réessayez.',
+  oauth_failed: 'Échec de la connexion. Réessayez.',
+}
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
+  const [params] = useSearchParams()
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState(GOOGLE_ERRORS[params.get('error')] ?? '')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
@@ -14,8 +26,8 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(form.email, form.password)
-      navigate('/dashboard')
+      await login(email, password)
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -23,71 +35,93 @@ export default function Login() {
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" style={{ background: '#0F0A1E' }}>
-      {/* Arrière-plan décoratif */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-96 h-96 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, #7C3AED, transparent 70%)' }} />
-        <div className="absolute bottom-[-10%] right-[-5%] w-80 h-80 rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #F59E0B, transparent 70%)' }} />
-      </div>
+  function handleGoogle() {
+    window.location.href = '/api/auth/google'
+  }
 
-      <div className="w-full max-w-sm relative z-10 animate-fadeIn">
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0E0E12' }}>
+      <div className="w-full max-w-sm animate-fadeUp">
+
         {/* Logo */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl text-2xl font-black text-white mb-4" style={{ background: 'linear-gradient(135deg,#7C3AED,#A855F7)', boxShadow: '0 0 32px rgba(124,58,237,0.5)' }}>
-            G
-          </div>
-          <h1 className="text-3xl font-black tracking-tight" style={{ background: 'linear-gradient(90deg,#C4B5FD,#F8F4FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Gbairai
-          </h1>
-          <p className="mt-2 text-sm" style={{ color: 'rgba(196,181,253,0.6)' }}>
-            Créez et rejoignez des jeux concours
-          </p>
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg mb-4"
+            style={{ background: '#6366F1', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>G</div>
+          <h1 className="text-xl font-bold" style={{ color: '#ECECF0' }}>Bon retour</h1>
+          <p className="text-sm mt-1" style={{ color: '#9090A0' }}>Connectez-vous à votre compte</p>
         </div>
 
-        {/* Carte */}
-        <div className="rounded-2xl p-8" style={{ background: 'linear-gradient(135deg,#221445,#1A1035)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
-          <h2 className="text-xl font-bold text-white mb-6">Connexion</h2>
+        {/* Card */}
+        <div className="card p-6 space-y-4">
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Google */}
+          <button onClick={handleGoogle} className="btn-google w-full btn-lg gap-3">
+            <GoogleIcon />
+            Continuer avec Google
+          </button>
+
+          <div className="divider">ou</div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: '#C4B5FD' }}>Email</label>
-              <input
-                type="email" required autoComplete="email"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="input"
-              />
+              <label className="label">Email</label>
+              <div className="relative">
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <input
+                  type="email" required autoComplete="email"
+                  value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="vous@exemple.com"
+                  className="input pl-9"
+                />
+              </div>
             </div>
+
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: '#C4B5FD' }}>Mot de passe</label>
-              <input
-                type="password" required autoComplete="current-password"
-                value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                className="input"
-              />
+              <label className="label">Mot de passe</label>
+              <div className="relative">
+                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <input
+                  type="password" required autoComplete="current-password"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="input pl-9"
+                />
+              </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.25)', color: '#FB7185' }}>
-                <span>⚠</span> {error}
+              <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#F87171' }}>
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                {error}
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full py-3 mt-2">
-              {loading ? 'Connexion...' : 'Se connecter'}
+            <button type="submit" disabled={loading} className="btn-primary w-full btn-lg mt-1">
+              {loading ? <Loader2 size={15} className="animate-spin" /> : 'Se connecter'}
             </button>
           </form>
-
-          <p className="text-center text-sm mt-6" style={{ color: 'rgba(156,163,175,0.8)' }}>
-            Pas encore de compte ?{' '}
-            <Link to="/register" className="font-semibold transition-colors" style={{ color: '#C4B5FD' }}>
-              Créer un compte
-            </Link>
-          </p>
         </div>
+
+        <p className="text-center text-sm mt-5" style={{ color: '#5A5A6E' }}>
+          Pas de compte ?{' '}
+          <Link to="/register" className="font-medium transition-colors" style={{ color: '#818CF8' }}>
+            S'inscrire
+          </Link>
+        </p>
       </div>
     </div>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
   )
 }

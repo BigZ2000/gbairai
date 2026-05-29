@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
+import {
+  Plus, ArrowRight, Clock, Zap, Trophy,
+  Wifi, WifiOff, Gamepad2, Radio, AlertCircle, Loader2,
+} from 'lucide-react'
 
 export default function Dashboard() {
   const { user, apiFetch } = useAuth()
@@ -14,7 +18,7 @@ export default function Dashboard() {
   const [joinError, setJoinError] = useState('')
   const [joinLoading, setJoinLoading] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -23,12 +27,9 @@ export default function Dashboard() {
     ]).then(([p, b]) => {
       setParties(Array.isArray(p) ? p : [])
       setBuzzers(Array.isArray(b) ? b : [])
-    }).catch(err => setError(err.message))
+    }).catch(err => setLoadError(err.message))
       .finally(() => setLoading(false))
   }, [])
-
-  const heure = new Date().getHours()
-  const salutation = heure < 12 ? 'Bonjour' : 'Bonsoir'
 
   const mesParties = parties.filter(p =>
     p.animateurId === user?.id ||
@@ -76,180 +77,164 @@ export default function Dashboard() {
     return null
   }
 
+  const greeting = new Date().getHours() < 12 ? 'Bonjour' : 'Bonsoir'
+  const displayName = user?.username ? `@${user.username}` : user?.prenom
+
   return (
     <Layout>
-      {/* Hero */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-3xl font-black text-white">
-            {salutation}, <span style={{ background: 'linear-gradient(90deg,#C4B5FD,#A855F7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{user?.prenom}</span> 👋
-          </h2>
-          <p className="mt-1 text-sm" style={{ color: 'rgba(196,181,253,0.55)' }}>
-            Prêt à animer ou rejoindre une partie ?
-          </p>
+          <p className="text-sm mb-0.5" style={{ color: '#9090A0' }}>{greeting} 👋</p>
+          <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>{displayName}</h1>
         </div>
-
-        {/* Bouton visible pour TOUS les utilisateurs */}
-        <Link to="/parties/new" className="btn-primary text-base px-6 py-3 shrink-0">
-          <span>+</span> Créer une partie
+        <Link to="/parties/new" className="btn-primary btn-lg gap-2">
+          <Plus size={16} />
+          Nouvelle partie
         </Link>
       </div>
 
-      {/* Rejoindre */}
-      <section className="mb-8">
+      {/* Join form */}
+      <div className="card p-4 mb-6">
         <form onSubmit={handleJoin} className="flex gap-3 items-start">
           <div className="flex-1">
             <input
               type="text"
-              placeholder="Code de la partie  —  ex : QUIZ42"
+              placeholder="Code de partie  —  ex : QUIZ42"
               value={joinCode}
               onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError('') }}
               maxLength={8}
-              className="input uppercase tracking-widest text-lg font-bold"
-              style={{ letterSpacing: '0.15em' }}
+              className="input font-mono tracking-widest text-base uppercase"
             />
             {joinError && (
-              <p className="mt-2 text-sm flex items-center gap-1.5" style={{ color: '#FB7185' }}>
-                <span>⚠</span> {joinError}
-              </p>
+              <div className="flex items-center gap-1.5 mt-2 text-sm" style={{ color: '#F87171' }}>
+                <AlertCircle size={13} />{joinError}
+              </div>
             )}
           </div>
-          <button
-            type="submit"
-            disabled={joinLoading || !joinCode.trim()}
-            className="btn-gold px-6 py-3 text-base shrink-0"
-          >
-            {joinLoading ? '...' : 'Rejoindre →'}
+          <button type="submit" disabled={joinLoading || !joinCode.trim()} className="btn-primary btn-lg shrink-0">
+            {joinLoading ? <Loader2 size={15} className="animate-spin" /> : <>Rejoindre <ArrowRight size={14} /></>}
           </button>
         </form>
-      </section>
+      </div>
 
-      {/* Erreur de chargement */}
-      {error && (
-        <div className="mb-6 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.25)', color: '#FB7185' }}>
-          ⚠ Erreur de chargement : {error}
+      {loadError && (
+        <div className="flex items-center gap-2 rounded-lg px-4 py-3 mb-6 text-sm"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#F87171' }}>
+          <AlertCircle size={14} /> Erreur : {loadError}
         </div>
       )}
 
-      {/* Grille */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-        {/* MES PARTIES */}
-        <section className="card p-6">
-          <h3 className="text-base font-bold text-white mb-5 flex items-center gap-2">
-            <span className="text-lg">🎮</span> Mes parties
-          </h3>
+        {/* Mes parties */}
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-5">
+            <Gamepad2 size={15} style={{ color: '#6366F1' }} />
+            <h2 className="font-semibold text-sm" style={{ color: '#ECECF0' }}>Mes parties</h2>
+          </div>
 
           {loading ? (
-            <div className="space-y-2">
-              {[1,2].map(i => <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.05)' }} />)}
+            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="skeleton h-14 rounded-lg" />)}</div>
+          ) : parties.length === 0 ? (
+            <div className="py-10 text-center">
+              <Gamepad2 size={28} className="mx-auto mb-3" style={{ color: '#2A2A35' }} />
+              <p className="text-sm" style={{ color: '#5A5A6E' }}>Aucune partie pour l'instant.</p>
+              <p className="text-xs mt-1" style={{ color: '#5A5A6E' }}>Créez-en une ou rejoignez via un code ci-dessus.</p>
             </div>
           ) : (
             <>
               {mesParties.length > 0 && (
-                <div className="mb-5">
-                  <p className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: 'rgba(196,181,253,0.5)' }}>
-                    Parties que j'anime
-                  </p>
+                <div className="mb-4">
+                  <p className="text-2xs uppercase tracking-wider font-semibold mb-2.5" style={{ color: '#5A5A6E' }}>Parties que j'anime</p>
                   <PartieList parties={mesParties} getLink={getPartieLink} />
                 </div>
               )}
-
               {mesParticipations.length > 0 && (
                 <div>
-                  <p className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: 'rgba(196,181,253,0.5)' }}>
-                    Parties où je joue
-                  </p>
+                  <p className="text-2xs uppercase tracking-wider font-semibold mb-2.5" style={{ color: '#5A5A6E' }}>Parties où je joue</p>
                   <PartieList parties={mesParticipations} getLink={getPartieLink} />
                 </div>
               )}
-
-              {parties.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-4xl mb-3">🎯</p>
-                  <p className="text-sm" style={{ color: 'rgba(156,163,175,0.7)' }}>
-                    Aucune partie pour l'instant.
-                  </p>
-                  <p className="text-sm mt-1" style={{ color: 'rgba(156,163,175,0.5)' }}>
-                    Créez-en une ou entrez un code ci-dessus.
-                  </p>
-                </div>
-              )}
             </>
           )}
-        </section>
+        </div>
 
-        {/* MES BUZZERS */}
-        <section className="card p-6">
-          <h3 className="text-base font-bold text-white mb-5 flex items-center gap-2">
-            <span className="text-lg">🔔</span> Mes buzzers
-          </h3>
+        {/* Mes buzzers */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Radio size={15} style={{ color: '#6366F1' }} />
+              <h2 className="font-semibold text-sm" style={{ color: '#ECECF0' }}>Mes buzzers</h2>
+            </div>
+            {buzzers.length > 0 && (
+              <Link to="/compte" className="text-2xs font-medium" style={{ color: '#818CF8' }}>Gérer →</Link>
+            )}
+          </div>
 
-          {buzzers.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-4xl mb-3">📡</p>
-              <p className="text-sm mb-4" style={{ color: 'rgba(156,163,175,0.7)' }}>
-                Aucun buzzer appairé.
-              </p>
-              <Link to="/compte" className="btn-ghost text-sm px-4 py-2">
-                Ajouter un buzzer
-              </Link>
+          {loading ? (
+            <div className="grid grid-cols-3 gap-2">{[1,2,3].map(i => <div key={i} className="skeleton h-20 rounded-lg" />)}</div>
+          ) : buzzers.length === 0 ? (
+            <div className="py-10 text-center">
+              <Radio size={28} className="mx-auto mb-3" style={{ color: '#2A2A35' }} />
+              <p className="text-sm mb-3" style={{ color: '#5A5A6E' }}>Aucun buzzer appairé.</p>
+              <Link to="/compte" className="btn-secondary btn-sm">Ajouter un buzzer</Link>
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                {buzzers.map(b => (
-                  <div key={b.id} className="flex flex-col items-center gap-2 rounded-xl p-3 transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <BuzzerAnime couleur={b.couleur} statut={getBuzzerStatut(b)} prenom={b.nom ?? b.mac.slice(-5)} size="sm" />
-                    <span className="text-xs font-medium" style={{ color: b.status === 'OFFLINE' ? '#6B7280' : b.status === 'IN_GAME' ? '#FBBF24' : '#34D399' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {buzzers.map(b => (
+                <div key={b.id} className="flex flex-col items-center gap-2 rounded-lg p-3"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <BuzzerAnime couleur={b.couleur} statut={getBuzzerStatut(b)} prenom={b.nom ?? b.mac.slice(-5)} size="sm" />
+                  <div className="flex items-center gap-1">
+                    {b.status === 'OFFLINE'
+                      ? <WifiOff size={10} style={{ color: '#5A5A6E' }} />
+                      : <Wifi size={10} style={{ color: b.status === 'IN_GAME' ? '#F59E0B' : '#22C55E' }} />}
+                    <span className="text-2xs font-medium" style={{
+                      color: b.status === 'OFFLINE' ? '#5A5A6E' : b.status === 'IN_GAME' ? '#F59E0B' : '#22C55E'
+                    }}>
                       {b.status === 'OFFLINE' ? 'Hors ligne' : b.status === 'IN_GAME' ? 'En jeu' : 'Connecté'}
                     </span>
                   </div>
-                ))}
-              </div>
-              <Link to="/compte" className="text-sm font-medium transition-colors" style={{ color: '#A855F7' }}>
-                Gérer mes buzzers →
-              </Link>
-            </>
+                </div>
+              ))}
+            </div>
           )}
-        </section>
+        </div>
       </div>
     </Layout>
   )
 }
 
 function PartieList({ parties, getLink }) {
-  function getBadge(status) {
-    if (status === 'EN_ATTENTE') return <span className="badge-wait">En attente</span>
-    if (status === 'EN_COURS')   return <span className="badge-active">En cours</span>
-    return <span className="badge-done">Terminée</span>
-  }
-
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-1.5">
       {parties.map(p => {
         const link = getLink(p)
-        const content = (
-          <div className="flex items-center justify-between rounded-xl px-4 py-3 transition-all duration-150 group"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <div>
-              <p className="font-semibold text-white group-hover:text-violet-light transition-colors">{p.nom}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(156,163,175,0.6)' }}>
-                {p.code} · {p.participants?.length ?? 0} joueur{(p.participants?.length ?? 0) > 1 ? 's' : ''}
+        const inner = (
+          <div className="flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate" style={{ color: '#ECECF0' }}>{p.nom}</p>
+              <p className="text-2xs mt-0.5 font-mono" style={{ color: '#5A5A6E' }}>
+                {p.code} · {p.participants?.length ?? 0} joueur{(p.participants?.length ?? 0) !== 1 ? 's' : ''}
               </p>
             </div>
-            {getBadge(p.status)}
+            <StatusBadge status={p.status} />
           </div>
         )
         return (
           <li key={p.id}>
-            {link
-              ? <Link to={link} className="block hover:scale-[1.01] transition-transform">{content}</Link>
-              : content}
+            {link ? <Link to={link} className="block hover:opacity-75 transition-opacity">{inner}</Link> : inner}
           </li>
         )
       })}
     </ul>
   )
+}
+
+function StatusBadge({ status }) {
+  if (status === 'EN_ATTENTE') return <span className="badge-wait"><Clock size={9} />Attente</span>
+  if (status === 'EN_COURS')   return <span className="badge-active"><Zap size={9} />En cours</span>
+  return <span className="badge-done"><Trophy size={9} />Terminée</span>
 }

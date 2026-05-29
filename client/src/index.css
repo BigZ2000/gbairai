@@ -1,75 +1,192 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  *, *::before, *::after { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    background-color: #0F0A1E;
-    color: #F8F4FF;
+    background-color: #0E0E12;
+    color: #ECECF0;
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
   }
-  ::selection { background: rgba(124,58,237,0.35); }
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #0F0A1E; }
-  ::-webkit-scrollbar-thumb { background: #3B1F7A; border-radius: 3px; }
+  ::selection { background: rgba(99,102,241,0.3); color: #fff; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 }
 
 @layer components {
-  /* Carte standard */
+
+  /* ── Cards ─────────────────────────────── */
   .card {
-    @apply bg-card rounded-2xl border border-white/[0.07] shadow-card;
-    background: linear-gradient(135deg, #221445 0%, #1A1035 100%);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+    background: #1C1C22;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .card-hover {
+    @apply card transition-all duration-150 cursor-pointer;
+  }
+  .card-hover:hover {
+    background: #222228;
+    border-color: rgba(255,255,255,0.11);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    transform: translateY(-1px);
   }
 
-  /* Bouton principal violet */
+  /* ── Buttons ────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-medium text-sm rounded-lg transition-all duration-150 select-none;
+    padding: 0.5rem 1rem;
+    line-height: 1.25;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 active:scale-95;
-    background: linear-gradient(135deg, #7C3AED, #6D28D9);
-    box-shadow: 0 4px 15px rgba(124,58,237,0.4);
-    color: white;
-    padding: 0.625rem 1.5rem;
+    @apply btn;
+    background: #6366F1;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 0 0 1px rgba(99,102,241,0.5) inset;
   }
-  .btn-primary:hover { background: linear-gradient(135deg, #8B5CF6, #7C3AED); box-shadow: 0 6px 20px rgba(124,58,237,0.5); }
-  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-
-  /* Bouton secondaire or */
-  .btn-gold {
-    @apply inline-flex items-center justify-center gap-2 font-bold rounded-xl transition-all duration-200 active:scale-95;
-    background: linear-gradient(135deg, #F59E0B, #D97706);
-    box-shadow: 0 4px 15px rgba(245,158,11,0.35);
-    color: #0F0A1E;
-    padding: 0.625rem 1.5rem;
+  .btn-primary:hover:not(:disabled) {
+    background: #4F46E5;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.4), 0 0 0 1px rgba(99,102,241,0.6) inset;
   }
-  .btn-gold:hover { background: linear-gradient(135deg, #FBBF24, #F59E0B); box-shadow: 0 6px 20px rgba(245,158,11,0.45); }
-  .btn-gold:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
-  /* Bouton ghost */
+  .btn-secondary {
+    @apply btn;
+    background: rgba(255,255,255,0.06);
+    color: #ECECF0;
+    border: 1px solid rgba(255,255,255,0.09);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.14);
+  }
+
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 active:scale-95;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
-    color: #C4B5FD;
-    padding: 0.625rem 1.5rem;
+    @apply btn;
+    background: transparent;
+    color: #9090A0;
+    border: 1px solid transparent;
   }
-  .btn-ghost:hover { background: rgba(255,255,255,0.09); color: white; }
+  .btn-ghost:hover:not(:disabled) {
+    background: rgba(255,255,255,0.05);
+    color: #ECECF0;
+    border-color: rgba(255,255,255,0.08);
+  }
 
-  /* Champ texte */
+  .btn-danger {
+    @apply btn;
+    background: rgba(239,68,68,0.12);
+    color: #F87171;
+    border: 1px solid rgba(239,68,68,0.2);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: rgba(239,68,68,0.2);
+    border-color: rgba(239,68,68,0.35);
+    color: #FCA5A5;
+  }
+
+  .btn-google {
+    @apply btn;
+    background: #fff;
+    color: #111;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .btn-google:hover:not(:disabled) {
+    background: #F5F5F5;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  /* Size modifiers */
+  .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
+  .btn-lg { padding: 0.625rem 1.25rem; font-size: 0.9375rem; }
+  .btn-xl { padding: 0.75rem 1.5rem; font-size: 1rem; }
+
+  /* ── Inputs ─────────────────────────────── */
   .input {
-    @apply w-full rounded-xl px-4 py-3 text-white transition-all duration-200 focus:outline-none;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
+    @apply w-full text-sm transition-all duration-150 focus:outline-none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 8px;
+    color: #ECECF0;
+    padding: 0.5625rem 0.875rem;
+    line-height: 1.25;
   }
-  .input:focus { border-color: #7C3AED; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
-  .input::placeholder { color: rgba(255,255,255,0.25); }
+  .input:focus {
+    border-color: #6366F1;
+    background: rgba(99,102,241,0.05);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.18);
+  }
+  .input::placeholder { color: #5A5A6E; }
+  .input.input-error {
+    border-color: rgba(239,68,68,0.5);
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
+  }
+  .input.input-success {
+    border-color: rgba(34,197,94,0.5);
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+  }
 
-  /* Badge statut */
-  .badge-wait    { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(245,158,11,0.15); color: #FBBF24; }
-  .badge-active  { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(16,185,129,0.15); color: #34D399; }
-  .badge-done    { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(255,255,255,0.06); color: #9CA3AF; }
-  .badge-auto    { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(124,58,237,0.2); color: #C4B5FD; }
+  /* ── Labels ─────────────────────────────── */
+  .label {
+    @apply block text-xs font-medium mb-1.5;
+    color: #9090A0;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Badges ─────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .badge-wait   { @apply badge; background: rgba(245,158,11,0.12); color: #FCD34D; }
+  .badge-active { @apply badge; background: rgba(34,197,94,0.12);  color: #4ADE80; }
+  .badge-done   { @apply badge; background: rgba(255,255,255,0.05); color: #5A5A6E; }
+  .badge-indigo { @apply badge; background: rgba(99,102,241,0.15); color: #A5B4FC; }
+
+  /* ── Skeleton ───────────────────────────── */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 400px 100%;
+    @apply animate-shimmer rounded-lg;
+  }
+
+  /* ── Divider ────────────────────────────── */
+  .divider {
+    @apply flex items-center gap-3 my-1;
+    color: #5A5A6E;
+    font-size: 0.75rem;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    @apply flex-1;
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+  }
+
+  /* ── Tooltip-like inline code ───────────── */
+  .code-tag {
+    @apply font-mono text-xs px-2 py-0.5 rounded;
+    background: rgba(99,102,241,0.12);
+    color: #A5B4FC;
+    border: 1px solid rgba(99,102,241,0.2);
+  }
+}
+
+/* ── Utility extras ─────────────────────── */
+@layer utilities {
+  .text-2xs { font-size: 0.65rem; line-height: 1rem; }
+  .animate-spin-slow { animation: spin 1.2s linear infinite; }
 }
