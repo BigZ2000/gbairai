@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma.js'
-import { sendToBuzzer, notifyUser } from '../ws/wsServer.js'
+import { sendToBuzzer, sendToUser as notifyUser } from '../ws/wsServer.js'
 
 export async function onBuzzerConnect(mac, firmware) {
   let buzzer = await prisma.buzzer.findUnique({ where: { mac } })
