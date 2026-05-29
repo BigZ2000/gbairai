@@ -27,6 +27,21 @@ enum BuzzerStatus {
   AWAITING_CLAIM
 }
 
+enum QuestionType {
+  BUZZER
+  QCM
+  VRAI_FAUX
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum Difficulte {
+  FACILE
+  MOYEN
+  DIFFICILE
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -38,11 +53,14 @@ model User {
   planExpireAt DateTime?
   createdAt    DateTime  @default(now())
 
-  buzzers       Buzzer[]
-  partiesCreees Partie[]       @relation("AnimateurParties")
-  participations Participant[]
-  paiements     Paiement[]
-  refreshTokens RefreshToken[]
+  isAdmin         Boolean        @default(false)
+
+  buzzers         Buzzer[]
+  partiesCreees   Partie[]       @relation("AnimateurParties")
+  participations  Participant[]
+  paiements       Paiement[]
+  refreshTokens   RefreshToken[]
+  questionsCreees Question[]     @relation("QuestionsCreees")
 }
 
 model Partie {
@@ -54,7 +72,6 @@ model Partie {
   animateur   User?        @relation("AnimateurParties", fields: [animateurId], references: [id])
   modeAuto    Boolean      @default(false)
   modeVote    Boolean      @default(false)
-  questions   Json?
   timerBuzz   Int          @default(10)
   timerVote   Int          @default(15)
   createdAt   DateTime     @default(now())
@@ -62,6 +79,7 @@ model Partie {
 
   participants Participant[]
   votes        Vote[]
+  manches      Manche[]
 }
 
 model Participant {
@@ -84,17 +102,17 @@ model Participant {
 }
 
 model Buzzer {
-  id        String       @id @default(cuid())
-  mac       String       @unique
-  nom       String?
-  couleur   String       @default("#3B82F6")
-  ownerId   String?
-  owner     User?        @relation(fields: [ownerId], references: [id])
-  claimedAt DateTime?
-  status    BuzzerStatus @default(OFFLINE)
+  id         String       @id @default(cuid())
+  mac        String       @unique
+  nom        String?
+  couleur    String       @default("#3B82F6")
+  ownerId    String?
+  owner      User?        @relation(fields: [ownerId], references: [id])
+  claimedAt  DateTime?
+  status     BuzzerStatus @default(OFFLINE)
   lastSeenAt DateTime?
-  firmware  String?
-  createdAt DateTime     @default(now())
+  firmware   String?
+  createdAt  DateTime     @default(now())
 
   participations Participant[]
 }
@@ -128,4 +146,89 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id])
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+// ── BIBLIOTHÈQUE DE QUESTIONS ─────────────────────────────
+
+model Categorie {
+  id          String     @id @default(cuid())
+  nom         String     @unique
+  emoji       String?
+  description String?
+  publique    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+
+  rubriques Rubrique[]
+  questions Question[]
+}
+
+model Rubrique {
+  id          String    @id @default(cuid())
+  nom         String
+  categorieId String
+  categorie   Categorie @relation(fields: [categorieId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  questions Question[]
+}
+
+model Question {
+  id          String       @id @default(cuid())
+  enonce      String
+  type        QuestionType @default(BUZZER)
+  reponse     String
+  indice      String?
+  choix       String[]
+  points      Int          @default(100)
+  tempsLimite Int          @default(30)
+  mediaUrl    String?
+  videoUrl    String?
+  videoDebut  Int?
+  videoFin    Int?
+  audioUrl    String?
+  explication String?
+  source      String?
+  tags        String[]
+  difficulte  Difficulte   @default(MOYEN)
+  publique    Boolean      @default(false)
+  categorieId String?
+  categorie   Categorie?   @relation(fields: [categorieId], references: [id])
+  rubriqueId  String?
+  rubrique    Rubrique?    @relation(fields: [rubriqueId], references: [id])
+  createdById String?
+  createdBy   User?        @relation("QuestionsCreees", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+
+  mancheQuestions MancheQuestion[]
+}
+
+// ── MANCHES ───────────────────────────────────────────────
+
+model Manche {
+  id          String   @id @default(cuid())
+  nom         String
+  ordre       Int
+  partieId    String
+  partie      Partie   @relation(fields: [partieId], references: [id], onDelete: Cascade)
+  pointsParQ  Int      @default(100)
+  tempsLimite Int      @default(30)
+  theme       String   @default("MELANGE")
+  difficulte  String   @default("MIXTE")
+  nbQuestions Int      @default(10)
+  createdAt   DateTime @default(now())
+
+  mancheQuestions MancheQuestion[]
+}
+
+model MancheQuestion {
+  id         String   @id @default(cuid())
+  mancheId   String
+  manche     Manche   @relation(fields: [mancheId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  ordre      Int
+  createdAt  DateTime @default(now())
+
+  @@unique([mancheId, ordre])
+  @@unique([mancheId, questionId])
 }

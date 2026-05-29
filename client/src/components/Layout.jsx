@@ -2,7 +2,7 @@ import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
-import { LogOut, User, Wifi, WifiOff } from 'lucide-react'
+import { LogOut, BookOpen, Wifi, WifiOff } from 'lucide-react'
 
 export default function Layout({ children, maxWidth = 'max-w-5xl' }) {
   const { user, logout } = useAuth()
@@ -29,6 +29,10 @@ export default function Layout({ children, maxWidth = 'max-w-5xl' }) {
           </Link>
 
           <div className="flex items-center gap-1">
+            <Link to="/questions" className="btn-ghost btn-sm gap-1.5 hidden sm:flex">
+              <BookOpen size={13} />
+              <span className="text-sm">Questions</span>
+            </Link>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
               title={connected ? 'Temps réel actif' : 'Déconnecté du serveur'}>
               {connected

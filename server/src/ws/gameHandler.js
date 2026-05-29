@@ -1,14 +1,26 @@
 import { prisma } from '../utils/prisma.js'
+import { flattenManchesServer } from '../services/gameService.js'
 
-// Timers actifs par partieCode
 const autoTimers = new Map()
+const revealTimers = new Map()
+
+// ── Exported helpers for parties.js ──────────────────────────────────────────
+
+export function setGameQuestions(partieCode, questions) {
+  const state = getGameState(partieCode)
+  state.questions = questions
+  state.currentQuestion = -1
+  state.revealed = false
+  state.buzzLocked = false
+}
+
+// ── Main WS handler ────────────────────────────────────────────────────────
 
 export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendToBuzzer }) {
   const { type, partieCode, participantId } = msg
 
   switch (type) {
 
-    // Buzzer physique ou virtuel pressé
     case 'buzzer_press': {
       const mac = msg.mac ?? ws._gbairai?.mac
       if (!mac || !partieCode) return
@@ -16,10 +28,8 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
       const partie = await prisma.partie.findUnique({ where: { code: partieCode } })
       if (!partie || partie.status !== 'EN_COURS') return
 
-      // Broadcast visuel immédiat (<100ms)
       broadcast(partieCode, { type: 'buzzer_pressed_visual', mac, partieCode })
 
-      // Traitement arbitrage premier arrivé (voir gameState)
       const state = getGameState(partieCode)
       if (state.buzzLocked) return
 
@@ -35,7 +45,6 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
         prenom: participant?.prenom ?? 'Inconnu',
       })
 
-      // En mode auto : réinitialiser après timerBuzz secondes
       if (partie.modeAuto) {
         const timer = setTimeout(() => {
           broadcast(partieCode, { type: 'auto_next_question', countdown: 3 })
@@ -47,7 +56,6 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
       break
     }
 
-    // Lancement collectif (mode sans animateur)
     case 'start_game_collective': {
       const participant = await prisma.participant.findFirst({
         where: { id: participantId, partie: { code: partieCode } },
@@ -59,7 +67,6 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
       break
     }
 
-    // Vote collectif sur une réponse
     case 'submit_vote': {
       const { questionIndex, valide } = msg
       const partie = await prisma.partie.findUnique({ where: { code: partieCode } })
@@ -83,7 +90,6 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
 
       broadcast(partieCode, { type: 'vote_update', questionIndex, pour, contre, total: votes.length })
 
-      // Résultat si tout le monde a voté ou après timerVote (géré côté client)
       if (votes.length >= allParticipants) {
         const resultValid = pour > contre
         broadcast(partieCode, { type: 'vote_result', valide: resultValid, pour, contre, total: votes.length })
@@ -91,7 +97,6 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
       break
     }
 
-    // Animateur valide/invalide une réponse (mode avec animateur)
     case 'validate_answer': {
       const { valide, scoreIncrement } = msg
       broadcast(partieCode, { type: 'answer_validated', valide, scoreIncrement: scoreIncrement ?? 1 })
@@ -102,65 +107,81 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
           data: { score: { increment: scoreIncrement ?? 1 } },
         })
       }
-      // Déverrouiller pour la prochaine question
       const state = getGameState(partieCode)
       state.buzzLocked = false
       break
     }
 
-    // Question suivante (animateur ou auto)
+    // Advance to next question — sends question_display (no reponse)
     case 'next_question': {
       const state = getGameState(partieCode)
       state.buzzLocked = false
-      state.currentQuestion = (state.currentQuestion ?? 0) + 1
-      broadcast(partieCode, { type: 'question_changed', index: state.currentQuestion })
+      state.revealed = false
+      state.currentQuestion = (state.currentQuestion ?? -1) + 1
+
+      const questions = await loadQuestions(partieCode, state)
+      const q = questions[state.currentQuestion]
+
+      if (q) {
+        const { reponse, explication, ...qPublic } = q
+        broadcast(partieCode, { type: 'question_display', index: state.currentQuestion, question: qPublic })
+      } else {
+        broadcast(partieCode, { type: 'question_display', index: state.currentQuestion, question: null })
+      }
       break
     }
 
-    // Fin de partie
+    // Reveal the answer — sends question_reveal (with reponse)
+    case 'reveal_question': {
+      const state = getGameState(partieCode)
+      if (state.revealed) return
+      state.revealed = true
+
+      const questions = await loadQuestions(partieCode, state)
+      const q = questions[state.currentQuestion]
+      if (!q) return
+
+      broadcast(partieCode, {
+        type: 'question_reveal',
+        index: state.currentQuestion,
+        reponse: q.reponse,
+        explication: q.explication ?? null,
+      })
+      break
+    }
+
     case 'end_game': {
       clearAutoTimer(partieCode)
+      clearRevealTimer(partieCode)
       clearGameState(partieCode)
       await prisma.partie.update({ where: { code: partieCode }, data: { status: 'TERMINEE' } })
       broadcast(partieCode, { type: 'game_ended', partieCode })
       break
     }
 
-    // Assignation buzzer (depuis l'interface animateur)
     case 'assign_buzzer': {
       const { buzzerId } = msg
-      await prisma.participant.update({
-        where: { id: participantId },
-        data: { buzzerId },
-      })
-      const buzzer = await prisma.buzzer.findUnique({ where: { id: buzzerId } })
-      broadcast(partieCode, {
-        type: 'buzzer_assigned',
-        buzzerId,
-        participantId,
-        prenom: (await prisma.participant.findUnique({ where: { id: participantId } }))?.prenom,
-      })
+      await prisma.participant.update({ where: { id: participantId }, data: { buzzerId } })
+      const p = await prisma.participant.findUnique({ where: { id: participantId } })
+      broadcast(partieCode, { type: 'buzzer_assigned', buzzerId, participantId, prenom: p?.prenom })
       break
     }
 
-    // Retrait assignation buzzer
     case 'unassign_buzzer': {
-      await prisma.participant.update({
-        where: { id: participantId },
-        data: { buzzerId: null },
-      })
+      await prisma.participant.update({ where: { id: participantId }, data: { buzzerId: null } })
       broadcast(partieCode, { type: 'unassign_buzzer', participantId })
       break
     }
   }
 }
 
-// État léger en mémoire par partie (hors DB)
+// ── Helpers ────────────────────────────────────────────────────────────────
+
 const gameStates = new Map()
 
 function getGameState(partieCode) {
   if (!gameStates.has(partieCode)) {
-    gameStates.set(partieCode, { buzzLocked: false, currentQuestion: 0 })
+    gameStates.set(partieCode, { buzzLocked: false, currentQuestion: -1, questions: null, revealed: false })
   }
   return gameStates.get(partieCode)
 }
@@ -169,7 +190,34 @@ function clearGameState(partieCode) {
   gameStates.delete(partieCode)
 }
 
+// Load questions from cache or DB
+async function loadQuestions(partieCode, state) {
+  if (state.questions) return state.questions
+
+  const partie = await prisma.partie.findUnique({
+    where: { code: partieCode },
+    include: {
+      manches: {
+        orderBy: { ordre: 'asc' },
+        include: {
+          mancheQuestions: {
+            orderBy: { ordre: 'asc' },
+            include: { question: true },
+          },
+        },
+      },
+    },
+  })
+  state.questions = flattenManchesServer(partie?.manches ?? [])
+  return state.questions
+}
+
 function clearAutoTimer(partieCode) {
-  const timer = autoTimers.get(partieCode)
-  if (timer) { clearTimeout(timer); autoTimers.delete(partieCode) }
+  const t = autoTimers.get(partieCode)
+  if (t) { clearTimeout(t); autoTimers.delete(partieCode) }
+}
+
+function clearRevealTimer(partieCode) {
+  const t = revealTimers.get(partieCode)
+  if (t) { clearTimeout(t); revealTimers.delete(partieCode) }
 }

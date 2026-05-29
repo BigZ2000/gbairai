@@ -71,6 +71,10 @@ export default {
           '60%':     { transform: 'translateX(-3px)' },
           '80%':     { transform: 'translateX(3px)'  },
         },
+        slideInRight: {
+          '0%':   { opacity: '0', transform: 'translateX(24px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)'    },
+        },
       },
       animation: {
         fadeUp:        'fadeUp 0.25s ease-out',
@@ -79,7 +83,8 @@ export default {
         shimmer:       'shimmer 1.5s linear infinite',
         pulse_glow:    'pulse_glow 2s ease-in-out infinite',
         ripple:        'ripple 0.6s ease-out forwards',
-        winner_bounce: 'winner_bounce 0.5s ease-in-out',
+        winner_bounce:  'winner_bounce 0.5s ease-in-out',
+        slideInRight:   'slideInRight 0.2s ease-out',
         shake:         'shake 0.4s ease-in-out',
       },
     },

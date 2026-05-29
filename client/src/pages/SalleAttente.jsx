@@ -4,11 +4,12 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import Layout from '../components/Layout.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
-import QuestionEditor from '../components/QuestionEditor.jsx'
 import {
-  Users, Radio, Hash, Play, Plus, X, ChevronDown, ChevronUp,
-  GripVertical, Loader2, SearchX, Wifi, WifiOff,
+  Users, Radio, Hash, Play, Plus, X, Loader2, SearchX, Wifi, WifiOff,
+  GripVertical, Layers,
 } from 'lucide-react'
+
+const DIFF_LABELS = { MIXTE: 'Mixte', FACILE: 'Facile', MOYEN: 'Moyen', DIFFICILE: 'Difficile' }
 
 export default function SalleAttente() {
   const { partieCode } = useParams()
@@ -16,24 +17,21 @@ export default function SalleAttente() {
   const { joinRoom, subscribe, send } = useWs()
   const navigate = useNavigate()
 
-  const [partie, setPartie] = useState(null)
+  const [partie, setPartie]             = useState(null)
   const [participants, setParticipants] = useState([])
   const [buzzersDispo, setBuzzersDispo] = useState([])
   const [draggingBuzzer, setDraggingBuzzer] = useState(null)
-  const [dragOverId, setDragOverId] = useState(null)
+  const [dragOverId, setDragOverId]     = useState(null)
   const [invitePrenom, setInvitePrenom] = useState('')
-  const [showInvite, setShowInvite] = useState(false)
-  const [starting, setStarting] = useState(false)
-  const [notFound, setNotFound] = useState(false)
-  const [questions, setQuestions] = useState([])
-  const [showQuestions, setShowQuestions] = useState(false)
-  const [savingQ, setSavingQ] = useState(false)
+  const [showInvite, setShowInvite]     = useState(false)
+  const [starting, setStarting]         = useState(false)
+  const [notFound, setNotFound]         = useState(false)
 
-  const code = partieCode?.toUpperCase()
-  const isAnimateur = partie?.animateurId === user?.id
-  const isModeLibre = partie?.modeAuto || partie?.modeVote
+  const code          = partieCode?.toUpperCase()
+  const isAnimateur   = partie?.animateurId === user?.id
+  const isModeLibre   = partie?.modeAuto || partie?.modeVote
   const myParticipant = participants.find(p => p.userId === user?.id)
-  const canStart = isAnimateur || (isModeLibre && myParticipant)
+  const canStart      = isAnimateur || (isModeLibre && myParticipant)
 
   const load = useCallback(async () => {
     const res = await apiFetch(`/parties/by-code/${code}`)
@@ -43,7 +41,6 @@ export default function SalleAttente() {
     if (p.status === 'TERMINEE' || p.status === 'ANNULEE') { setNotFound(true); return }
     setPartie(p)
     setParticipants(p.participants ?? [])
-    setQuestions(Array.isArray(p.questions) ? p.questions : [])
   }, [code])
 
   useEffect(() => {
@@ -61,9 +58,7 @@ export default function SalleAttente() {
       if (msg.type === 'unassign_buzzer') {
         setParticipants(prev => prev.map(p => p.id === msg.participantId ? { ...p, buzzerId: null, buzzer: null } : p))
       }
-      if (msg.type === 'game_started') {
-        navigate(`/parties/${code}/jeu`, { replace: true })
-      }
+      if (msg.type === 'game_started') navigate(`/parties/${code}/jeu`, { replace: true })
       if (msg.type === 'buzzer_status_update') {
         setBuzzersDispo(prev => prev.map(b => b.mac === msg.mac ? { ...b, status: msg.status } : b))
       }
@@ -75,9 +70,7 @@ export default function SalleAttente() {
     const res = await apiFetch(`/parties/${partie.id}/participants/${participantId}/assign-buzzer`, {
       method: 'POST', body: { buzzerId: buzzer.id },
     })
-    if (res?.ok) {
-      setParticipants(prev => prev.map(p => p.id === participantId ? { ...p, buzzerId: buzzer.id, buzzer } : p))
-    }
+    if (res?.ok) setParticipants(prev => prev.map(p => p.id === participantId ? { ...p, buzzerId: buzzer.id, buzzer } : p))
   }
 
   async function unassignBuzzer(participantId) {
@@ -97,13 +90,6 @@ export default function SalleAttente() {
       setInvitePrenom('')
       setShowInvite(false)
     }
-  }
-
-  async function handleQuestionsChange(qs) {
-    setQuestions(qs)
-    setSavingQ(true)
-    await apiFetch(`/parties/${partie.id}/questions`, { method: 'PATCH', body: { questions: qs } })
-    setSavingQ(false)
   }
 
   async function handleStart() {
@@ -156,6 +142,9 @@ export default function SalleAttente() {
     )
   }
 
+  const manches = partie.manches ?? []
+  const totalQuestions = manches.reduce((s, m) => s + (m.nbQuestions ?? 0), 0)
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
@@ -170,9 +159,7 @@ export default function SalleAttente() {
                 {participants.length} joueur{participants.length !== 1 ? 's' : ''} en attente
               </span>
               {isModeLibre && (
-                <span className="badge-indigo">
-                  {partie.modeAuto ? 'Automatique' : 'Vote collectif'}
-                </span>
+                <span className="badge-indigo">{partie.modeAuto ? 'Automatique' : 'Vote collectif'}</span>
               )}
             </div>
           </div>
@@ -224,19 +211,18 @@ export default function SalleAttente() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {buzzer
-                        ? <>
-                            <BuzzerAnime couleur={buzzer.couleur} statut={getBuzzerStatut(buzzer)} size="sm" />
-                            {isAnimateur && (
-                              <button onClick={() => unassignBuzzer(p.id)} className="btn-ghost" style={{ padding: '2px 4px' }}>
-                                <X size={12} />
-                              </button>
-                            )}
-                          </>
-                        : isAnimateur && (
-                            <span className="text-2xs italic" style={{ color: '#5A5A6E' }}>glisser →</span>
-                          )
-                      }
+                      {buzzer ? (
+                        <>
+                          <BuzzerAnime couleur={buzzer.couleur} statut={getBuzzerStatut(buzzer)} size="sm" />
+                          {isAnimateur && (
+                            <button onClick={() => unassignBuzzer(p.id)} className="btn-ghost" style={{ padding: '2px 4px' }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </>
+                      ) : isAnimateur && (
+                        <span className="text-2xs italic" style={{ color: '#5A5A6E' }}>glisser →</span>
+                      )}
                     </div>
                   </li>
                 )
@@ -306,29 +292,41 @@ export default function SalleAttente() {
           )}
         </div>
 
-        {/* Questions */}
-        {isAnimateur && (
-          <div className="card overflow-hidden mb-4">
-            <button onClick={() => setShowQuestions(v => !v)}
-              className="w-full flex items-center justify-between px-5 py-4 text-left transition-colors hover:bg-white/[0.02]">
-              <div className="flex items-center gap-2.5">
-                <span className="text-sm font-semibold" style={{ color: '#ECECF0' }}>Questions</span>
-                {questions.length > 0 && (
-                  <span className="badge-indigo">{questions.length}</span>
-                )}
-                {savingQ && <span className="text-2xs" style={{ color: '#5A5A6E' }}>Enregistrement…</span>}
-              </div>
-              {showQuestions ? <ChevronUp size={14} style={{ color: '#5A5A6E' }} /> : <ChevronDown size={14} style={{ color: '#5A5A6E' }} />}
-            </button>
-            {showQuestions && (
-              <div className="px-5 pb-5 pt-0" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                <QuestionEditor questions={questions} onChange={handleQuestionsChange} />
-              </div>
-            )}
+        {/* Manches (read-only summary) */}
+        {manches.length > 0 && (
+          <div className="card p-5 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Layers size={14} style={{ color: '#6366F1' }} />
+              <h2 className="font-semibold text-sm" style={{ color: '#ECECF0' }}>Manches configurées</h2>
+              <span className="badge-indigo">{totalQuestions} questions tirées au lancement</span>
+            </div>
+            <div className="space-y-2">
+              {manches.map((m, i) => (
+                <div key={m.id} className="flex items-center justify-between rounded-lg px-4 py-3"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                      style={{ background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>M{i + 1}</span>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>{m.nom}</p>
+                      <p className="text-2xs" style={{ color: '#5A5A6E' }}>
+                        {m.theme === 'MELANGE' ? '🔀 Mélange' : m.theme}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 text-xs" style={{ color: '#5A5A6E' }}>
+                    <span>{DIFF_LABELS[m.difficulte] ?? m.difficulte}</span>
+                    <span>{m.nbQuestions} q.</span>
+                    <span>{m.tempsLimite}s</span>
+                    <span>{m.pointsParQ} pts</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Code de partage */}
+        {/* Share code */}
         <div className="rounded-lg p-4 text-center"
           style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)' }}>
           <p className="text-sm" style={{ color: '#9090A0' }}>

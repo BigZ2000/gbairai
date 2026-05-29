@@ -4,6 +4,8 @@ import { prisma } from '../utils/prisma.js'
 import { requireAuth, isAnimateurDePartie } from '../middleware/auth.js'
 import { generateCode } from '../utils/codeGen.js'
 import { broadcast } from '../ws/wsServer.js'
+import { drawAndStoreQuestions, flattenManchesServer } from '../services/gameService.js'
+import { setGameQuestions } from '../ws/gameHandler.js'
 
 const router = Router()
 
@@ -11,24 +13,32 @@ const partieFull = {
   include: {
     participants: { include: { user: { select: { prenom: true } }, buzzer: true } },
     animateur: { select: { prenom: true } },
+    manches: {
+      orderBy: { ordre: 'asc' },
+      include: {
+        mancheQuestions: {
+          orderBy: { ordre: 'asc' },
+          include: { question: true },
+        },
+      },
+    },
   },
 }
 
 const CreatePartieSchema = z.object({
   nom: z.string().min(1).max(100),
   mode: z.enum(['animateur', 'auto', 'vote']).default('animateur'),
-  questions: z.array(z.any()).optional(),
   timerBuzz: z.number().int().min(3).max(60).default(10),
   timerVote: z.number().int().min(5).max(60).default(15),
 })
 
-// ── Toutes les routes statiques AVANT /:partieId ────────────────────────────
+// ── Routes statiques AVANT /:partieId ───────────────────────────────────────
 
 router.post('/', requireAuth, async (req, res) => {
   const parsed = CreatePartieSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { nom, mode, questions, timerBuzz, timerVote } = parsed.data
+  const { nom, mode, timerBuzz, timerVote } = parsed.data
   let code
   let attempts = 0
   do {
@@ -44,7 +54,6 @@ router.post('/', requireAuth, async (req, res) => {
       nom, code, animateurId,
       modeAuto: mode === 'auto',
       modeVote: mode === 'vote',
-      questions: questions ?? [],
       timerBuzz, timerVote,
     },
   })
@@ -71,7 +80,6 @@ router.get('/', requireAuth, async (req, res) => {
   res.json(parties)
 })
 
-// Lookup par code (avant /:partieId pour éviter le conflit)
 router.get('/by-code/:code', requireAuth, async (req, res) => {
   const partie = await prisma.partie.findUnique({
     where: { code: req.params.code.toUpperCase() },
@@ -81,7 +89,6 @@ router.get('/by-code/:code', requireAuth, async (req, res) => {
   res.json(partie)
 })
 
-// Vérifier qu'un code existe sans rejoindre (pour valider avant navigation)
 router.get('/check/:code', requireAuth, async (req, res) => {
   const partie = await prisma.partie.findUnique({
     where: { code: req.params.code.toUpperCase() },
@@ -94,7 +101,6 @@ router.get('/check/:code', requireAuth, async (req, res) => {
   res.json(partie)
 })
 
-// Rejoindre par code
 router.post('/join', requireAuth, async (req, res) => {
   const { code } = req.body
   if (!code) return res.status(400).json({ error: 'Code requis' })
@@ -105,7 +111,6 @@ router.post('/join', requireAuth, async (req, res) => {
     return res.status(410).json({ error: 'Cette partie est terminée' })
   }
 
-  // Déjà participant → retourner sans créer de doublon
   const existing = await prisma.participant.findUnique({
     where: { partieId_userId: { partieId: partie.id, userId: req.userId } },
   })
@@ -144,27 +149,6 @@ router.get('/:partieId', requireAuth, async (req, res) => {
   res.json(partie)
 })
 
-// Mettre à jour les questions d'une partie (avant lancement)
-router.patch('/:partieId/questions', requireAuth, async (req, res) => {
-  const { partieId } = req.params
-  const { questions } = req.body
-  if (!Array.isArray(questions)) return res.status(400).json({ error: 'questions doit être un tableau' })
-
-  const partie = await prisma.partie.findUnique({ where: { id: partieId } })
-  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
-  if (partie.status !== 'EN_ATTENTE') return res.status(400).json({ error: 'La partie a déjà commencé' })
-
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur de cette partie' })
-
-  const updated = await prisma.partie.update({
-    where: { id: partieId },
-    data: { questions },
-  })
-  res.json(updated)
-})
-
-// Ajouter un invité sans compte
 router.post('/:partieId/participants/invite', requireAuth, async (req, res) => {
   const { partieId } = req.params
   const ok = await isAnimateurDePartie(req.userId, partieId)
@@ -182,7 +166,6 @@ router.post('/:partieId/participants/invite', requireAuth, async (req, res) => {
   res.status(201).json(participant)
 })
 
-// Assigner un buzzer à un participant
 router.post('/:partieId/participants/:participantId/assign-buzzer', requireAuth, async (req, res) => {
   const { partieId, participantId } = req.params
   const { buzzerId } = req.body
@@ -214,7 +197,6 @@ router.post('/:partieId/participants/:participantId/assign-buzzer', requireAuth,
   res.json(participant)
 })
 
-// Retirer l'assignation d'un buzzer
 router.delete('/:partieId/participants/:participantId/assign-buzzer', requireAuth, async (req, res) => {
   const { partieId, participantId } = req.params
   const ok = await isAnimateurDePartie(req.userId, partieId)
@@ -248,16 +230,42 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
     if (!participant) return res.status(403).json({ error: 'Vous ne participez pas à cette partie' })
   }
 
+  // Draw random questions for each manche
+  await drawAndStoreQuestions(partieId)
+
   const updated = await prisma.partie.update({
     where: { id: partieId },
     data: { status: 'EN_COURS' },
   })
 
   broadcast(partie.code, { type: 'game_started', partieCode: partie.code })
+
+  // Cache questions in game state + broadcast first question_display
+  const fullPartie = await prisma.partie.findUnique({
+    where: { id: partieId },
+    include: {
+      manches: {
+        orderBy: { ordre: 'asc' },
+        include: {
+          mancheQuestions: {
+            orderBy: { ordre: 'asc' },
+            include: { question: true },
+          },
+        },
+      },
+    },
+  })
+  const questions = flattenManchesServer(fullPartie.manches)
+  setGameQuestions(partie.code, questions)
+
+  if (questions.length > 0) {
+    const { reponse, explication, ...qPublic } = questions[0]
+    broadcast(partie.code, { type: 'question_display', index: 0, question: qPublic })
+  }
+
   res.json(updated)
 })
 
-// Voter sur une réponse (mode vote collectif)
 router.post('/:partieId/votes', requireAuth, async (req, res) => {
   const { partieId } = req.params
   const { questionIndex, valide } = req.body
@@ -275,9 +283,79 @@ router.post('/:partieId/votes', requireAuth, async (req, res) => {
   const pour = votes.filter(v => v.valide).length
   const contre = votes.filter(v => !v.valide).length
 
-  const partie = await prisma.partie.findUnique({ where: { id: partieId }, select: { code: true } })
-  broadcast(partie.code, { type: 'vote_update', questionIndex, pour, contre, total: votes.length })
+  const p = await prisma.partie.findUnique({ where: { id: partieId }, select: { code: true } })
+  broadcast(p.code, { type: 'vote_update', questionIndex, pour, contre, total: votes.length })
   res.json({ pour, contre, total: votes.length })
+})
+
+// ── Manches ──────────────────────────────────────────────────────────────────
+
+const MancheSchema = z.object({
+  nom: z.string().min(1).max(100),
+  pointsParQ: z.number().int().min(1).max(10000).default(100),
+  tempsLimite: z.number().int().min(5).max(300).default(30),
+  theme: z.string().max(100).default('MELANGE'),
+  difficulte: z.string().max(20).default('MIXTE'),
+  nbQuestions: z.number().int().min(1).max(100).default(10),
+})
+
+router.post('/:partieId/manches', requireAuth, async (req, res) => {
+  const { partieId } = req.params
+  const ok = await isAnimateurDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+
+  const partie = await prisma.partie.findUnique({ where: { id: partieId } })
+  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
+  if (partie.status !== 'EN_ATTENTE') return res.status(400).json({ error: 'La partie a déjà commencé' })
+
+  const parsed = MancheSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
+
+  const count = await prisma.manche.count({ where: { partieId } })
+  const manche = await prisma.manche.create({
+    data: { ...parsed.data, partieId, ordre: count + 1 },
+    include: { mancheQuestions: { include: { question: true } } },
+  })
+
+  res.status(201).json(manche)
+})
+
+router.delete('/:partieId/manches/:mancheId', requireAuth, async (req, res) => {
+  const { partieId, mancheId } = req.params
+  const ok = await isAnimateurDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+
+  await prisma.manche.delete({ where: { id: mancheId } })
+  res.json({ ok: true })
+})
+
+router.post('/:partieId/manches/:mancheId/questions', requireAuth, async (req, res) => {
+  const { partieId, mancheId } = req.params
+  const ok = await isAnimateurDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+
+  const { questionId } = req.body
+  if (!questionId) return res.status(400).json({ error: 'questionId requis' })
+
+  const question = await prisma.question.findUnique({ where: { id: questionId } })
+  if (!question) return res.status(404).json({ error: 'Question introuvable' })
+
+  const count = await prisma.mancheQuestion.count({ where: { mancheId } })
+  const mq = await prisma.mancheQuestion.create({
+    data: { mancheId, questionId, ordre: count + 1 },
+    include: { question: true },
+  })
+
+  res.status(201).json(mq)
+})
+
+router.delete('/:partieId/manches/:mancheId/questions/:mqId', requireAuth, async (req, res) => {
+  const { partieId, mancheId, mqId } = req.params
+  const ok = await isAnimateurDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+
+  await prisma.mancheQuestion.delete({ where: { id: mqId } })
+  res.json({ ok: true })
 })
 
 export default router

@@ -34,7 +34,7 @@ export async function storeRefreshToken(userId, token) {
 }
 
 const USER_SELECT = {
-  id: true, email: true, prenom: true, username: true, plan: true, planExpireAt: true, createdAt: true,
+  id: true, email: true, prenom: true, username: true, plan: true, planExpireAt: true, createdAt: true, isAdmin: true,
 }
 
 // GET /auth/check-username?username=xxx

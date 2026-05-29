@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
+import { flattenManches } from '../utils/manches.js'
 import {
   ChevronRight, Square, Trophy, ThumbsUp, ThumbsDown,
-  Users, Hash, Loader2, Check, X,
+  Users, Hash, Loader2, Eye, EyeOff,
 } from 'lucide-react'
 
 export default function AnimateurJeu() {
@@ -19,6 +20,7 @@ export default function AnimateurJeu() {
   const [buzzerStatuts, setBuzzerStatuts] = useState({})
   const [winner, setWinner] = useState(null)
   const [questionIndex, setQuestionIndex] = useState(0)
+  const [revealed, setRevealed] = useState(false)
   const [autoCountdown, setAutoCountdown] = useState(null)
   const [votes, setVotes] = useState({ pour: 0, contre: 0, total: 0 })
   const [myVote, setMyVote] = useState(null)
@@ -26,8 +28,8 @@ export default function AnimateurJeu() {
   const countdownRef = useRef(null)
 
   const isAnimateur = partie?.animateurId === user?.id
-  const isModeAuto = partie?.modeAuto
-  const isModeVote = partie?.modeVote
+  const isModeAuto  = partie?.modeAuto
+  const isModeVote  = partie?.modeVote
   const myParticipant = participants.find(p => p.userId === user?.id)
 
   const load = useCallback(async () => {
@@ -64,16 +66,20 @@ export default function AnimateurJeu() {
         setTimeout(() => nextQuestion(), 2000)
       }
       if (msg.type === 'auto_next_question') startAutoCountdown(msg.countdown ?? 3)
-      if (msg.type === 'question_changed') {
-        setQuestionIndex(msg.index)
+      if (msg.type === 'question_display') {
+        setQuestionIndex(msg.index ?? 0)
+        setRevealed(false)
         setWinner(null)
         setMyVote(null)
         setVotes({ pour: 0, contre: 0, total: 0 })
-        setBuzzerStatuts(prev => {
-          const next = {}
-          Object.keys(prev).forEach(mac => { next[mac] = 'ready' })
-          return next
-        })
+        clearBuzzerStatuts()
+      }
+      if (msg.type === 'question_reveal') {
+        setRevealed(true)
+      }
+      if (msg.type === 'answer_validated') {
+        setWinner(null)
+        resetBuzzers()
       }
       if (msg.type === 'game_ended') navigate('/dashboard')
       if (msg.type === 'participant_update') setParticipants(msg.participants ?? [])
@@ -84,6 +90,22 @@ export default function AnimateurJeu() {
 
     return () => { unsub(); clearInterval(countdownRef.current) }
   }, [partieCode])
+
+  function clearBuzzerStatuts() {
+    setBuzzerStatuts(prev => {
+      const next = {}
+      Object.keys(prev).forEach(mac => { next[mac] = 'ready' })
+      return next
+    })
+  }
+
+  function resetBuzzers() {
+    setBuzzerStatuts(prev => {
+      const next = {}
+      Object.keys(prev).forEach(mac => { next[mac] = 'ready' })
+      return next
+    })
+  }
 
   function startAutoCountdown(seconds) {
     clearInterval(countdownRef.current)
@@ -96,17 +118,21 @@ export default function AnimateurJeu() {
     }, 1000)
   }
 
-  function nextQuestion() { send({ type: 'next_question', partieCode }) }
+  function nextQuestion() {
+    setRevealed(false)
+    send({ type: 'next_question', partieCode })
+  }
+
+  function revealAnswer() {
+    send({ type: 'reveal_question', partieCode })
+    setRevealed(true)
+  }
 
   function validateAnswer(valide) {
     if (!winner) return
     send({ type: 'validate_answer', partieCode, participantId: winner.participantId, valide, scoreIncrement: 1 })
     setWinner(null)
-    setBuzzerStatuts(prev => {
-      const next = {}
-      Object.keys(prev).forEach(mac => { next[mac] = 'ready' })
-      return next
-    })
+    resetBuzzers()
   }
 
   function handleVote(valide) {
@@ -125,15 +151,15 @@ export default function AnimateurJeu() {
     )
   }
 
-  const questions = partie.questions ?? []
-  const currentQ = questions[questionIndex]
+  const questions = flattenManches(partie.manches)
+  const currentQ  = questions[questionIndex]
   const sortedParticipants = [...participants].sort((a, b) => b.score - a.score)
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#0E0E12' }}>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 flex items-center justify-between px-5 h-13"
+      <header className="sticky top-0 z-30 flex items-center justify-between px-5"
         style={{ background: 'rgba(14,14,18,0.9)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', minHeight: '52px' }}>
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white"
@@ -149,11 +175,22 @@ export default function AnimateurJeu() {
 
         <div className="flex items-center gap-2">
           <span className="code-tag flex items-center gap-1"><Hash size={9} />{partieCode}</span>
-          {isAnimateur && !isModeAuto && !isModeVote && (
+
+          {/* Reveal button — shows when answer not yet revealed */}
+          {isAnimateur && !isModeAuto && !isModeVote && currentQ && !revealed && (
+            <button onClick={revealAnswer} className="btn-sm gap-1.5"
+              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#818CF8' }}>
+              <Eye size={13} />Révéler
+            </button>
+          )}
+
+          {/* Next button — shows after reveal (or always in vote/auto) */}
+          {isAnimateur && (isModeVote || isModeAuto || revealed) && (
             <button onClick={nextQuestion} className="btn-secondary btn-sm gap-1">
               Suivant <ChevronRight size={13} />
             </button>
           )}
+
           {isAnimateur && (
             <button onClick={() => setEndConfirm(true)} className="btn-danger btn-sm gap-1">
               <Square size={12} />Fin
@@ -168,19 +205,52 @@ export default function AnimateurJeu() {
         <main className="flex-1 p-6 flex flex-col items-center justify-center gap-5 overflow-y-auto">
 
           {currentQ ? (
-            <div className="card p-8 max-w-2xl w-full text-center animate-fadeUp">
-              <p className="text-2xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#5A5A6E' }}>
-                Question {questionIndex + 1}
+            <div className="card p-7 max-w-2xl w-full text-center animate-fadeUp">
+              <p className="text-2xs uppercase tracking-widest font-semibold mb-2" style={{ color: '#5A5A6E' }}>
+                {currentQ.mancheNom && <>{currentQ.mancheNom} · </>}Question {questionIndex + 1}
               </p>
-              <p className="text-2xl font-bold leading-snug" style={{ color: '#ECECF0' }}>{currentQ.question ?? currentQ}</p>
-              {currentQ.reponse && (
-                <p className="mt-4 text-sm" style={{ color: '#9090A0' }}>{currentQ.reponse}</p>
+              <p className="text-2xl font-bold leading-snug mb-4" style={{ color: '#ECECF0' }}>
+                {currentQ.enonce}
+              </p>
+
+              {/* QCM choices (for animateur reference) */}
+              {currentQ.type === 'QCM' && currentQ.choix?.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mb-4 text-left">
+                  {currentQ.choix.map((c, i) => (
+                    <div key={i} className="rounded-lg px-3 py-2 text-sm"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <span className="font-bold mr-2" style={{ color: '#818CF8' }}>{['A','B','C','D'][i]}</span>
+                      <span style={{ color: '#ECECF0' }}>{c}</span>
+                    </div>
+                  ))}
+                </div>
               )}
+
+              {/* Answer section — always visible to animateur */}
+              <div className="mt-3 rounded-xl px-4 py-3"
+                style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.18)' }}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#4ADE80' }}>
+                    Réponse (animateur)
+                  </p>
+                  {revealed && <span className="text-xs flex items-center gap-1" style={{ color: '#4ADE80' }}>
+                    <Eye size={11} />Révélée au public
+                  </span>}
+                </div>
+                <p className="text-lg font-bold" style={{ color: '#ECECF0' }}>{currentQ.reponse}</p>
+                {currentQ.explication && (
+                  <p className="text-xs mt-1" style={{ color: '#9090A0' }}>{currentQ.explication}</p>
+                )}
+              </div>
             </div>
           ) : (
             <div className="card p-8 max-w-2xl w-full text-center">
-              <p className="text-lg font-semibold mb-2" style={{ color: '#ECECF0' }}>Aucune question configurée</p>
-              <p className="text-sm" style={{ color: '#5A5A6E' }}>Appuyez sur un buzzer pour commencer !</p>
+              <p className="text-lg font-semibold mb-2" style={{ color: '#ECECF0' }}>
+                {questions.length === 0 ? 'Aucune question configurée' : 'Partie terminée !'}
+              </p>
+              <p className="text-sm" style={{ color: '#5A5A6E' }}>
+                {questions.length === 0 ? 'Attendez que les questions soient tirées.' : 'Toutes les questions ont été posées.'}
+              </p>
             </div>
           )}
 

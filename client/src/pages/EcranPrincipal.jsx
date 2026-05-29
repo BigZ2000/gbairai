@@ -3,9 +3,8 @@ import { useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
-import { Trophy, Hash } from 'lucide-react'
+import { Trophy, Hash, Eye } from 'lucide-react'
 
-// Écran grand format — TV / vidéoprojecteur
 export default function EcranPrincipal() {
   const { partieCode } = useParams()
   const { apiFetch } = useAuth()
@@ -15,7 +14,10 @@ export default function EcranPrincipal() {
   const [participants, setParticipants] = useState([])
   const [buzzerStatuts, setBuzzerStatuts] = useState({})
   const [winner, setWinner] = useState(null)
+  const [currentQuestion, setCurrentQuestion] = useState(null)
   const [questionIndex, setQuestionIndex] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+  const [revealData, setRevealData] = useState(null)
   const [votes, setVotes] = useState({ pour: 0, contre: 0, total: 0 })
   const [autoCountdown, setAutoCountdown] = useState(null)
 
@@ -46,9 +48,14 @@ export default function EcranPrincipal() {
           return next
         })
       }
-      if (msg.type === 'answer_validated') setTimeout(() => setWinner(null), 1500)
-      if (msg.type === 'question_changed') {
-        setQuestionIndex(msg.index)
+      if (msg.type === 'answer_validated') {
+        setTimeout(() => { setWinner(null); resetBuzzers() }, 1500)
+      }
+      if (msg.type === 'question_display') {
+        setCurrentQuestion(msg.question)
+        setQuestionIndex(msg.index ?? 0)
+        setRevealed(false)
+        setRevealData(null)
         setWinner(null)
         setVotes({ pour: 0, contre: 0, total: 0 })
         setBuzzerStatuts(prev => {
@@ -56,6 +63,10 @@ export default function EcranPrincipal() {
           Object.keys(prev).forEach(mac => { next[mac] = 'ready' })
           return next
         })
+      }
+      if (msg.type === 'question_reveal') {
+        setRevealed(true)
+        setRevealData({ reponse: msg.reponse, explication: msg.explication })
       }
       if (msg.type === 'vote_update') setVotes({ pour: msg.pour, contre: msg.contre, total: msg.total })
       if (msg.type === 'participant_update') setParticipants(msg.participants ?? [])
@@ -76,9 +87,16 @@ export default function EcranPrincipal() {
     return unsub
   }, [partieCode])
 
-  const questions = partie?.questions ?? []
-  const currentQ = questions[questionIndex]
+  function resetBuzzers() {
+    setBuzzerStatuts(prev => {
+      const next = {}
+      Object.keys(prev).forEach(mac => { next[mac] = 'ready' })
+      return next
+    })
+  }
+
   const sortedParticipants = [...participants].sort((a, b) => b.score - a.score)
+  const q = currentQuestion
 
   return (
     <div className="min-h-screen flex flex-col select-none" style={{ background: '#0A0A0E' }}>
@@ -91,9 +109,10 @@ export default function EcranPrincipal() {
             style={{ background: '#6366F1' }}>G</div>
           <div>
             <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>{partie?.nom ?? 'Gbairai'}</h1>
-            {questions.length > 0 && (
+            {q && (
               <p className="text-sm mt-0.5" style={{ color: '#5A5A6E' }}>
-                Question {questionIndex + 1} / {questions.length}
+                Question {questionIndex + 1}
+                {q.mancheNom && ` · ${q.mancheNom}`}
               </p>
             )}
           </div>
@@ -110,7 +129,7 @@ export default function EcranPrincipal() {
 
       <main className="flex-1 flex flex-col items-center justify-center px-10 py-10 gap-10">
 
-        {/* Countdown */}
+        {/* Auto countdown */}
         {autoCountdown && !winner && (
           <div className="text-center">
             <p className="text-sm uppercase tracking-widest mb-3" style={{ color: '#5A5A6E' }}>Prochaine question dans</p>
@@ -142,22 +161,107 @@ export default function EcranPrincipal() {
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{ width: votes.total > 0 ? `${(votes.pour / votes.total) * 100}%` : '0%', background: '#22C55E' }} />
                 </div>
-                <p className="text-center mt-2 text-base" style={{ color: '#5A5A6E' }}>{votes.total} vote{votes.total !== 1 ? 's' : ''}</p>
               </div>
             )}
           </div>
         )}
 
         {/* Question */}
-        {!winner && currentQ && (
-          <div className="max-w-4xl w-full text-center rounded-2xl p-12"
+        {!winner && q && (
+          <div className="max-w-4xl w-full rounded-2xl overflow-hidden"
             style={{ background: '#18181C', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <p className="text-base uppercase tracking-widest font-semibold mb-6" style={{ color: '#5A5A6E' }}>
-              Question {questionIndex + 1}
-            </p>
-            <p className="text-5xl font-bold leading-tight" style={{ color: '#ECECF0' }}>
-              {currentQ.question ?? currentQ}
-            </p>
+            <div className="px-12 pt-10 pb-6 text-center">
+              <p className="text-base uppercase tracking-widest font-semibold mb-6" style={{ color: '#5A5A6E' }}>
+                Question {questionIndex + 1}
+              </p>
+              <p className="text-5xl font-bold leading-tight" style={{ color: '#ECECF0' }}>
+                {q.enonce}
+              </p>
+
+              {/* QCM choices */}
+              {q.type === 'QCM' && q.choix?.length > 0 && (
+                <div className="grid grid-cols-2 gap-4 mt-8">
+                  {q.choix.map((c, i) => {
+                    const colors = [
+                      { bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)', text: '#818CF8' },
+                      { bg: 'rgba(34,197,94,0.10)',  border: 'rgba(34,197,94,0.3)',  text: '#4ADE80' },
+                      { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', text: '#FCD34D' },
+                      { bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.3)',  text: '#F87171' },
+                    ]
+                    const col = colors[i % 4]
+                    const letter = ['A','B','C','D'][i]
+                    const isCorrect = revealed && revealData?.reponse === letter
+                    return (
+                      <div key={i}
+                        className="flex items-center gap-4 rounded-xl px-6 py-4 text-left transition-all duration-500"
+                        style={{
+                          background: isCorrect ? 'rgba(34,197,94,0.15)' : col.bg,
+                          border: `2px solid ${isCorrect ? 'rgba(34,197,94,0.6)' : col.border}`,
+                          transform: isCorrect ? 'scale(1.02)' : 'none',
+                        }}>
+                        <span className="text-3xl font-black" style={{ color: col.text }}>{letter}</span>
+                        <span className="text-xl font-semibold" style={{ color: '#ECECF0' }}>{c}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* VRAI/FAUX */}
+              {q.type === 'VRAI_FAUX' && (
+                <div className="flex gap-6 justify-center mt-8">
+                  {['Vrai', 'Faux'].map(val => {
+                    const isGreen = val === 'Vrai'
+                    const isCorrect = revealed && revealData?.reponse?.toLowerCase() === val.toLowerCase()
+                    return (
+                      <div key={val}
+                        className="flex items-center gap-3 rounded-2xl px-12 py-6 text-3xl font-bold transition-all duration-500"
+                        style={{
+                          background: isCorrect ? (isGreen ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)') :
+                                     isGreen ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                          border: `3px solid ${isCorrect ? (isGreen ? '#22C55E' : '#EF4444') :
+                                   isGreen ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                          color: isGreen ? '#4ADE80' : '#F87171',
+                          transform: isCorrect ? 'scale(1.06)' : 'none',
+                        }}>
+                        {isGreen ? '✅' : '❌'} {val}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Image */}
+              {q.type === 'IMAGE' && q.mediaUrl && (
+                <div className="mt-6 flex justify-center">
+                  <img src={q.mediaUrl} alt="Question" className="max-h-80 rounded-2xl object-contain" />
+                </div>
+              )}
+            </div>
+
+            {/* Answer reveal panel */}
+            <div className="relative overflow-hidden transition-all duration-700"
+              style={{ maxHeight: revealed ? '200px' : '0px' }}>
+              <div className="px-12 pb-8 pt-4 animate-fadeUp"
+                style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(34,197,94,0.05)' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Eye size={18} style={{ color: '#4ADE80' }} />
+                  <p className="text-sm uppercase tracking-widest font-semibold" style={{ color: '#4ADE80' }}>Réponse</p>
+                </div>
+                <p className="text-4xl font-black" style={{ color: '#ECECF0' }}>{revealData?.reponse}</p>
+                {revealData?.explication && (
+                  <p className="text-lg mt-2" style={{ color: '#9090A0' }}>{revealData.explication}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Waiting state */}
+        {!winner && !q && (
+          <div className="text-center">
+            <p className="text-3xl font-bold mb-3" style={{ color: '#ECECF0' }}>En attente…</p>
+            <p className="text-lg" style={{ color: '#5A5A6E' }}>La prochaine question va apparaître ici.</p>
           </div>
         )}
 
