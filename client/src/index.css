@@ -1,15 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html { scroll-behavior: smooth; }
   body {
-    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+    background-color: #0F0A1E;
+    color: #F8F4FF;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
+  ::selection { background: rgba(124,58,237,0.35); }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0F0A1E; }
+  ::-webkit-scrollbar-thumb { background: #3B1F7A; border-radius: 3px; }
 }
 
-@layer utilities {
-  .glow {
-    filter: drop-shadow(0 0 12px var(--glow-color));
+@layer components {
+  /* Carte standard */
+  .card {
+    @apply bg-card rounded-2xl border border-white/[0.07] shadow-card;
+    background: linear-gradient(135deg, #221445 0%, #1A1035 100%);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
   }
+
+  /* Bouton principal violet */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 active:scale-95;
+    background: linear-gradient(135deg, #7C3AED, #6D28D9);
+    box-shadow: 0 4px 15px rgba(124,58,237,0.4);
+    color: white;
+    padding: 0.625rem 1.5rem;
+  }
+  .btn-primary:hover { background: linear-gradient(135deg, #8B5CF6, #7C3AED); box-shadow: 0 6px 20px rgba(124,58,237,0.5); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+
+  /* Bouton secondaire or */
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 font-bold rounded-xl transition-all duration-200 active:scale-95;
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    box-shadow: 0 4px 15px rgba(245,158,11,0.35);
+    color: #0F0A1E;
+    padding: 0.625rem 1.5rem;
+  }
+  .btn-gold:hover { background: linear-gradient(135deg, #FBBF24, #F59E0B); box-shadow: 0 6px 20px rgba(245,158,11,0.45); }
+  .btn-gold:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+
+  /* Bouton ghost */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 active:scale-95;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #C4B5FD;
+    padding: 0.625rem 1.5rem;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.09); color: white; }
+
+  /* Champ texte */
+  .input {
+    @apply w-full rounded-xl px-4 py-3 text-white transition-all duration-200 focus:outline-none;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .input:focus { border-color: #7C3AED; box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+  .input::placeholder { color: rgba(255,255,255,0.25); }
+
+  /* Badge statut */
+  .badge-wait    { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(245,158,11,0.15); color: #FBBF24; }
+  .badge-active  { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(16,185,129,0.15); color: #34D399; }
+  .badge-done    { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(255,255,255,0.06); color: #9CA3AF; }
+  .badge-auto    { @apply text-xs px-2.5 py-1 rounded-full font-semibold; background: rgba(124,58,237,0.2); color: #C4B5FD; }
 }

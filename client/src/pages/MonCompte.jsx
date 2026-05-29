@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import Layout from '../components/Layout.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
 
-const COULEURS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']
+const COULEURS = ['#7C3AED','#A855F7','#3B82F6','#06B6D4','#10B981','#F59E0B','#EF4444','#EC4899']
 
 export default function MonCompte() {
   const { user, apiFetch } = useAuth()
@@ -15,11 +15,16 @@ export default function MonCompte() {
   const [editNom, setEditNom] = useState('')
   const [editCouleur, setEditCouleur] = useState('')
   const [releaseConfirm, setReleaseConfirm] = useState(null)
-  const [notification, setNotification] = useState(null)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
-    apiFetch('/buzzers').then(r => r?.json()).then(b => { if (b) setBuzzers(b) })
+    apiFetch('/buzzers').then(r => r?.json()).then(b => { if (Array.isArray(b)) setBuzzers(b) })
   }, [])
+
+  function showToast(msg, type = 'success') {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
+  }
 
   async function handleClaim(e) {
     e.preventDefault()
@@ -27,24 +32,25 @@ export default function MonCompte() {
     setClaimSuccess('')
     const res = await apiFetch('/buzzers/claim', { method: 'POST', body: { mac: claimMac.toUpperCase() } })
     if (!res?.ok) {
-      const err = await res?.json()
+      const err = await res?.json().catch(() => ({}))
       setClaimError(err?.error ?? 'Erreur')
       return
     }
     const buzzer = await res.json()
     setBuzzers(prev => [...prev.filter(b => b.mac !== buzzer.mac), buzzer])
     setClaimMac('')
-    setClaimSuccess(`Buzzer ${buzzer.mac} appairé avec succès !`)
+    showToast(`Buzzer ${buzzer.mac.slice(-5)} appairé !`)
   }
 
   async function handleSaveEdit(mac) {
     const res = await apiFetch(`/buzzers/${mac}`, {
       method: 'PATCH',
-      body: { nom: editNom || undefined, couleur: editCouleur || undefined },
+      body: { nom: editNom.trim() || undefined, couleur: editCouleur || undefined },
     })
     if (res?.ok) {
       const updated = await res.json()
       setBuzzers(prev => prev.map(b => b.mac === mac ? updated : b))
+      showToast('Buzzer mis à jour')
     }
     setEditingId(null)
   }
@@ -53,122 +59,106 @@ export default function MonCompte() {
     const res = await apiFetch(`/buzzers/${mac}/claim`, { method: 'DELETE' })
     if (res?.ok) {
       setBuzzers(prev => prev.filter(b => b.mac !== mac))
-      setNotification('Buzzer libéré. Il peut maintenant être réclamé par quelqu\'un d\'autre.')
+      showToast('Buzzer libéré', 'warn')
     }
     setReleaseConfirm(null)
   }
 
   function getBuzzerStatut(b) {
-    if (b.status === 'OFFLINE') return 'offline'
-    if (b.status === 'IN_GAME') return 'pressed'
+    if (b.status === 'IN_GAME')        return 'pressed'
+    if (b.status === 'OFFLINE')        return 'offline'
     if (b.status === 'AWAITING_CLAIM') return 'offline'
     return 'ready'
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white px-4 py-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-
-        <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="text-gray-400 hover:text-white text-sm">← Tableau de bord</Link>
+    <Layout>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-20 right-4 z-50 px-5 py-3 rounded-xl text-sm font-semibold shadow-xl animate-fadeIn"
+          style={{ background: toast.type === 'warn' ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)', border: `1px solid ${toast.type === 'warn' ? 'rgba(245,158,11,0.4)' : 'rgba(16,185,129,0.4)'}`, color: toast.type === 'warn' ? '#FBBF24' : '#34D399' }}>
+          {toast.type === 'warn' ? '⚠' : '✓'} {toast.msg}
         </div>
+      )}
 
-        <h1 className="text-3xl font-bold text-purple-400">Mon compte</h1>
+      <div className="max-w-xl mx-auto space-y-6">
+        <h1 className="text-3xl font-black text-white">Mon compte</h1>
 
-        {/* Info utilisateur */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <p className="text-gray-400 text-sm">Prénom</p>
-          <p className="text-xl font-bold">{user?.prenom}</p>
-          <p className="text-gray-400 text-sm mt-3">Email</p>
-          <p className="text-white">{user?.email}</p>
-          <p className="text-gray-400 text-sm mt-3">Plan</p>
-          <p className="text-white capitalize">{user?.plan?.toLowerCase()}</p>
-        </div>
-
-        {/* Notification */}
-        {notification && (
-          <div className="bg-amber-500/20 border border-amber-500 rounded-xl p-4 text-amber-300 text-sm flex justify-between">
-            {notification}
-            <button onClick={() => setNotification(null)} className="ml-2 text-amber-400 hover:text-white">✕</button>
+        {/* Profil */}
+        <div className="card p-6 flex items-center gap-5">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black text-white shrink-0"
+            style={{ background: 'linear-gradient(135deg,#7C3AED,#A855F7)', boxShadow: '0 0 24px rgba(124,58,237,0.4)' }}>
+            {user?.prenom?.[0]?.toUpperCase()}
           </div>
-        )}
+          <div>
+            <p className="text-xl font-bold text-white">{user?.prenom}</p>
+            <p className="text-sm mt-0.5" style={{ color: 'rgba(156,163,175,0.7)' }}>{user?.email}</p>
+            <span className="inline-block mt-2 text-xs px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider"
+              style={{ background: 'rgba(124,58,237,0.2)', color: '#C4B5FD' }}>
+              {user?.plan ?? 'FREE'}
+            </span>
+          </div>
+        </div>
 
-        {/* MES BUZZERS */}
-        <section className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-xl font-bold mb-5">Mes buzzers</h2>
+        {/* Buzzers */}
+        <div className="card p-6">
+          <h2 className="text-lg font-bold text-white mb-5 flex items-center gap-2">
+            <span>🔔</span> Mes buzzers
+          </h2>
 
           {buzzers.length === 0 ? (
-            <p className="text-gray-500 text-sm mb-4">Aucun buzzer appairé.</p>
+            <p className="text-sm mb-5" style={{ color: 'rgba(156,163,175,0.6)' }}>
+              Aucun buzzer appairé pour l'instant.
+            </p>
           ) : (
             <ul className="space-y-4 mb-6">
               {buzzers.map(b => (
-                <li key={b.id} className="bg-gray-800 rounded-xl p-4">
+                <li key={b.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   {editingId === b.id ? (
                     <div className="space-y-3">
                       <input
-                        type="text"
-                        placeholder="Nom du buzzer"
-                        value={editNom}
+                        type="text" placeholder="Nom du buzzer" value={editNom} maxLength={50}
                         onChange={e => setEditNom(e.target.value)}
-                        maxLength={50}
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+                        className="input"
                       />
-                      <div className="flex gap-2 flex-wrap">
-                        {COULEURS.map(c => (
-                          <button
-                            key={c}
-                            onClick={() => setEditCouleur(c)}
-                            className={`w-7 h-7 rounded-full border-2 transition-transform ${editCouleur === c ? 'scale-125 border-white' : 'border-transparent'}`}
-                            style={{ background: c }}
-                          />
-                        ))}
+                      <div>
+                        <p className="text-xs mb-2" style={{ color: 'rgba(196,181,253,0.6)' }}>Couleur</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {COULEURS.map(c => (
+                            <button key={c} onClick={() => setEditCouleur(c)}
+                              className="w-8 h-8 rounded-full transition-transform"
+                              style={{ background: c, transform: editCouleur === c ? 'scale(1.25)' : 'scale(1)', boxShadow: editCouleur === c ? `0 0 10px ${c}` : 'none', outline: editCouleur === c ? `2px solid white` : 'none', outlineOffset: '2px' }}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleSaveEdit(b.mac)} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">
-                          Enregistrer
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-white px-3 py-2 text-sm">
-                          Annuler
-                        </button>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => handleSaveEdit(b.mac)} className="btn-primary text-sm px-4 py-2">Enregistrer</button>
+                        <button onClick={() => setEditingId(null)} className="btn-ghost text-sm px-4 py-2">Annuler</button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <BuzzerAnime
-                          couleur={b.couleur}
-                          statut={getBuzzerStatut(b)}
-                          size="md"
-                        />
+                        <BuzzerAnime couleur={b.couleur} statut={getBuzzerStatut(b)} size="md" />
                         <div>
-                          <p className="font-bold">{b.nom ?? 'Buzzer sans nom'}</p>
-                          <p className="text-xs text-gray-400 font-mono">{b.mac}</p>
-                          <p className="text-xs mt-1">
-                            {b.status === 'OFFLINE' && <span className="text-gray-400">Hors ligne</span>}
-                            {b.status === 'ONLINE' && <span className="text-green-400">Connecté</span>}
-                            {b.status === 'IN_GAME' && <span className="text-amber-400">En jeu</span>}
-                            {b.status === 'AWAITING_CLAIM' && <span className="text-purple-400">En attente d'appairage</span>}
+                          <p className="font-bold text-white">{b.nom ?? 'Sans nom'}</p>
+                          <p className="text-xs font-mono mt-0.5" style={{ color: 'rgba(156,163,175,0.5)' }}>{b.mac}</p>
+                          <p className="text-xs mt-1 font-medium" style={{
+                            color: b.status === 'ONLINE' ? '#34D399' : b.status === 'IN_GAME' ? '#FBBF24' : b.status === 'AWAITING_CLAIM' ? '#A855F7' : '#6B7280'
+                          }}>
+                            {b.status === 'ONLINE' ? '● Connecté' : b.status === 'IN_GAME' ? '● En jeu' : b.status === 'AWAITING_CLAIM' ? '● Appairage...' : '● Hors ligne'}
                           </p>
-                          {b.lastSeenAt && (
-                            <p className="text-xs text-gray-500">
-                              Vu {new Date(b.lastSeenAt).toLocaleString('fr-FR')}
-                            </p>
-                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => { setEditingId(b.id); setEditNom(b.nom ?? ''); setEditCouleur(b.couleur) }}
-                          className="text-sm text-purple-400 hover:text-purple-300"
-                        >
-                          Renommer
+                      <div className="flex flex-col items-end gap-2">
+                        <button onClick={() => { setEditingId(b.id); setEditNom(b.nom ?? ''); setEditCouleur(b.couleur) }}
+                          className="text-sm font-medium transition-colors" style={{ color: '#C4B5FD' }}>
+                          ✏ Renommer
                         </button>
-                        <button
-                          onClick={() => setReleaseConfirm(b)}
-                          className="text-sm text-red-400 hover:text-red-300"
-                          disabled={b.status === 'IN_GAME'}
-                        >
-                          ⚠️ Libérer
+                        <button onClick={() => setReleaseConfirm(b)} disabled={b.status === 'IN_GAME'}
+                          className="text-sm font-medium disabled:opacity-30 transition-colors" style={{ color: '#F43F5E' }}>
+                          ⚠ Libérer
                         </button>
                       </div>
                     </div>
@@ -179,60 +169,46 @@ export default function MonCompte() {
           )}
 
           {/* Ajouter un buzzer */}
-          <form onSubmit={handleClaim} className="space-y-3">
-            <h3 className="font-semibold text-gray-300">Ajouter un buzzer</h3>
-            <p className="text-xs text-gray-500">
-              Entrez l'adresse MAC imprimée sous votre buzzer, puis maintenez le bouton 3 secondes.
+          <div className="rounded-xl p-4" style={{ background: 'rgba(124,58,237,0.08)', border: '1px dashed rgba(124,58,237,0.3)' }}>
+            <p className="text-sm font-semibold text-white mb-1">+ Ajouter un buzzer</p>
+            <p className="text-xs mb-3" style={{ color: 'rgba(156,163,175,0.6)' }}>
+              Entrez l'adresse MAC imprimée sous le buzzer, puis maintenez le bouton 3 s.
             </p>
-            <div className="flex gap-3">
+            <form onSubmit={handleClaim} className="flex gap-3">
               <input
-                type="text"
-                placeholder="AA:BB:CC:DD:EE:FF"
-                value={claimMac}
+                type="text" value={claimMac} placeholder="AA:BB:CC:DD:EE:FF"
                 onChange={e => setClaimMac(e.target.value)}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white font-mono focus:outline-none focus:border-purple-500"
+                className="input flex-1 font-mono text-sm"
               />
-              <button
-                type="submit"
-                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-2.5 rounded-xl"
-              >
+              <button type="submit" disabled={!claimMac.trim()} className="btn-primary text-sm px-4 py-2 shrink-0">
                 Appairer
               </button>
-            </div>
-            {claimError && <p className="text-red-400 text-sm">{claimError}</p>}
-            {claimSuccess && <p className="text-green-400 text-sm">{claimSuccess}</p>}
-          </form>
-        </section>
+            </form>
+            {claimError && <p className="text-xs mt-2" style={{ color: '#FB7185' }}>{claimError}</p>}
+          </div>
+        </div>
+      </div>
 
-        {/* Modal confirmation libération */}
-        {releaseConfirm && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full border border-red-800 shadow-2xl">
-              <h3 className="text-xl font-bold text-red-400 mb-3">Libérer ce buzzer ?</h3>
-              <p className="text-gray-300 text-sm mb-1">
-                <strong>{releaseConfirm.nom ?? releaseConfirm.mac}</strong>
-              </p>
-              <p className="text-gray-400 text-sm mb-6">
-                Ce buzzer pourra être réclamé par quelqu'un d'autre. Cette action est irréversible.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleRelease(releaseConfirm.mac)}
-                  className="flex-1 bg-red-700 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl"
-                >
-                  Confirmer la libération
-                </button>
-                <button
-                  onClick={() => setReleaseConfirm(null)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2.5 rounded-xl"
-                >
-                  Annuler
-                </button>
-              </div>
+      {/* Modal libération */}
+      {releaseConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
+          <div className="card p-6 max-w-sm w-full animate-fadeIn" style={{ border: '1px solid rgba(244,63,94,0.3)' }}>
+            <h3 className="text-xl font-bold mb-2" style={{ color: '#F43F5E' }}>Libérer ce buzzer ?</h3>
+            <p className="text-sm mb-1 text-white font-semibold">{releaseConfirm.nom ?? releaseConfirm.mac}</p>
+            <p className="text-sm mb-6" style={{ color: 'rgba(156,163,175,0.7)' }}>
+              Ce buzzer pourra être réclamé par quelqu'un d'autre. Action irréversible.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => handleRelease(releaseConfirm.mac)} className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-all" style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.4)', color: '#F43F5E' }}>
+                Confirmer
+              </button>
+              <button onClick={() => setReleaseConfirm(null)} className="btn-ghost flex-1 py-2.5 text-sm">
+                Annuler
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </Layout>
   )
 }

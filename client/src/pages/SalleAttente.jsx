@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
+import Layout from '../components/Layout.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
 import QuestionEditor from '../components/QuestionEditor.jsx'
 
@@ -167,57 +168,63 @@ export default function SalleAttente() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-        <div className="text-center">
+      <Layout>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
           <p className="text-6xl mb-4">🔍</p>
           <h2 className="text-2xl font-bold text-white mb-2">Partie introuvable</h2>
-          <p className="text-gray-400 mb-6">Le code <span className="font-mono text-white">{code}</span> ne correspond à aucune partie active.</p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-6 py-2.5 rounded-xl"
-          >
+          <p className="text-sm mb-6" style={{ color: 'rgba(156,163,175,0.7)' }}>
+            Le code <span className="font-mono text-white font-bold">{code}</span> ne correspond à aucune partie active.
+          </p>
+          <button onClick={() => navigate('/dashboard')} className="btn-primary px-6 py-3">
             Retour au tableau de bord
           </button>
         </div>
-      </div>
+      </Layout>
     )
   }
 
   if (!partie) {
-    return <div className="flex items-center justify-center h-screen text-gray-400">Chargement...</div>
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-24">
+          <div className="flex gap-1.5">
+            {[0,1,2].map(i => (
+              <div key={i} className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#7C3AED', animationDelay: `${i * 0.15}s` }} />
+            ))}
+          </div>
+        </div>
+      </Layout>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white px-4 py-6">
+    <Layout>
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-6 gap-4">
+        <div className="flex items-start justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-purple-400">{partie.nom}</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Code :{' '}
-              <span className="text-white font-mono font-bold tracking-widest bg-gray-800 px-2 py-0.5 rounded">
+            <h1 className="text-3xl font-black text-white">{partie.nom}</h1>
+            <div className="flex items-center flex-wrap gap-3 mt-2">
+              <span className="font-mono font-bold tracking-widest text-base px-3 py-1 rounded-lg" style={{ background: 'rgba(124,58,237,0.2)', color: '#C4B5FD', border: '1px solid rgba(124,58,237,0.3)' }}>
                 {partie.code}
               </span>
-              <span className="ml-2 text-gray-500">
-                · {participants.length} joueur{participants.length > 1 ? 's' : ''} en attente
+              <span className="text-sm" style={{ color: 'rgba(156,163,175,0.6)' }}>
+                {participants.length} joueur{participants.length > 1 ? 's' : ''} en attente
               </span>
-            </p>
-            {isModeLibre && (
-              <span className="inline-block mt-1.5 text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
-                {partie.modeAuto ? 'Mode automatique' : 'Mode vote collectif'}
-              </span>
-            )}
+              {isModeLibre && (
+                <span className="badge-auto">
+                  {partie.modeAuto ? '⏱ Automatique' : '🗳 Vote collectif'}
+                </span>
+              )}
+            </div>
           </div>
 
           {canStart && (
-            <button
-              onClick={handleStart}
-              disabled={starting || participants.length < 1}
-              className="shrink-0 bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl transition-colors"
-            >
-              {starting ? 'Lancement...' : 'Lancer →'}
+            <button onClick={handleStart} disabled={starting || participants.length < 1}
+              className="shrink-0 font-bold px-6 py-3 rounded-xl transition-all text-base"
+              style={{ background: 'linear-gradient(135deg,#10B981,#059669)', color: 'white', boxShadow: '0 4px 15px rgba(16,185,129,0.4)', opacity: (starting || participants.length < 1) ? 0.4 : 1 }}>
+              {starting ? 'Lancement...' : '▶ Lancer'}
             </button>
           )}
         </div>
@@ -226,27 +233,30 @@ export default function SalleAttente() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
           {/* JOUEURS */}
-          <section className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
-            <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-4">Joueurs</h2>
+          <section className="card p-5">
+            <h2 className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'rgba(196,181,253,0.5)' }}>
+              Participants
+            </h2>
             <ul className="space-y-2">
               {participants.map(p => {
                 const buzzer = buzzersDispo.find(b => b.id === p.buzzerId) ?? p.buzzer
                 return (
-                  <li
-                    key={p.id}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 transition-colors ${
-                      dragOverId === p.id ? 'bg-purple-900/40 border border-purple-500' : 'bg-gray-800'
-                    }`}
+                  <li key={p.id}
+                    className="flex items-center justify-between rounded-xl px-4 py-3 transition-all"
+                    style={{
+                      background: dragOverId === p.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${dragOverId === p.id ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.06)'}`,
+                    }}
                     onDragOver={isAnimateur ? e => { e.preventDefault(); setDragOverId(p.id) } : undefined}
                     onDragLeave={isAnimateur ? () => setDragOverId(null) : undefined}
                     onDrop={isAnimateur ? () => { setDragOverId(null); if (draggingBuzzer) assignBuzzer(p.id, draggingBuzzer) } : undefined}
                   >
                     <div className="flex items-center gap-3">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${p.userId ? 'bg-green-400' : 'bg-yellow-400'}`} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.userId ? '#34D399' : '#FBBF24' }} />
                       <div>
-                        <p className="font-semibold">{p.prenom}</p>
-                        <p className="text-xs text-gray-500">
-                          {p.isAnimateur ? 'Anime cette partie' : p.userId ? 'Joueur' : 'Invité'}
+                        <p className="font-semibold text-white">{p.prenom}</p>
+                        <p className="text-xs" style={{ color: 'rgba(156,163,175,0.5)' }}>
+                          {p.isAnimateur ? 'Crée cette partie' : p.userId ? 'Compte Gbairai' : 'Invité'}
                         </p>
                       </div>
                     </div>
@@ -256,18 +266,15 @@ export default function SalleAttente() {
                         <>
                           <BuzzerAnime couleur={buzzer.couleur} statut={getBuzzerStatut(buzzer)} size="sm" />
                           {isAnimateur && (
-                            <button
-                              onClick={() => unassignBuzzer(p.id)}
-                              className="text-gray-500 hover:text-red-400 text-xs ml-1"
-                              title="Retirer le buzzer"
-                            >
+                            <button onClick={() => unassignBuzzer(p.id)} title="Retirer le buzzer"
+                              className="text-xs transition-colors ml-1" style={{ color: 'rgba(156,163,175,0.4)' }}>
                               ✕
                             </button>
                           )}
                         </>
                       ) : (
                         isAnimateur && (
-                          <span className="text-xs text-gray-600 italic">glisser un buzzer</span>
+                          <span className="text-xs italic" style={{ color: 'rgba(124,58,237,0.5)' }}>glisser un buzzer</span>
                         )
                       )}
                     </div>
@@ -275,28 +282,20 @@ export default function SalleAttente() {
                 )
               })}
 
-              {/* Ajouter invité */}
               {isAnimateur && (
                 <li>
                   {showInvite ? (
                     <form onSubmit={handleInvite} className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Prénom de l'invité"
-                        value={invitePrenom}
-                        onChange={e => setInvitePrenom(e.target.value)}
-                        maxLength={50}
-                        className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
-                        autoFocus
-                      />
-                      <button type="submit" className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm">Ajouter</button>
-                      <button type="button" onClick={() => setShowInvite(false)} className="text-gray-400 px-2">✕</button>
+                      <input type="text" placeholder="Prénom de l'invité" value={invitePrenom}
+                        onChange={e => setInvitePrenom(e.target.value)} maxLength={50}
+                        className="input flex-1 text-sm py-2" autoFocus />
+                      <button type="submit" className="btn-primary text-sm px-3 py-2">Ajouter</button>
+                      <button type="button" onClick={() => setShowInvite(false)} className="btn-ghost text-sm px-3 py-2">✕</button>
                     </form>
                   ) : (
-                    <button
-                      onClick={() => setShowInvite(true)}
-                      className="w-full border-2 border-dashed border-gray-700 hover:border-purple-500 text-gray-500 hover:text-purple-400 rounded-xl py-3 text-sm transition-colors"
-                    >
+                    <button onClick={() => setShowInvite(true)}
+                      className="w-full rounded-xl py-3 text-sm font-medium transition-all"
+                      style={{ border: '1px dashed rgba(124,58,237,0.35)', color: 'rgba(196,181,253,0.5)' }}>
                       + Ajouter un invité sans compte
                     </button>
                   )}
@@ -305,28 +304,26 @@ export default function SalleAttente() {
             </ul>
           </section>
 
-          {/* BUZZERS DISPONIBLES (animateur uniquement) */}
+          {/* BUZZERS */}
           {isAnimateur && (
-            <section className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
-              <h2 className="text-xs uppercase tracking-wider text-gray-500 mb-4">
-                Buzzers disponibles — glisser vers un joueur
+            <section className="card p-5">
+              <h2 className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'rgba(196,181,253,0.5)' }}>
+                Buzzers — glisser vers un joueur
               </h2>
               {unassignedBuzzers.length === 0 ? (
-                <p className="text-gray-500 text-sm">Tous les buzzers sont assignés.</p>
+                <p className="text-sm" style={{ color: 'rgba(156,163,175,0.5)' }}>Tous les buzzers sont assignés.</p>
               ) : (
                 <ul className="space-y-2">
                   {unassignedBuzzers.map(b => (
-                    <li
-                      key={b.id}
-                      draggable
+                    <li key={b.id} draggable
                       onDragStart={() => setDraggingBuzzer(b)}
                       onDragEnd={() => { setDraggingBuzzer(null); setDragOverId(null) }}
-                      className="flex items-center justify-between bg-gray-800 hover:bg-gray-750 rounded-xl px-4 py-3 cursor-grab active:cursor-grabbing select-none"
-                    >
+                      className="flex items-center justify-between rounded-xl px-4 py-3 cursor-grab active:cursor-grabbing select-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div>
-                        <p className="font-semibold">{b.nom ?? b.mac.slice(-8)}</p>
-                        <p className="text-xs text-gray-400">
-                          {b.status === 'ONLINE' ? '🟢 Connecté' : b.status === 'AWAITING_CLAIM' ? '🟣 Appairage...' : '⚫ Hors ligne'}
+                        <p className="font-semibold text-white">{b.nom ?? b.mac.slice(-8)}</p>
+                        <p className="text-xs mt-0.5" style={{ color: b.status === 'ONLINE' ? '#34D399' : 'rgba(156,163,175,0.5)' }}>
+                          {b.status === 'ONLINE' ? '● Connecté' : b.status === 'AWAITING_CLAIM' ? '● Appairage...' : '● Hors ligne'}
                         </p>
                       </div>
                       <BuzzerAnime couleur={b.couleur} statut={getBuzzerStatut(b)} size="sm" />
@@ -338,43 +335,41 @@ export default function SalleAttente() {
           )}
         </div>
 
-        {/* ÉDITEUR DE QUESTIONS (animateur uniquement) */}
+        {/* Questions */}
         {isAnimateur && (
-          <section className="mt-6 bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-            <button
-              onClick={() => setShowQuestions(v => !v)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-800/50 transition-colors"
-            >
+          <section className="mt-6 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#221445,#1A1035)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <button onClick={() => setShowQuestions(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 transition-colors"
+              style={{ color: 'white' }}>
               <div className="flex items-center gap-3">
-                <span className="text-lg">📋</span>
-                <span className="font-semibold text-white">Questions</span>
+                <span>📋</span>
+                <span className="font-bold">Questions</span>
                 {questions.length > 0 && (
-                  <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full font-medium">
-                    {questions.length} question{questions.length > 1 ? 's' : ''}
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(124,58,237,0.25)', color: '#C4B5FD' }}>
+                    {questions.length}
                   </span>
                 )}
-                {savingQ && <span className="text-xs text-gray-400">Enregistrement...</span>}
+                {savingQ && <span className="text-xs" style={{ color: 'rgba(156,163,175,0.5)' }}>Enregistrement...</span>}
               </div>
-              <span className="text-gray-400 text-sm">{showQuestions ? '▲' : '▼'}</span>
+              <span style={{ color: 'rgba(196,181,253,0.5)' }}>{showQuestions ? '▲' : '▼'}</span>
             </button>
-
             {showQuestions && (
-              <div className="px-5 pb-5 border-t border-gray-800 pt-4">
+              <div className="px-5 pb-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <QuestionEditor questions={questions} onChange={handleQuestionsChange} />
               </div>
             )}
           </section>
         )}
 
-        {/* Code partage */}
-        <div className="mt-6 bg-gray-900/50 rounded-2xl p-4 border border-gray-800 text-center">
-          <p className="text-gray-400 text-sm">
+        {/* Partage */}
+        <div className="mt-6 rounded-2xl p-4 text-center" style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)' }}>
+          <p className="text-sm" style={{ color: 'rgba(196,181,253,0.7)' }}>
             Partagez le code{' '}
-            <span className="text-white font-mono font-bold text-lg tracking-widest">{partie.code}</span>
+            <span className="font-mono font-black text-xl tracking-widest" style={{ color: '#C4B5FD' }}>{partie.code}</span>
             {' '}pour inviter des joueurs
           </p>
         </div>
       </div>
-    </div>
+    </Layout>
   )
 }
