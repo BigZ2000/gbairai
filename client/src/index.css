@@ -5,39 +5,72 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Design tokens (themeable via [data-theme]) ── */
+  :root, html[data-theme="dark"] {
+    --bg: #0E0E12;
+    --surface: #1C1C22;
+    --surface-2: #141418;
+    --surface-hover: #222228;
+    --text: #ECECF0;
+    --text-muted: #9090A0;
+    --text-dim: #5A5A6E;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.11);
+    --input-bg: rgba(255,255,255,0.04);
+    --hover-overlay: rgba(255,255,255,0.05);
+    --shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+    --scrollbar: rgba(255,255,255,0.1);
+  }
+  html[data-theme="light"] {
+    --bg: #F4F4F7;
+    --surface: #FFFFFF;
+    --surface-2: #FAFAFC;
+    --surface-hover: #F0F0F4;
+    --text: #18181B;
+    --text-muted: #52525B;
+    --text-dim: #A1A1AA;
+    --border: rgba(0,0,0,0.09);
+    --border-strong: rgba(0,0,0,0.14);
+    --input-bg: rgba(0,0,0,0.03);
+    --hover-overlay: rgba(0,0,0,0.04);
+    --shadow: 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
+    --scrollbar: rgba(0,0,0,0.18);
+  }
+
   *, *::before, *::after { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    background-color: #0E0E12;
-    color: #ECECF0;
+    background-color: var(--bg);
+    color: var(--text);
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.5;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
   ::selection { background: rgba(99,102,241,0.3); color: #fff; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 }
 
 @layer components {
 
   /* ── Cards ─────────────────────────────── */
   .card {
-    background: #1C1C22;
-    border: 1px solid rgba(255,255,255,0.07);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+    box-shadow: var(--shadow);
   }
   .card-hover {
     @apply card transition-all duration-150 cursor-pointer;
   }
   .card-hover:hover {
-    background: #222228;
-    border-color: rgba(255,255,255,0.11);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
     transform: translateY(-1px);
   }
 
@@ -63,25 +96,25 @@
 
   .btn-secondary {
     @apply btn;
-    background: rgba(255,255,255,0.06);
-    color: #ECECF0;
-    border: 1px solid rgba(255,255,255,0.09);
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: rgba(255,255,255,0.10);
-    border-color: rgba(255,255,255,0.14);
+    background: var(--hover-overlay);
+    border-color: var(--border-strong);
   }
 
   .btn-ghost {
     @apply btn;
     background: transparent;
-    color: #9090A0;
+    color: var(--text-muted);
     border: 1px solid transparent;
   }
   .btn-ghost:hover:not(:disabled) {
-    background: rgba(255,255,255,0.05);
-    color: #ECECF0;
-    border-color: rgba(255,255,255,0.08);
+    background: var(--hover-overlay);
+    color: var(--text);
+    border-color: var(--border);
   }
 
   .btn-danger {
@@ -116,10 +149,10 @@
   /* ── Inputs ─────────────────────────────── */
   .input {
     @apply w-full text-sm transition-all duration-150 focus:outline-none;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.09);
+    background: var(--input-bg);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
-    color: #ECECF0;
+    color: var(--text);
     padding: 0.5625rem 0.875rem;
     line-height: 1.25;
   }
@@ -128,7 +161,7 @@
     background: rgba(99,102,241,0.05);
     box-shadow: 0 0 0 3px rgba(99,102,241,0.18);
   }
-  .input::placeholder { color: #5A5A6E; }
+  .input::placeholder { color: var(--text-dim); }
   .input.input-error {
     border-color: rgba(239,68,68,0.5);
     box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
@@ -141,7 +174,7 @@
   /* ── Labels ─────────────────────────────── */
   .label {
     @apply block text-xs font-medium mb-1.5;
-    color: #9090A0;
+    color: var(--text-muted);
     letter-spacing: 0.01em;
   }
 
@@ -166,14 +199,14 @@
   /* ── Divider ────────────────────────────── */
   .divider {
     @apply flex items-center gap-3 my-1;
-    color: #5A5A6E;
+    color: var(--text-dim);
     font-size: 0.75rem;
   }
   .divider::before, .divider::after {
     content: '';
     @apply flex-1;
     height: 1px;
-    background: rgba(255,255,255,0.07);
+    background: var(--border);
   }
 
   /* ── Tooltip-like inline code ───────────── */

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import {
   Plus, Search, Pencil, Trash2, X, Check, Loader2, ChevronLeft, ChevronRight,
 } from 'lucide-react'
+import MediaPicker from '../../components/MediaPicker.jsx'
 
 const TYPES      = ['BUZZER', 'QCM', 'VRAI_FAUX', 'IMAGE', 'AUDIO', 'VIDEO']
 const DIFFS      = ['FACILE', 'MOYEN', 'DIFFICILE']
@@ -297,25 +298,33 @@ export default function AdminQuestions() {
 
               {editing.type === 'IMAGE' && (
                 <div className="col-span-2">
-                  <label className="label">URL de l'image</label>
-                  <input type="url" value={editing.mediaUrl ?? ''} onChange={e => setEditing(f => ({ ...f, mediaUrl: e.target.value }))}
-                    className="input text-sm w-full" />
+                  <label className="label">Image</label>
+                  <MediaPicker type="IMAGE" value={editing.mediaUrl ?? ''}
+                    onChange={(url, media) => setEditing(f => ({ ...f, mediaUrl: url || null, mediaId: media?.id ?? null }))} />
                 </div>
               )}
 
               {editing.type === 'AUDIO' && (
                 <div className="col-span-2">
-                  <label className="label">URL audio</label>
-                  <input type="url" value={editing.audioUrl ?? ''} onChange={e => setEditing(f => ({ ...f, audioUrl: e.target.value }))}
-                    className="input text-sm w-full" />
+                  <label className="label">Fichier audio</label>
+                  <MediaPicker type="AUDIO" value={editing.audioUrl ?? ''}
+                    onChange={(url, media) => setEditing(f => ({ ...f, audioUrl: url || null, mediaId: media?.id ?? null }))} />
                 </div>
               )}
 
               {editing.type === 'VIDEO' && (
                 <>
                   <div className="col-span-2">
-                    <label className="label">URL YouTube</label>
-                    <input type="url" value={editing.videoUrl ?? ''} onChange={e => setEditing(f => ({ ...f, videoUrl: e.target.value }))}
+                    <label className="label">Vidéo (fichier)</label>
+                    <MediaPicker type="VIDEO"
+                      value={editing.videoUrl?.startsWith('/uploads') ? editing.videoUrl : ''}
+                      onChange={(url, media) => setEditing(f => ({ ...f, videoUrl: url || null, mediaId: media?.id ?? null }))} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="label">… ou lien YouTube</label>
+                    <input type="url" placeholder="https://youtube.com/watch?v=…"
+                      value={editing.videoUrl && !editing.videoUrl.startsWith('/uploads') ? editing.videoUrl : ''}
+                      onChange={e => setEditing(f => ({ ...f, videoUrl: e.target.value || null, mediaId: null }))}
                       className="input text-sm w-full" />
                   </div>
                   <div>

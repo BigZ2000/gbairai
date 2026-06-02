@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Mail, Lock, User, AtSign, Loader2, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { googleAuthAvailable } from '../utils/env.js'
 
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value)
@@ -73,12 +74,19 @@ export default function Register() {
         </div>
 
         <div className="card p-6 space-y-4">
-          <button onClick={handleGoogle} className="btn-google w-full btn-lg gap-3">
-            <GoogleIcon />
-            Continuer avec Google
-          </button>
-
-          <div className="divider">ou</div>
+          {googleAuthAvailable() ? (
+            <>
+              <button onClick={handleGoogle} className="btn-google w-full btn-lg gap-3">
+                <GoogleIcon />
+                Continuer avec Google
+              </button>
+              <div className="divider">ou</div>
+            </>
+          ) : (
+            <p className="text-2xs text-center px-2 py-2 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)', color: '#F59E0B' }}>
+              Connexion Google indisponible en réseau local — crée ton compte par email.
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
 

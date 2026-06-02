@@ -1,11 +1,13 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
-import { requireAuth, isAnimateurDePartie } from '../middleware/auth.js'
+import { requireAuth, isAnimateurDePartie, isHostDePartie } from '../middleware/auth.js'
 import { generateCode } from '../utils/codeGen.js'
 import { broadcast } from '../ws/wsServer.js'
 import { drawAndStoreQuestions, flattenManchesServer } from '../services/gameService.js'
-import { setGameQuestions } from '../ws/gameHandler.js'
+import { joueursMax } from '../services/quotaService.js'
+import { markBuzzersInGame, releaseBuzzerToOnline } from '../services/buzzerService.js'
+import { setGameQuestions, startAutoQuestion, mediaStateMessage, questionDisplayMessage, pushLedToBuzzers } from '../ws/gameHandler.js'
 
 const router = Router()
 
@@ -25,11 +27,38 @@ const partieFull = {
   },
 }
 
+// ── Suspense : la réponse ne doit JAMAIS transiter par l'API tant que la partie
+// n'est pas terminée. Seul l'évènement WS `question_reveal` révèle la réponse.
+// On retire donc `reponse` / `explication` des questions de toute partie non
+// terminée. Pour une partie TERMINEE (historique), on laisse passer.
+function stripAnswer(question) {
+  if (!question) return question
+  const { reponse, explication, ...safe } = question
+  return safe
+}
+
+function sanitizePartie(partie) {
+  if (!partie) return partie
+  const reveal = partie.status === 'TERMINEE'
+  if (reveal) return partie
+  return {
+    ...partie,
+    manches: (partie.manches ?? []).map(m => ({
+      ...m,
+      mancheQuestions: (m.mancheQuestions ?? []).map(mq => ({
+        ...mq,
+        question: stripAnswer(mq.question),
+      })),
+    })),
+  }
+}
+
 const CreatePartieSchema = z.object({
   nom: z.string().min(1).max(100),
   mode: z.enum(['animateur', 'auto', 'vote']).default('animateur'),
   timerBuzz: z.number().int().min(3).max(60).default(10),
   timerVote: z.number().int().min(5).max(60).default(15),
+  masquerReponses: z.boolean().default(false),
 })
 
 // ── Routes statiques AVANT /:partieId ───────────────────────────────────────
@@ -38,7 +67,7 @@ router.post('/', requireAuth, async (req, res) => {
   const parsed = CreatePartieSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { nom, mode, timerBuzz, timerVote } = parsed.data
+  const { nom, mode, timerBuzz, timerVote, masquerReponses } = parsed.data
   let code
   let attempts = 0
   do {
@@ -52,8 +81,11 @@ router.post('/', requireAuth, async (req, res) => {
   const partie = await prisma.partie.create({
     data: {
       nom, code, animateurId,
+      creatorId: req.userId,
       modeAuto: mode === 'auto',
       modeVote: mode === 'vote',
+      // Le masquage des réponses n'a de sens qu'en mode animateur.
+      masquerReponses: mode === 'animateur' ? masquerReponses : false,
       timerBuzz, timerVote,
     },
   })
@@ -77,7 +109,7 @@ router.get('/', requireAuth, async (req, res) => {
     ...partieFull,
     orderBy: { createdAt: 'desc' },
   })
-  res.json(parties)
+  res.json(parties.map(sanitizePartie))
 })
 
 router.get('/by-code/:code', requireAuth, async (req, res) => {
@@ -86,10 +118,45 @@ router.get('/by-code/:code', requireAuth, async (req, res) => {
     ...partieFull,
   })
   if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
-  res.json(partie)
+  res.json(sanitizePartie(partie))
 })
 
-router.get('/check/:code', requireAuth, async (req, res) => {
+// Réponses réservées à l'animateur de la partie (pour valider les buzz).
+// Aucune autre personne (joueur, écran public) n'y a accès.
+router.get('/:partieId/answers', requireAuth, async (req, res) => {
+  const ok = await isAnimateurDePartie(req.userId, req.params.partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+
+  // Mode « réponses masquées » : l'animateur projette son écran et découvre la
+  // réponse en même temps que le public → l'API ne révèle rien avant l'heure.
+  const meta = await prisma.partie.findUnique({
+    where: { id: req.params.partieId },
+    select: { masquerReponses: true },
+  })
+  if (meta?.masquerReponses) return res.json([])
+
+  const partie = await prisma.partie.findUnique({
+    where: { id: req.params.partieId },
+    include: {
+      manches: {
+        orderBy: { ordre: 'asc' },
+        include: {
+          mancheQuestions: { orderBy: { ordre: 'asc' }, include: { question: true } },
+        },
+      },
+    },
+  })
+  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
+
+  const flat = flattenManchesServer(partie.manches)
+  const answers = flat.map((q, index) => ({ index, reponse: q.reponse, explication: q.explication ?? null }))
+  res.json(answers)
+})
+
+// PUBLIC (pas de requireAuth) : c'est la cible du QR/lien de partie. Un invité
+// arrive ici AVANT d'avoir un compte ; il doit pouvoir voir la partie (nom),
+// puis créer un compte invité et rejoindre. Ne renvoie que des infos minimales.
+router.get('/check/:code', async (req, res) => {
   const partie = await prisma.partie.findUnique({
     where: { code: req.params.code.toUpperCase() },
     select: { id: true, code: true, nom: true, status: true, animateurId: true, modeAuto: true, modeVote: true },
@@ -116,9 +183,25 @@ router.post('/join', requireAuth, async (req, res) => {
   })
   if (existing) return res.json({ participant: existing, partie })
 
+  // Capacité : limite de joueurs selon le plan de l'hôte (null = illimité).
+  const hostId = partie.animateurId ?? partie.creatorId
+  if (hostId) {
+    const host = await prisma.user.findUnique({ where: { id: hostId }, select: { plan: true, isAdmin: true } })
+    const max = joueursMax(host)
+    if (max != null) {
+      const count = await prisma.participant.count({ where: { partieId: partie.id } })
+      if (count >= max) {
+        return res.status(403).json({ error: `Cette partie est complète (${max} joueurs maximum).`, code: 'PARTIE_PLEINE' })
+      }
+    }
+  }
+
   const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { prenom: true } })
+  // Auto-association : on prend le buzzer en ligne le PLUS RÉCEMMENT actif
+  // (cas « plusieurs buzzers » → dernier actif, sans sélecteur).
   const buzzerOwned = await prisma.buzzer.findFirst({
     where: { ownerId: req.userId, status: { not: 'OFFLINE' } },
+    orderBy: { lastSeenAt: 'desc' },
   })
 
   const participant = await prisma.participant.create({
@@ -146,13 +229,76 @@ router.get('/:partieId', requireAuth, async (req, res) => {
     ...partieFull,
   })
   if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
-  res.json(partie)
+  res.json(sanitizePartie(partie))
+})
+
+// Édition d'une partie tant qu'elle est en attente (nom, mode, minuteurs).
+const EditPartieSchema = z.object({
+  nom: z.string().min(1).max(100).optional(),
+  mode: z.enum(['animateur', 'auto', 'vote']).optional(),
+  timerBuzz: z.number().int().min(3).max(60).optional(),
+  timerVote: z.number().int().min(5).max(60).optional(),
+  masquerReponses: z.boolean().optional(),
+})
+
+router.patch('/:partieId', requireAuth, async (req, res) => {
+  const { partieId } = req.params
+  const parsed = EditPartieSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
+
+  const partie = await prisma.partie.findUnique({ where: { id: partieId } })
+  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
+
+  // Seul l'hôte (animateur ou créateur) peut modifier la partie.
+  if (!(await isHostDePartie(req.userId, partieId))) {
+    return res.status(403).json({ error: 'Seul le créateur peut modifier cette partie' })
+  }
+
+  if (partie.status !== 'EN_ATTENTE') {
+    return res.status(400).json({ error: 'Seule une partie non démarrée peut être modifiée' })
+  }
+
+  const { nom, mode, timerBuzz, timerVote, masquerReponses } = parsed.data
+  const data = {}
+  if (nom !== undefined) data.nom = nom
+  if (timerBuzz !== undefined) data.timerBuzz = timerBuzz
+  if (timerVote !== undefined) data.timerVote = timerVote
+  if (masquerReponses !== undefined) data.masquerReponses = masquerReponses
+
+  const effectiveMode = mode ?? (partie.modeAuto ? 'auto' : partie.modeVote ? 'vote' : 'animateur')
+  if (mode !== undefined) {
+    data.modeAuto = mode === 'auto'
+    data.modeVote = mode === 'vote'
+    // En mode animateur, le créateur (1er participant) devient l'animateur ;
+    // dans les autres modes, il n'y a pas d'animateur attitré.
+    const creator = await prisma.participant.findFirst({
+      where: { partieId }, orderBy: { joinedAt: 'asc' },
+    })
+    if (mode === 'animateur') {
+      data.animateurId = creator?.userId ?? partie.creatorId ?? partie.animateurId
+    } else {
+      data.animateurId = null
+    }
+    if (creator) {
+      await prisma.participant.update({
+        where: { id: creator.id }, data: { isAnimateur: mode === 'animateur' },
+      })
+    }
+  }
+  // Le masquage des réponses n'a de sens qu'en mode animateur.
+  if (effectiveMode !== 'animateur') data.masquerReponses = false
+
+  await prisma.partie.update({ where: { id: partieId }, data })
+
+  const full = await prisma.partie.findUnique({ where: { id: partieId }, ...partieFull })
+  broadcast(partie.code, { type: 'partie_updated', partieCode: partie.code })
+  res.json(sanitizePartie(full))
 })
 
 router.post('/:partieId/participants/invite', requireAuth, async (req, res) => {
   const { partieId } = req.params
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
 
   const { prenom } = req.body
   if (!prenom?.trim()) return res.status(400).json({ error: 'Prénom requis' })
@@ -166,12 +312,121 @@ router.post('/:partieId/participants/invite', requireAuth, async (req, res) => {
   res.status(201).json(participant)
 })
 
+// Recherche d'utilisateurs à inviter (par pseudo ou prénom) — autocomplete.
+router.get('/:partieId/participants/search', requireAuth, async (req, res) => {
+  const { partieId } = req.params
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
+
+  const q = (req.query.q ?? '').toString().trim()
+  if (q.length < 1) return res.json([])
+
+  // Exclure les utilisateurs déjà participants.
+  const existing = await prisma.participant.findMany({
+    where: { partieId, userId: { not: null } },
+    select: { userId: true },
+  })
+  const excludeIds = existing.map(e => e.userId)
+
+  const users = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      id: { notIn: excludeIds },
+      OR: [
+        { username: { contains: q, mode: 'insensitive' } },
+        { prenom: { contains: q, mode: 'insensitive' } },
+        { nom: { contains: q, mode: 'insensitive' } },
+      ],
+    },
+    select: { id: true, prenom: true, nom: true, username: true, avatarUrl: true },
+    take: 8,
+    orderBy: { prenom: 'asc' },
+  })
+  res.json(users)
+})
+
+// Ajout d'un participant inscrit (par userId), depuis la recherche.
+router.post('/:partieId/participants/add-user', requireAuth, async (req, res) => {
+  const { partieId } = req.params
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
+
+  const { userId } = req.body
+  if (!userId) return res.status(400).json({ error: 'userId requis' })
+
+  const partie = await prisma.partie.findUnique({ where: { id: partieId }, select: { code: true, status: true } })
+  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
+  if (partie.status !== 'EN_ATTENTE') return res.status(400).json({ error: 'La partie a déjà commencé' })
+
+  const existing = await prisma.participant.findUnique({
+    where: { partieId_userId: { partieId, userId } },
+  })
+  if (existing) return res.status(409).json({ error: 'Ce joueur est déjà dans la partie' })
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { prenom: true } })
+  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' })
+
+  const participant = await prisma.participant.create({
+    data: { partieId, userId, prenom: user.prenom || 'Joueur' },
+  })
+
+  broadcast(partie.code, { type: 'participant_joined', participant })
+  res.status(201).json(participant)
+})
+
+// Retirer un participant avant le démarrage.
+router.delete('/:partieId/participants/:participantId', requireAuth, async (req, res) => {
+  const { partieId, participantId } = req.params
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
+
+  const partie = await prisma.partie.findUnique({ where: { id: partieId }, select: { code: true, status: true, animateurId: true } })
+  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
+  if (partie.status !== 'EN_ATTENTE') return res.status(400).json({ error: 'La partie a déjà commencé' })
+
+  const participant = await prisma.participant.findUnique({ where: { id: participantId } })
+  if (!participant || participant.partieId !== partieId) return res.status(404).json({ error: 'Participant introuvable' })
+  // On ne retire pas l'animateur lui-même.
+  if (participant.userId && participant.userId === partie.animateurId) {
+    return res.status(400).json({ error: 'Impossible de retirer l\'animateur' })
+  }
+
+  await prisma.participant.delete({ where: { id: participantId } })
+  // Détache proprement son buzzer éventuel (statut + LED idle).
+  if (participant.buzzerId) await releaseBuzzerToOnline(participant.buzzerId)
+  broadcast(partie.code, { type: 'participant_removed', participantId })
+  res.json({ ok: true })
+})
+
+// Annuler une partie (uniquement avant le démarrage).
+router.post('/:partieId/cancel', requireAuth, async (req, res) => {
+  const { partieId } = req.params
+  const partie = await prisma.partie.findUnique({ where: { id: partieId } })
+  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
+
+  // Seul l'hôte (animateur ou créateur) peut annuler.
+  if (!(await isHostDePartie(req.userId, partieId))) {
+    return res.status(403).json({ error: 'Seul le créateur peut annuler cette partie' })
+  }
+
+  if (partie.status !== 'EN_ATTENTE') {
+    return res.status(400).json({ error: 'Seule une partie non démarrée peut être annulée' })
+  }
+
+  const updated = await prisma.partie.update({
+    where: { id: partieId },
+    data: { status: 'ANNULEE' },
+  })
+  broadcast(partie.code, { type: 'partie_cancelled', partieCode: partie.code })
+  res.json(updated)
+})
+
 router.post('/:partieId/participants/:participantId/assign-buzzer', requireAuth, async (req, res) => {
   const { partieId, participantId } = req.params
   const { buzzerId } = req.body
 
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
 
   const buzzer = await prisma.buzzer.findUnique({ where: { id: buzzerId } })
   if (!buzzer) return res.status(404).json({ error: 'Buzzer introuvable' })
@@ -199,13 +454,16 @@ router.post('/:partieId/participants/:participantId/assign-buzzer', requireAuth,
 
 router.delete('/:partieId/participants/:participantId/assign-buzzer', requireAuth, async (req, res) => {
   const { partieId, participantId } = req.params
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
 
+  const before = await prisma.participant.findUnique({ where: { id: participantId }, select: { buzzerId: true } })
   const participant = await prisma.participant.update({
     where: { id: participantId },
     data: { buzzerId: null },
   })
+  // Le buzzer détaché repasse ONLINE et sa LED s'éteint (idle).
+  if (before?.buzzerId) await releaseBuzzerToOnline(before.buzzerId)
 
   const partie = await prisma.partie.findUnique({ where: { id: partieId }, select: { code: true } })
   broadcast(partie.code, { type: 'unassign_buzzer', participantId })
@@ -221,13 +479,9 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'La partie a déjà commencé ou est terminée' })
   }
 
-  if (!partie.modeAuto && !partie.modeVote) {
-    if (partie.animateurId !== req.userId) {
-      return res.status(403).json({ error: 'Seul le créateur peut lancer cette partie' })
-    }
-  } else {
-    const participant = await prisma.participant.findFirst({ where: { partieId, userId: req.userId } })
-    if (!participant) return res.status(403).json({ error: 'Vous ne participez pas à cette partie' })
+  // Quel que soit le mode, seul l'hôte (animateur ou créateur) peut lancer.
+  if (!(await isHostDePartie(req.userId, partieId))) {
+    return res.status(403).json({ error: 'Seul l\'hôte peut lancer cette partie' })
   }
 
   // Draw random questions for each manche
@@ -235,8 +489,11 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
 
   const updated = await prisma.partie.update({
     where: { id: partieId },
-    data: { status: 'EN_COURS' },
+    data: { status: 'EN_COURS', startedAt: new Date() },
   })
+
+  // Les buzzers matériels assignés passent EN JEU (statut IN_GAME).
+  await markBuzzersInGame(partieId)
 
   broadcast(partie.code, { type: 'game_started', partieCode: partie.code })
 
@@ -259,8 +516,19 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
   setGameQuestions(partie.code, questions)
 
   if (questions.length > 0) {
-    const { reponse, explication, ...qPublic } = questions[0]
-    broadcast(partie.code, { type: 'question_display', index: 0, question: qPublic })
+    // Message d'affichage centralisé (inclut le chronomètre) — identique à
+    // celui produit lors des avancements → écran public synchronisé.
+    broadcast(partie.code, questionDisplayMessage(partie.code))
+    // Démarrage synchronisé du média de la 1re question (horloge serveur).
+    broadcast(partie.code, mediaStateMessage(partie.code))
+    // LED des buzzers matériels assignés : prêts à buzzer dès la 1re question.
+    pushLedToBuzzers(partie.code, 'armed').catch(() => {})
+
+    // En mode auto, le serveur pilote le rythme : révélation puis avancement
+    // automatique à l'expiration du minuteur de chaque question.
+    if (fullPartie.modeAuto) {
+      startAutoQuestion(partie.code)
+    }
   }
 
   res.json(updated)
@@ -301,8 +569,8 @@ const MancheSchema = z.object({
 
 router.post('/:partieId/manches', requireAuth, async (req, res) => {
   const { partieId } = req.params
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
 
   const partie = await prisma.partie.findUnique({ where: { id: partieId } })
   if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
@@ -322,8 +590,8 @@ router.post('/:partieId/manches', requireAuth, async (req, res) => {
 
 router.delete('/:partieId/manches/:mancheId', requireAuth, async (req, res) => {
   const { partieId, mancheId } = req.params
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
 
   await prisma.manche.delete({ where: { id: mancheId } })
   res.json({ ok: true })
@@ -331,8 +599,8 @@ router.delete('/:partieId/manches/:mancheId', requireAuth, async (req, res) => {
 
 router.post('/:partieId/manches/:mancheId/questions', requireAuth, async (req, res) => {
   const { partieId, mancheId } = req.params
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
 
   const { questionId } = req.body
   if (!questionId) return res.status(400).json({ error: 'questionId requis' })
@@ -351,8 +619,8 @@ router.post('/:partieId/manches/:mancheId/questions', requireAuth, async (req, r
 
 router.delete('/:partieId/manches/:mancheId/questions/:mqId', requireAuth, async (req, res) => {
   const { partieId, mancheId, mqId } = req.params
-  const ok = await isAnimateurDePartie(req.userId, partieId)
-  if (!ok) return res.status(403).json({ error: 'Réservé à l\'animateur' })
+  const ok = await isHostDePartie(req.userId, partieId)
+  if (!ok) return res.status(403).json({ error: 'Réservé à l\'hôte de la partie' })
 
   await prisma.mancheQuestion.delete({ where: { id: mqId } })
   res.json({ ok: true })

@@ -7,7 +7,18 @@ import { requireAdmin } from '../middleware/admin.js'
 
 const router = Router()
 
-const QuestionSchema = z.object({
+// Accepte une URL http(s) absolue OU un chemin relatif servi par l'API (/uploads/…).
+const mediaUrl = z
+  .string()
+  .max(2000)
+  .refine(
+    (v) => /^https?:\/\//.test(v) || v.startsWith('/'),
+    { message: 'URL invalide (http(s):// ou chemin /uploads/…)' },
+  )
+  .optional()
+  .nullable()
+
+export const QuestionSchema = z.object({
   enonce: z.string().min(1).max(2000),
   type: z.enum(['BUZZER', 'QCM', 'VRAI_FAUX', 'IMAGE', 'AUDIO', 'VIDEO']).default('BUZZER'),
   reponse: z.string().min(1).max(500),
@@ -15,11 +26,12 @@ const QuestionSchema = z.object({
   choix: z.array(z.string().max(200)).max(6).default([]),
   points: z.number().int().min(1).max(10000).default(100),
   tempsLimite: z.number().int().min(5).max(300).default(30),
-  mediaUrl: z.string().url().optional().nullable(),
-  videoUrl: z.string().url().optional().nullable(),
+  mediaUrl,
+  videoUrl: mediaUrl,
   videoDebut: z.number().int().min(0).optional().nullable(),
   videoFin: z.number().int().min(0).optional().nullable(),
-  audioUrl: z.string().url().optional().nullable(),
+  audioUrl: mediaUrl,
+  mediaId: z.string().optional().nullable(),
   explication: z.string().max(1000).optional().nullable(),
   source: z.string().max(200).optional().nullable(),
   tags: z.array(z.string().max(50)).default([]),
@@ -32,6 +44,7 @@ const QuestionSchema = z.object({
 const qInclude = {
   categorie: { select: { id: true, nom: true, emoji: true } },
   rubrique: { select: { id: true, nom: true } },
+  media: { select: { id: true, url: true, thumbUrl: true, type: true, mimeType: true, titre: true } },
   createdBy: { select: { prenom: true, username: true } },
 }
 

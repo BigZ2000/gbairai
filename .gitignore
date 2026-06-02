@@ -3,3 +3,8 @@ dist/
 .env
 *.local
 .DS_Store
+
+# Médias uploadés (runtime)
+server/uploads/
+# Venv simulateur Python
+tools/buzzer-simulator/.venv/
