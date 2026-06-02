@@ -26,6 +26,21 @@ export function AuthProvider({ children }) {
     return res
   }, [getAccess])
 
+  // Upload multipart (FormData) — ne pas forcer le Content-Type (le navigateur gère la boundary).
+  const apiUpload = useCallback(async (path, formData) => {
+    const res = await fetch(`/api${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getAccess()}` },
+      body: formData,
+    })
+    if (res.status === 401) {
+      const refreshed = await tryRefresh()
+      if (!refreshed) { logout(); return null }
+      return apiUpload(path, formData)
+    }
+    return res
+  }, [getAccess])
+
   async function tryRefresh() {
     const refresh = localStorage.getItem('refresh')
     if (!refresh) return false
@@ -59,9 +74,12 @@ export function AuthProvider({ children }) {
   }
 
   async function register(email, password, prenom, username) {
+    // Si un compte invité est connecté, on transmet son jeton → conversion en
+    // place côté serveur (score/historique conservés).
+    const token = localStorage.getItem('access')
     const res = await fetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ email, password, prenom, username }),
     })
     if (!res.ok) {
@@ -100,8 +118,16 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false))
   }, [])
 
+  // Applique le thème : la préférence APPAREIL (localStorage) prime ; sinon on
+  // suit le thème du compte ; sinon « dark ». (Le toggle écrit dans localStorage.)
+  useEffect(() => {
+    const device = localStorage.getItem('gbairai_theme')
+    const theme = device ?? (user?.theme === 'light' ? 'light' : 'dark')
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [user?.theme])
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginWithTokens, logout, apiFetch }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, register, loginWithTokens, logout, apiFetch, apiUpload }}>
       {children}
     </AuthContext.Provider>
   )

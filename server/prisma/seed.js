@@ -19,7 +19,7 @@ async function main() {
       email: 'admin@gbairai.ci',
       username: 'admin',
       prenom: 'Admin',
-      passwordHash: hash,
+      password: hash,
       isAdmin: true,
     },
   })

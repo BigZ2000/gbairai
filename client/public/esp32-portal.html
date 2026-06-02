@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gbairai — Buzzer ESP32 (aperçu du portail)</title>
+<style>
+  :root { --bg:#0E0E12; --panel:#15151B; --border:rgba(255,255,255,.08); --text:#ECECF0; --dim:#9090A0; --indigo:#6366F1; }
+  * { box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+  body { margin:0; background:radial-gradient(1200px 600px at 50% -10%, #1a1a2e, var(--bg)); color:var(--text);
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px; gap:18px; }
+  .badge { font-size:12px; color:var(--dim); }
+  .device { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .ring { width:120px; height:120px; border-radius:50%; border:8px solid #475569; display:flex; align-items:center;
+          justify-content:center; transition:.4s; }
+  .ring .core { width:74px; height:74px; border-radius:50%; background:#23232B; transition:.4s; }
+  .led-name { font-size:13px; color:var(--dim); }
+  /* États LED */
+  .led-portal .ring{border-color:#fff; box-shadow:0 0 40px rgba(255,255,255,.4);} .led-portal .core{background:#3a3a44;}
+  .led-wifi   .ring{border-color:#F59E0B; box-shadow:0 0 40px rgba(245,158,11,.5);} .led-wifi .core{background:#3a2c0a;}
+  .led-server .ring{border-color:#0EA5E9; box-shadow:0 0 40px rgba(14,165,233,.5);} .led-server .core{background:#0c2c3a;}
+  .led-await  .ring{border-color:#EAB308; box-shadow:0 0 40px rgba(234,179,8,.5);} .led-await .core{background:#3a2c0a;}
+  .led-ready  .ring{border-color:#22C55E; box-shadow:0 0 36px rgba(34,197,94,.5);} .led-ready .core{background:#14532d;}
+  .led-update .ring{border-color:#A855F7; box-shadow:0 0 40px rgba(168,85,247,.5);} .led-update .core{background:#2a1840;}
+  .card { width:100%; max-width:380px; background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:18px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  p.lead { color:var(--dim); font-size:13px; margin:0 0 14px; }
+  label { font-size:12px; color:var(--dim); display:block; margin:10px 0 4px; }
+  input { width:100%; background:#1C1C24; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:9px 11px; font-size:14px; outline:none; }
+  button { width:100%; margin-top:16px; padding:11px; border:none; border-radius:10px; background:var(--indigo); color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
+  button.ghost { background:rgba(255,255,255,.06); }
+  .steps { list-style:none; padding:0; margin:6px 0 0; }
+  .steps li { display:flex; align-items:center; gap:10px; padding:9px 0; font-size:14px; color:var(--dim); border-bottom:1px solid var(--border); }
+  .steps li .ic { width:22px; height:22px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+  .steps li.done { color:var(--text); } .steps li.done .ic { border-color:#22C55E; background:rgba(34,197,94,.15); color:#22C55E; }
+  .steps li.active .ic { border-color:var(--indigo); }
+  .kv { display:flex; justify-content:space-between; padding:8px 0; font-size:14px; border-bottom:1px solid var(--border); }
+  .kv .v { font-weight:600; }
+  .bat { font-weight:700; }
+  .hidden { display:none; }
+  .note { font-size:11px; color:#5A5A6E; text-align:center; max-width:380px; }
+  a { color:#818CF8; font-size:13px; }
+</style>
+</head>
+<body>
+  <span class="badge">Aperçu — expérience du futur buzzer physique (démo, sans matériel)</span>
+
+  <div class="device led-portal" id="device">
+    <div class="ring"><div class="core"></div></div>
+    <div class="led-name" id="ledName">LED : configuration</div>
+  </div>
+
+  <!-- Écran 1 : portail de configuration (captive portal) -->
+  <div class="card" id="screenConfig">
+    <h1>Configurer le buzzer</h1>
+    <p class="lead">Le buzzer a créé un Wi-Fi <b>Gbairai-Buzzer-1A2B</b>. Renseigne ton réseau et l'adresse du serveur.</p>
+    <label>Réseau Wi-Fi</label>
+    <input id="ssid" placeholder="Mon-WiFi" value="Maison-5G" />
+    <label>Mot de passe Wi-Fi</label>
+    <input id="pwd" type="password" value="••••••••" />
+    <label>Serveur Gbairai (IP)</label>
+    <input id="srv" value="192.168.1.10" />
+    <button onclick="startBoot()">Connecter</button>
+  </div>
+
+  <!-- Écran 2 : démarrage (étapes) -->
+  <div class="card hidden" id="screenBoot">
+    <h1>Démarrage…</h1>
+    <ul class="steps" id="bootSteps">
+      <li data-k="wifi"><span class="ic">1</span> Connexion Wi-Fi</li>
+      <li data-k="server"><span class="ic">2</span> Connexion au serveur</li>
+      <li data-k="await"><span class="ic">3</span> Enregistrement (appairage)</li>
+    </ul>
+  </div>
+
+  <!-- Écran 3 : à appairer -->
+  <div class="card hidden" id="screenAwait">
+    <h1>Presque prêt 🎉</h1>
+    <p class="lead">Ajoute ce buzzer à ton compte dans l'app : <b>Mes buzzers → ajouter</b>, ou scanne le QR sous le boîtier.</p>
+    <div class="kv"><span>MAC</span><span class="v">1A:2B:3C:4D:5E:6F</span></div>
+    <div class="kv"><span>Firmware</span><span class="v">esp32-1.0</span></div>
+    <button onclick="pair()">Simuler l'appairage</button>
+  </div>
+
+  <!-- Écran 4 : prêt / état du buzzer -->
+  <div class="card hidden" id="screenReady">
+    <h1>Buzzer prêt ✅</h1>
+    <p class="lead">Connecté et appairé. Il s'allumera tout seul quand l'animateur lancera la partie.</p>
+    <div class="kv"><span>Statut</span><span class="v" style="color:#22C55E">En ligne</span></div>
+    <div class="kv"><span>Wi-Fi</span><span class="v">Maison-5G · −52 dBm</span></div>
+    <div class="kv"><span>Batterie</span><span class="v bat" id="batV">87%</span></div>
+    <div class="kv"><span>Firmware</span><span class="v">esp32-1.0</span></div>
+    <button class="ghost" id="otaBtn" onclick="doUpdate()">Mise à jour disponible → esp32-1.1</button>
+    <button onclick="reset()">Recommencer la démo</button>
+  </div>
+
+  <div class="note">Ceci est une <b>maquette interactive</b> de l'expérience du buzzer. Le vrai boîtier suivra exactement ce parcours.</div>
+  <a href="/buzzer">← Guide de démarrage des buzzers</a>
+
+<script>
+const $ = id => document.getElementById(id);
+const dev = $("device"), ledName = $("ledName");
+function led(cls, name){ dev.className = "device led-"+cls; ledName.textContent = "LED : "+name; }
+function show(id){ ["screenConfig","screenBoot","screenAwait","screenReady"].forEach(s=>$(s).classList.toggle("hidden", s!==id)); }
+
+function startBoot(){
+  show("screenBoot");
+  const steps = [...document.querySelectorAll("#bootSteps li")];
+  const seq = [["wifi","connexion Wi-Fi","led-wifi"],["server","connexion serveur","led-server"],["await","appairage","led-await"]];
+  let i = 0;
+  steps.forEach(s=>s.classList.remove("done","active"));
+  function next(){
+    if (i>0) steps[i-1].classList.replace("active","done"), steps[i-1].classList.add("done");
+    if (i>=seq.length){ setTimeout(()=>{ led("await","à appairer"); show("screenAwait"); }, 400); return; }
+    const [k,name,cls] = seq[i];
+    steps[i].classList.add("active"); led(cls.replace("led-",""), name);
+    i++; setTimeout(next, 1100);
+  }
+  next();
+}
+function pair(){ led("ready","prêt"); show("screenReady"); animBattery(); }
+function doUpdate(){
+  led("update","mise à jour");
+  $("otaBtn").textContent = "Mise à jour en cours…"; $("otaBtn").disabled = true;
+  setTimeout(()=>{ led("ready","prêt"); $("otaBtn").textContent = "À jour : esp32-1.1 ✓"; }, 2200);
+}
+let batTimer;
+function animBattery(){ clearInterval(batTimer); let b=87; batTimer=setInterval(()=>{ b=Math.max(72,b-1); $("batV").textContent=b+"%"; $("batV").style.color = b<30?"#F87171":b<60?"#EAB308":"#22C55E"; }, 4000); }
+function reset(){ clearInterval(batTimer); led("portal","configuration"); show("screenConfig"); $("otaBtn").disabled=false; $("otaBtn").textContent="Mise à jour disponible → esp32-1.1"; }
+</script>
+</body>
+</html>

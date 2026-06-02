@@ -1,0 +1,8 @@
+﻿enonce,type,reponse,explication,difficulte,points,tempsLimite,categorie,choixA,choixB,choixC,choixD,mediaFile,audioFile,videoFile,videoUrl,videoDebut,videoFin
+"Quel est ce plat emblématique de Côte d'Ivoire ?",IMAGE,"L'attiéké","Semoule de manioc fermenté, plat national ivoirien.",FACILE,100,25,Démo,"L'attiéké","Le foutou","Le placali","Le garba",img-attieke.jpg,,,,,
+"Quel est ce monument du Plateau d'Abidjan ?",IMAGE,"La Pyramide","Immeuble emblématique conçu par Rinaldo Olivieri (1973).",MOYEN,150,25,Démo,"La Pyramide","La Tour F","La Cathédrale Saint-Paul","L'Hôtel Ivoire",img-pyramide.jpg,,,,,
+"À quel pays appartient ce drapeau ?",IMAGE,"Côte d'Ivoire","Drapeau orange-blanc-vert adopté en 1959.",FACILE,100,25,Démo,"Côte d'Ivoire","Le Mali","Le Niger","La Guinée",img-drapeau.jpg,,,,,
+"Reconnaissez cet extrait sonore (démo A)",AUDIO,"Tonalité 440 Hz","Extrait de démonstration (la note La).",FACILE,100,30,Démo,"Tonalité 440 Hz","Tonalité 660 Hz","Tonalité 880 Hz","Silence",,audio-tone-a.mp3,,,,
+"Reconnaissez cet extrait sonore (démo B)",AUDIO,"Tonalité 660 Hz","Extrait de démonstration (la note Mi).",FACILE,100,30,Démo,"Tonalité 660 Hz","Tonalité 440 Hz","Tonalité 220 Hz","Silence",,audio-tone-b.mp3,,,,
+"Quelle séquence vidéo est montrée (démo 1) ?",VIDEO,"Mire de test",  "Clip de démonstration pour valider la lecture vidéo.",FACILE,100,30,Démo,"Mire de test","Match de football","Clip musical","Journal télévisé",,,video-mire-1.mp4,,,
+"Quelle séquence vidéo est montrée (démo 2) ?",VIDEO,"Mire SMPTE","Clip de démonstration (barres SMPTE) pour valider la lecture vidéo.",FACILE,100,30,Démo,"Mire SMPTE","Documentaire animalier","Publicité","Discours officiel",,,video-mire-2.mp4,,,

@@ -20,6 +20,27 @@ export async function isAnimateurDePartie(userId, partieId) {
   return partie?.animateurId === userId
 }
 
+// Hôte de la partie = animateur OU créateur. En modes automatique / vote
+// collectif il n'y a pas d'animateur désigné : seul le créateur gère la partie.
+// Repli (parties anciennes sans creatorId) : 1er participant inscrit.
+export async function isHostDePartie(userId, partieId) {
+  if (!userId) return false
+  const partie = await prisma.partie.findUnique({
+    where: { id: partieId },
+    select: { animateurId: true, creatorId: true },
+  })
+  if (!partie) return false
+  if (partie.animateurId && partie.animateurId === userId) return true
+  if (partie.creatorId && partie.creatorId === userId) return true
+  if (!partie.animateurId && !partie.creatorId) {
+    const first = await prisma.participant.findFirst({
+      where: { partieId }, orderBy: { joinedAt: 'asc' }, select: { userId: true },
+    })
+    return first?.userId === userId
+  }
+  return false
+}
+
 export async function requireAnimateurDePartie(req, res, next) {
   const { partieId } = req.params
   const ok = await isAnimateurDePartie(req.userId, partieId)

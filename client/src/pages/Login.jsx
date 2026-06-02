@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Loader2, AlertCircle, ArrowRight, Gamepad2 } from 'lucide-react'
+import { googleAuthAvailable } from '../utils/env.js'
+import ThemeToggle from '../components/ThemeToggle.jsx'
 
 const GOOGLE_ERRORS = {
   google_not_configured: 'Google OAuth non configuré sur ce serveur.',
@@ -20,6 +22,14 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(GOOGLE_ERRORS[params.get('error')] ?? '')
   const [loading, setLoading] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const googleOk = googleAuthAvailable()
+
+  function handleJoin(e) {
+    e.preventDefault()
+    const c = joinCode.trim().toUpperCase()
+    if (c) navigate(`/rejoindre/${c}`)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -40,27 +50,50 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0E0E12' }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
+      <div className="fixed top-4 right-4"><ThemeToggle /></div>
       <div className="w-full max-w-sm animate-fadeUp">
 
         {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg mb-4"
             style={{ background: '#6366F1', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>G</div>
-          <h1 className="text-xl font-bold" style={{ color: '#ECECF0' }}>Bon retour</h1>
-          <p className="text-sm mt-1" style={{ color: '#9090A0' }}>Connectez-vous à votre compte</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Bon retour</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Connectez-vous à votre compte</p>
         </div>
+
+        {/* Join-first : rejoindre une partie sans compte (un pseudo suffira). */}
+        <form onSubmit={handleJoin} className="card p-4 mb-4">
+          <p className="text-sm font-semibold mb-2 flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
+            <Gamepad2 size={15} style={{ color: '#818CF8' }} />On t'a donné un code ?
+          </p>
+          <div className="flex gap-2">
+            <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              maxLength={8} placeholder="QUIZ42" className="input font-mono tracking-widest uppercase flex-1" />
+            <button type="submit" disabled={!joinCode.trim()} className="btn-primary btn-lg shrink-0 gap-1">
+              Rejoindre <ArrowRight size={14} />
+            </button>
+          </div>
+          <p className="text-2xs mt-2" style={{ color: 'var(--text-dim)' }}>Pas besoin de compte — un pseudo suffit.</p>
+        </form>
 
         {/* Card */}
         <div className="card p-6 space-y-4">
 
-          {/* Google */}
-          <button onClick={handleGoogle} className="btn-google w-full btn-lg gap-3">
-            <GoogleIcon />
-            Continuer avec Google
-          </button>
-
-          <div className="divider">ou</div>
+          {/* Google — masqué hors localhost/HTTPS (Google refuse le LAN). */}
+          {googleOk ? (
+            <>
+              <button onClick={handleGoogle} className="btn-google w-full btn-lg gap-3">
+                <GoogleIcon />
+                Continuer avec Google
+              </button>
+              <div className="divider">ou</div>
+            </>
+          ) : (
+            <p className="text-2xs text-center px-2 py-2 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)', color: '#F59E0B' }}>
+              Connexion Google indisponible en réseau local — utilise ton email, ou joue avec un pseudo via un code.
+            </p>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3">

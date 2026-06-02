@@ -1,12 +1,17 @@
 import React from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { LayoutDashboard, HelpCircle, Tag, Upload, Users, BarChart2, LogOut, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, HelpCircle, Tag, Upload, Users, BarChart2, LogOut, ChevronRight, Image, Package, TrendingUp, CreditCard, Radio } from 'lucide-react'
 
 const NAV = [
   { to: '/admin',            icon: BarChart2,     label: 'Statistiques', exact: true },
+  { to: '/admin/analytics',  icon: TrendingUp,    label: 'Business' },
+  { to: '/admin/offres',     icon: CreditCard,    label: 'Offres' },
+  { to: '/admin/packs',      icon: Package,       label: 'Packs' },
+  { to: '/admin/buzzers',    icon: Radio,         label: 'Buzzers' },
   { to: '/admin/questions',  icon: HelpCircle,    label: 'Questions' },
   { to: '/admin/categories', icon: Tag,           label: 'Catégories' },
+  { to: '/admin/media',      icon: Image,         label: 'Médiathèque' },
   { to: '/admin/import',     icon: Upload,        label: 'Import CSV' },
   { to: '/admin/users',      icon: Users,         label: 'Utilisateurs' },
 ]

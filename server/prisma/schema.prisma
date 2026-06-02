@@ -11,6 +11,31 @@ enum Plan {
   FREE
   PRO
   PREMIUM
+  ENTREPRISE
+  ECOLE
+}
+
+// Niveau d'un pack — pilote les conditions d'accès / la monétisation.
+enum PackTier {
+  GRATUIT
+  PREMIUM
+  ENTREPRISE
+  EVENEMENT
+  ECOLE
+}
+
+enum SubscriptionStatut {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaiementStatut {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
 }
 
 enum PartieStatus {
@@ -42,15 +67,31 @@ enum Difficulte {
   DIFFICILE
 }
 
+enum MediaType {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
   password     String    @default("")
   prenom       String    @default("")
+  nom          String?
   username     String?   @unique
+  telephone    String?
+  avatarUrl    String?
+  theme        String    @default("dark")
+  langue       String    @default("fr")
   googleId     String?   @unique
-  plan         Plan      @default(FREE)
-  planExpireAt DateTime?
+  plan          Plan      @default(FREE)
+  planStartedAt DateTime?
+  planExpireAt  DateTime?
+  isActive      Boolean   @default(true)
+  // Compte invité : créé sans mot de passe pour rejoindre une partie en 1 clic.
+  isGuest       Boolean   @default(false)
+  lastSeenAt   DateTime?
   createdAt    DateTime  @default(now())
 
   isAdmin         Boolean        @default(false)
@@ -59,8 +100,37 @@ model User {
   partiesCreees   Partie[]       @relation("AnimateurParties")
   participations  Participant[]
   paiements       Paiement[]
+  subscriptions   Subscription[]
+  packRatings     PackRating[]
   refreshTokens   RefreshToken[]
   questionsCreees Question[]     @relation("QuestionsCreees")
+  medias          Media[]        @relation("MediasCrees")
+  orgsPossedees   Organisation[]       @relation("OrgOwner")
+  orgMemberships  OrganisationMembre[]
+}
+
+// Médiathèque centrale — fichiers uploadés réutilisables (dédupliqués par hash).
+model Media {
+  id          String    @id @default(cuid())
+  type        MediaType
+  url         String    // chemin servi, ex: /uploads/xxx.jpg
+  thumbUrl    String?   // miniature générée (images / vidéos)
+  filename    String    // nom de fichier original
+  mimeType    String
+  size        Int       // octets (après compression éventuelle)
+  sha256      String    @unique // déduplication (hash du fichier original)
+  titre       String?
+  width       Int?      // images
+  height      Int?      // images
+  duration    Int?      // secondes (audio/vidéo)
+  tags        String[]
+  createdById String?
+  createdBy   User?     @relation("MediasCrees", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  questions Question[]
+
+  @@index([type])
 }
 
 model Partie {
@@ -70,16 +140,43 @@ model Partie {
   status      PartieStatus @default(EN_ATTENTE)
   animateurId String?
   animateur   User?        @relation("AnimateurParties", fields: [animateurId], references: [id])
+  // Créateur (hôte) de la partie — distinct de l'animateur : en modes
+  // automatique / vote collectif il n'y a pas d'animateur, mais le créateur
+  // reste seul habilité à gérer (lancer, annuler, inviter…).
+  creatorId   String?
   modeAuto    Boolean      @default(false)
   modeVote    Boolean      @default(false)
+  // Masquer les réponses à l'animateur jusqu'à la révélation (projection directe).
+  masquerReponses Boolean  @default(false)
   timerBuzz   Int          @default(10)
   timerVote   Int          @default(15)
+  packId      String?
+  packNom     String?
+  startedAt   DateTime?
+  endedAt     DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   participants Participant[]
   votes        Vote[]
   manches      Manche[]
+  events       GameEvent[]
+}
+
+// Journal d'évènements de jeu — sert à l'historique détaillé et aux statistiques.
+model GameEvent {
+  id            String   @id @default(cuid())
+  partieId      String
+  partie        Partie   @relation(fields: [partieId], references: [id], onDelete: Cascade)
+  questionIndex Int
+  questionId    String?
+  participantId String?
+  type          String   // 'buzz' | 'answer' | 'reveal'
+  valide        Boolean?
+  responseMs    Int?
+  createdAt     DateTime @default(now())
+
+  @@index([partieId])
 }
 
 model Participant {
@@ -112,6 +209,10 @@ model Buzzer {
   status     BuzzerStatus @default(OFFLINE)
   lastSeenAt DateTime?
   firmware   String?
+  // Télémétrie (Étape 6) : remontée périodique de l'appareil.
+  battery         Int?      // niveau de batterie 0–100 %
+  rssi            Int?      // force du signal Wi-Fi (dBm)
+  lastTelemetryAt DateTime?
   createdAt  DateTime     @default(now())
 
   participations Participant[]
@@ -130,22 +231,76 @@ model Vote {
   @@unique([partieId, questionIndex, participantId])
 }
 
+// Paiement — prêt pour CinetPay (initiation / callback / webhook).
+// Aucune facturation réelle n'est activée pour l'instant (mode préparation).
 model Paiement {
-  id        String   @id @default(cuid())
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  reference     String         @unique @default(cuid()) // référence marchand (transaction_id CinetPay)
+  montant       Int            // FCFA
+  devise        String         @default("XOF")
+  statut        PaiementStatut @default(PENDING)
+  plan          Plan?          // si achat d'un abonnement
+  offreId       String?        // offre commerciale souscrite
+  packId        String?        // si achat unitaire d'un pack
+  description   String?
+  operateur     String?        // moyen de paiement (Orange Money, MTN, Wave…)
+  transactionId String?        // identifiant retourné par l'opérateur
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([statut])
+}
+
+// Abonnement utilisateur — historise les périodes d'abonnement.
+// User.plan reste la source dénormalisée du plan effectif (lecture rapide).
+model Subscription {
+  id        String             @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  montant   Float
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan      Plan
-  createdAt DateTime @default(now())
+  offreId   String?
+  statut    SubscriptionStatut @default(PENDING)
+  startedAt DateTime?
+  expiresAt DateTime?
+  montant   Int                @default(0) // FCFA
+  reference String?            @unique
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([statut])
+}
+
+// Notation d'un pack par un utilisateur (1 note par utilisateur et par pack).
+model PackRating {
+  id          String   @id @default(cuid())
+  packId      String
+  pack        Pack     @relation(fields: [packId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note        Int // 1..5
+  commentaire String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([packId, userId])
+  @@index([packId])
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  token      String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 }
 
 // ── BIBLIOTHÈQUE DE QUESTIONS ─────────────────────────────
@@ -195,11 +350,14 @@ model Question {
   categorie   Categorie?   @relation(fields: [categorieId], references: [id])
   rubriqueId  String?
   rubrique    Rubrique?    @relation(fields: [rubriqueId], references: [id])
+  mediaId     String?
+  media       Media?       @relation(fields: [mediaId], references: [id])
   createdById String?
   createdBy   User?        @relation("QuestionsCreees", fields: [createdById], references: [id])
   createdAt   DateTime     @default(now())
 
   mancheQuestions MancheQuestion[]
+  packQuestions   PackQuestion[]
 }
 
 // ── MANCHES ───────────────────────────────────────────────
@@ -231,4 +389,228 @@ model MancheQuestion {
 
   @@unique([mancheId, ordre])
   @@unique([mancheId, questionId])
+}
+
+// ── PACKS (PARTIES PRÊTES À JOUER) ────────────────────────
+// Un Pack est une expérience de jeu prête à lancer, entièrement
+// pilotable depuis l'administration (plus aucun contenu codé en dur).
+// Deux modes de contenu :
+//   • DYNAMIQUE : les questions sont tirées automatiquement à partir de
+//     règles (catégories + difficulté + nombre).
+//   • MANUEL    : l'admin choisit précisément les questions (PackQuestion).
+
+enum PackStatut {
+  ACTIF
+  INACTIF
+  ARCHIVE
+}
+
+enum PackContentMode {
+  DYNAMIQUE
+  MANUEL
+}
+
+enum PackDuree {
+  RAPIDE
+  STANDARD
+  LONGUE
+}
+
+model Pack {
+  id          String   @id @default(cuid())
+  slug        String   @unique // référence stable (ex: "actu-ci")
+  nom         String
+  description String   @default("")
+
+  // Présentation
+  emoji       String?  // icône
+  couleur     String   @default("#6366F1")
+  imageUrl    String?  // vignette
+  banniereUrl String?  // bannière large
+  categorie   String?  // catégorie principale (filtre dashboard)
+  tags        String[] // mots-clés pour la recherche
+
+  // Paramètres de jeu
+  difficulte        String          @default("MIXTE") // FACILE|MOYEN|DIFFICILE|MIXTE
+  duree             PackDuree       @default(STANDARD)
+  categories        String[]        // catégories sources (mode dynamique)
+  typesAutorises    String[]        // types de questions autorisés (vide = tous)
+  modeRecommande    String          @default("animateur") // animateur|auto|vote
+  contentMode       PackContentMode @default(DYNAMIQUE)
+  nbManches         Int             @default(2)
+  nbQuestions       Int             @default(10) // par manche
+  tempsParQuestion  Int             @default(30)
+  pointsParQuestion Int             @default(100)
+
+  // Monétisation
+  tier  PackTier @default(GRATUIT) // niveau / condition d'accès
+  prix  Int      @default(0)       // FCFA (achat unitaire ; 0 = inclus / gratuit)
+
+  // Notation (dénormalisé pour l'affichage et le tri)
+  noteMoyenne Float? // moyenne des notes
+  nbAvis      Int    @default(0)
+
+  // Promotion & cycle de vie
+  priorite  Int        @default(50)   // tri décroissant (100 = top)
+  vedette   Boolean    @default(false) // carrousel principal / recommandations
+  signature Boolean    @default(false) // section "Parties signature"
+  statut    PackStatut @default(ACTIF)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions PackQuestion[]
+  ratings   PackRating[]
+
+  @@index([statut])
+  @@index([priorite])
+  @@index([tier])
+}
+
+// Sélection manuelle de questions pour un pack (mode MANUEL).
+model PackQuestion {
+  id         String   @id @default(cuid())
+  packId     String
+  pack       Pack     @relation(fields: [packId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  manche     Int      @default(1) // n° de manche (1..nbManches)
+  ordre      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([packId, questionId])
+  @@index([packId])
+}
+
+// ── OFFRES (CATALOGUE COMMERCIAL PILOTÉ PAR L'ADMIN) ──────
+// L'Offre est ce que l'utilisateur achète (présentation, prix, sièges, durée).
+// Elle pointe vers un `plan` interne (FREE/PRO/ENTREPRISE/ECOLE) dont les
+// limites freemium restent la couche d'application. Côté UX, les offres sont
+// regroupées en 3 familles : Gratuit / Pro / Organisation.
+enum OffreCategorie {
+  PERSONNEL
+  ORGANISATION
+}
+
+model Offre {
+  id             String         @id @default(cuid())
+  code           String         @unique // FREE, PRO, ORG_50, ORG_100…
+  nom            String
+  description    String         @default("")
+  categorie      OffreCategorie @default(PERSONNEL)
+  plan           Plan           @default(FREE) // plan interne appliqué (limites)
+  prix           Int            @default(0)    // FCFA
+  dureeJours     Int            @default(30)
+  sieges         Int            @default(1)    // nombre d'utilisateurs (1 = perso)
+  quotas         Json?          // surcharges éventuelles d'affichage
+  fonctionnalites String[]      // étiquettes d'avantages affichées
+  couleur        String         @default("#6366F1")
+  populaire      Boolean        @default(false)
+  visible        Boolean        @default(true)
+  ordre          Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([categorie])
+}
+
+// ── ORGANISATIONS (ÉCOLES / ENTREPRISES / ASSOCIATIONS…) ──
+// Une seule abstraction pour tous les usages multi-utilisateurs.
+enum OrgType {
+  ENTREPRISE
+  ECOLE
+  UNIVERSITE
+  ASSOCIATION
+  ONG
+  COLLECTIVITE
+}
+
+enum OrgStatut {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum OrgRole {
+  RESPONSABLE
+  GESTIONNAIRE
+  MEMBRE
+}
+
+enum MembreStatut {
+  ACTIF
+  SUSPENDU
+}
+
+enum InvitStatut {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+model Organisation {
+  id          String    @id @default(cuid())
+  nom         String
+  type        OrgType   @default(ENTREPRISE)
+  ownerId     String
+  owner       User      @relation("OrgOwner", fields: [ownerId], references: [id])
+  offreId     String?
+  plan        Plan      @default(ENTREPRISE)
+  sieges      Int       @default(0)     // sièges disponibles
+  statut      OrgStatut @default(ACTIVE)
+  expireAt    DateTime?
+  inviteToken String    @unique         // lien d'invitation permanent
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  membres     OrganisationMembre[]
+  groupes     OrganisationGroupe[]
+  invitations Invitation[]
+
+  @@index([ownerId])
+}
+
+model OrganisationMembre {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(MEMBRE)
+  statut         MembreStatut @default(ACTIF)
+  groupeId       String?
+  groupe         OrganisationGroupe? @relation(fields: [groupeId], references: [id])
+  joinedAt       DateTime     @default(now())
+
+  @@unique([organisationId, userId])
+  @@index([organisationId])
+}
+
+// Groupe = classe / équipe / département (structure légère, optionnelle).
+model OrganisationGroupe {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  nom            String
+  createdAt      DateTime     @default(now())
+
+  membres OrganisationMembre[]
+
+  @@index([organisationId])
+}
+
+model Invitation {
+  id              String       @id @default(cuid())
+  organisationId  String
+  organisation    Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  email           String?      // invitation nominative (optionnelle)
+  token           String       @unique
+  role            OrgRole      @default(MEMBRE)
+  statut          InvitStatut  @default(PENDING)
+  invitedById     String?
+  acceptedByUserId String?
+  expiresAt       DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@index([organisationId])
 }

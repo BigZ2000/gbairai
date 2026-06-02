@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gbairai — Buzzer (simulateur)</title>
+<style>
+  :root { --bg:#0E0E12; --panel:#15151B; --border:rgba(255,255,255,.08); --text:#ECECF0; --dim:#9090A0; }
+  * { box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+  body { margin:0; background:var(--bg); color:var(--text); display:flex; flex-direction:column;
+         align-items:center; min-height:100vh; padding:20px; gap:14px; }
+  h1 { font-size:18px; margin:4px 0 0; }
+  a { color:#818CF8; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; width:100%; max-width:420px; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .row label { width:120px; color:var(--dim); font-size:13px; }
+  .row input { flex:1; background:#1C1C24; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 10px; font-size:14px; outline:none; }
+  button.connect { width:100%; padding:11px; border:none; border-radius:10px; background:#6366F1; color:#fff; font-size:15px; font-weight:700; cursor:pointer; }
+  button.connect:hover { background:#4F46E5; }
+  .pairing { width:100%; max-width:420px; display:flex; align-items:center; gap:8px; justify-content:center; padding:8px; border-radius:10px; font-size:13px; font-weight:600; background:var(--panel); border:1px solid var(--border); }
+  .buzzer-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; }
+  .buzzer { width:280px; height:280px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:transform .06s, box-shadow .25s, background .25s, border-color .25s; border:10px solid #6B7280; background:#23232B; text-align:center; }
+  .buzzer:active { transform:scale(.96); }
+  .buzzer .title { font-size:34px; font-weight:800; }
+  .buzzer .sub { font-size:14px; color:#E5E7EB; margin-top:6px; padding:0 24px; }
+  .s-ready   .buzzer { border-color:#475569; box-shadow:0 0 22px rgba(71,85,105,.4); }
+  .s-awaiting .buzzer { border-color:#EAB308; background:#3a2c0a; animation:pulse-a 1.3s infinite; }
+  .s-armed   .buzzer { border-color:#3B82F6; background:#1e3a8a; box-shadow:0 0 50px rgba(59,130,246,.6); animation:pulse 1.4s infinite; }
+  .s-pressed .buzzer { border-color:#fff; background:#fff; color:#0E0E12; }
+  .s-pressed .buzzer .sub { color:#0E0E12; }
+  .s-winner  .buzzer { border-color:#22C55E; background:#14532d; box-shadow:0 0 60px rgba(34,197,94,.7); }
+  .s-locked  .buzzer { border-color:#EF4444; background:#3f1d1d; }
+  .s-reveal  .buzzer { border-color:#F59E0B; background:#3a2c0a; }
+  .s-disconnected .buzzer { border-color:#6B7280; background:#23232B; cursor:default; }
+  @keyframes pulse   { 0%,100%{ box-shadow:0 0 30px rgba(59,130,246,.45);} 50%{ box-shadow:0 0 60px rgba(59,130,246,.8);} }
+  @keyframes pulse-a { 0%,100%{ box-shadow:0 0 18px rgba(234,179,8,.35);} 50%{ box-shadow:0 0 40px rgba(234,179,8,.7);} }
+  .hint { color:var(--dim); font-size:13px; text-align:center; }
+  .log { width:100%; max-width:420px; height:110px; overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:10px; font:12px/1.5 Menlo,monospace; color:var(--dim); white-space:pre-wrap; }
+  .toolbar { display:flex; gap:12px; font-size:12px; }
+</style>
+</head>
+<body>
+  <h1>🔴 Gbairai — Buzzer (simulateur)</h1>
+  <div class="toolbar">
+    <label><input type="checkbox" id="sound" checked /> 🔊 Sons</label>
+    <a href="/buzzer">Guide de démarrage →</a>
+  </div>
+
+  <div class="panel">
+    <div class="row"><label>Serveur</label><input id="url" /></div>
+    <div class="row"><label>MAC du buzzer</label><input id="mac" /></div>
+    <div class="row"><label>Batterie (%)</label><input id="bat" type="number" value="100" min="0" max="100" /></div>
+    <button class="connect" id="connectBtn">Allumer le buzzer</button>
+  </div>
+
+  <div class="pairing" id="pairing"><span id="pairingDot" style="color:#6B7280">●</span> <span id="pairingTxt">Éteint</span></div>
+
+  <div class="buzzer-wrap s-disconnected" id="wrap">
+    <div class="buzzer" id="buzzer">
+      <div class="title" id="title">Éteint</div>
+      <div class="sub" id="sub">Allume le buzzer pour jouer</div>
+    </div>
+  </div>
+  <div class="hint">Un vrai buzzer n'a pas de code : il suffit de l'allumer. Clique ou ESPACE pour buzzer.</div>
+  <div class="log" id="log"></div>
+
+<script>
+const LED = {
+  disconnected: ["Éteint", "Allume le buzzer pour jouer"],
+  awaiting:     ["À appairer", "Ajoute-le dans « Mes buzzers »"],
+  ready:        ["Prêt", "En attente d'une partie…"],
+  armed:        ["BUZZ !", "Appuie dès que tu sais"],
+  winner:       ["GAGNÉ !", "Tu as buzzé en premier"],
+  locked:       ["Verrouillé", "Quelqu'un a buzzé avant toi"],
+  reveal:       ["Réponse", "Regarde l'écran"],
+};
+const PAIRING = {
+  disconnected: ["Éteint", "#6B7280"],
+  awaiting:     ["À appairer — ajoute-le dans « Mes buzzers »", "#EAB308"],
+  ready:        ["En ligne — prêt", "#22C55E"],
+  ingame:       ["🎮 En jeu", "#3B82F6"],
+};
+const $ = id => document.getElementById(id);
+
+// Détection auto du serveur : si la page est servie par l'app (http://<ip>:5173),
+// on cible ws://<même-ip>:4000 → fonctionne tel quel sur téléphone/tablette en LAN.
+const host = (location.protocol.startsWith("http") && location.hostname) ? location.hostname : "localhost";
+$("url").value = `ws://${host}:4000`;
+const randMac = () => "5E:" + Array.from({length:5}, () => Math.floor(Math.random()*256).toString(16).padStart(2,"0").toUpperCase()).join(":");
+$("mac").value = randMac();
+
+// ── Sons (Web Audio) — mêmes déclencheurs que le futur piézo ESP32 ──────────
+let audio = null;
+function ac() { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); return audio; }
+function beep(freq, dur=0.12, type="sine", vol=0.18, delay=0) {
+  if (!$("sound").checked) return;
+  const c = ac(), o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.value = freq;
+  const t = c.currentTime + delay;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+dur+0.02);
+}
+const SOUND = {
+  connect:  () => beep(660, .1, "triangle"),
+  awaiting: () => { beep(500,.1); beep(500,.1,"sine",.18,.16); },
+  paired:   () => { beep(700,.1); beep(950,.14,"sine",.2,.13); },
+  armed:    () => beep(880, .07, "square", .12),
+  winner:   () => { [660,880,1175].forEach((f,i)=>beep(f,.16,"triangle",.22,i*.12)); },
+  locked:   () => beep(160, .28, "sawtooth", .2),
+  reveal:   () => beep(520, .2, "sine", .16),
+  press:    () => beep(1000, .05, "square", .14),
+};
+
+let ws=null, connected=false, state="disconnected", flashT=0, teleTimer=0;
+const myMac = () => $("mac").value.trim();
+
+function setLed(s, sound=true) {
+  state = s; $("wrap").className = "buzzer-wrap s-" + s;
+  const [t, sub] = LED[s] || LED.ready; $("title").textContent=t; $("sub").textContent=sub;
+  if (sound && SOUND[s==="armed"?"armed":s==="winner"?"winner":s==="locked"?"locked":s==="reveal"?"reveal":null]) SOUND[s]();
+}
+function setPairing(k){ const [t,c]=PAIRING[k]||PAIRING.ready; $("pairingTxt").textContent=t; $("pairingDot").style.color=c; }
+function flash(){ $("wrap").className="buzzer-wrap s-pressed"; $("title").textContent="…"; $("sub").textContent="Appui détecté"; clearTimeout(flashT); flashT=setTimeout(()=>setLed(state,false),180); SOUND.press(); }
+function log(l){ const e=$("log"); e.textContent+=l+"\n"; e.scrollTop=e.scrollHeight; }
+function sendTelemetry(){ if(!connected) return; ws.send(JSON.stringify({type:"device_telemetry",mac:myMac(),battery:Number($("bat").value)||0,rssi:-55})); }
+
+function connect(){
+  ac(); // débloque l'audio (geste utilisateur)
+  try { ws = new WebSocket($("url").value.trim()); } catch { setPairing("disconnected"); return; }
+  $("connectBtn").textContent="Démarrage…";
+  ws.onopen = () => {
+    connected=true;
+    ws.send(JSON.stringify({type:"buzzer_hello",mac:myMac(),firmware:"sim-web-2.1"}));
+    setLed("ready",false); setPairing("ready"); SOUND.connect();
+    $("connectBtn").textContent="Éteindre le buzzer"; log("Allumé — buzzer_hello ("+myMac()+")");
+    sendTelemetry(); clearInterval(teleTimer); teleTimer=setInterval(sendTelemetry,20000);
+  };
+  ws.onclose = () => { connected=false; clearInterval(teleTimer); setLed("disconnected",false); setPairing("disconnected"); $("connectBtn").textContent="Allumer le buzzer"; log("Éteint / déconnecté"); };
+  ws.onerror = () => { setPairing("disconnected"); log("Erreur WebSocket — vérifie l'adresse du serveur"); };
+  ws.onmessage = (e) => {
+    let m; try { m=JSON.parse(e.data); } catch { return; }
+    switch (m.type) {
+      case "awaiting_claim":  setLed("awaiting",false); setPairing("awaiting"); SOUND.awaiting(); log("À appairer (non revendiqué)"); break;
+      case "pairing_success": setLed("ready",false); setPairing("ready"); SOUND.paired(); log("✅ Appairé"); break;
+      case "led":
+        if (!m.state) break;
+        setLed(m.state);
+        setPairing(["armed","winner","locked","reveal"].includes(m.state) ? "ingame" : "ready");
+        log("LED ← " + m.state); break;
+      case "ota": log("⬇️ OTA proposé → "+(m.version||"?")+" ("+(m.url||"")+")"); break;
+    }
+  };
+}
+function buzz(){ if(!connected) return; ws.send(JSON.stringify({type:"buzz",source:"device",mac:myMac()})); flash(); log("→ BUZZ envoyé"); }
+$("connectBtn").onclick = () => (connected ? ws.close() : connect());
+$("buzzer").onclick = buzz;
+document.addEventListener("keydown", e => { if(e.code==="Space"){ e.preventDefault(); buzz(); } });
+</script>
+</body>
+</html>

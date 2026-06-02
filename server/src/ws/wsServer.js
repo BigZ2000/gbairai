@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import jwt from 'jsonwebtoken'
-import { handleGameMessage } from './gameHandler.js'
-import { onBuzzerConnect, onBuzzerDisconnect } from '../services/buzzerService.js'
+import { handleGameMessage, sendSnapshot, sendLedSnapshot } from './gameHandler.js'
+import { onBuzzerConnect, onBuzzerDisconnect, onTelemetry } from '../services/buzzerService.js'
 
 // Map<partieCode, Set<WebSocket>>
 const rooms = new Map()
@@ -41,6 +41,16 @@ export function initWsServer(httpServer) {
         ws._gbairai.mac = mac?.toUpperCase()
         buzzerSockets.set(ws._gbairai.mac, ws)
         await onBuzzerConnect(ws._gbairai.mac, firmware)
+        // S'il est déjà assigné à une partie EN_COURS, on lui pousse l'état
+        // courant de sa LED (reprise transparente après (re)connexion).
+        await sendLedSnapshot(ws._gbairai.mac)
+        return
+      }
+
+      // Télémétrie d'un buzzer (batterie / signal Wi-Fi).
+      if (msg.type === 'device_telemetry') {
+        const mac = ws._gbairai.mac ?? msg.mac?.toUpperCase()
+        if (mac) await onTelemetry(mac, { battery: msg.battery, rssi: msg.rssi })
         return
       }
 
@@ -51,6 +61,9 @@ export function initWsServer(httpServer) {
         if (!rooms.has(partieCode)) rooms.set(partieCode, new Set())
         rooms.get(partieCode).add(ws)
         ws.send(JSON.stringify({ type: 'room_joined', partieCode }))
+        // Resynchronisation immédiate : si une partie est en cours, on renvoie
+        // l'état courant (question, révélation, position média) à ce client.
+        await sendSnapshot(ws, partieCode)
         return
       }
 

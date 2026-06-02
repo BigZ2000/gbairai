@@ -35,7 +35,7 @@ export default function CreatePartie() {
   const navigate    = useNavigate()
 
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ nom: '', mode: 'animateur', timerBuzz: 10, timerVote: 15, nbManches: 1 })
+  const [form, setForm] = useState({ nom: '', mode: 'animateur', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: false })
   const [manches, setManches] = useState([defaultManche(0)])
   const [categories, setCategories] = useState([])
   const [error, setError]   = useState('')
@@ -73,6 +73,7 @@ export default function CreatePartie() {
         mode: form.mode,
         timerBuzz: form.timerBuzz,
         timerVote: form.timerVote,
+        masquerReponses: form.mode === 'animateur' ? form.masquerReponses : false,
       }
       const res = await apiFetch('/parties', { method: 'POST', body })
       if (!res?.ok) {
@@ -181,6 +182,42 @@ export default function CreatePartie() {
                 })}
               </div>
             </div>
+
+            {/* Affichage des réponses côté animateur (#1). Permet de choisir si
+                l'animateur dispose d'un écran de régie privé (réponses visibles
+                à l'avance) ou s'il projette directement son écran et découvre la
+                réponse en même temps que le public. */}
+            {form.mode === 'animateur' && (
+              <div className="card p-5">
+                <p className="label mb-3">Affichage des réponses côté animateur</p>
+                <div className="space-y-2">
+                  {[
+                    { value: false, label: 'Voir les réponses avant révélation',
+                      desc: 'Vous disposez d\'un écran de régie privé : les réponses s\'affichent à l\'avance pour vous. À utiliser quand l\'écran public est séparé de votre écran.' },
+                    { value: true, label: 'Masquer les réponses jusqu\'à la révélation',
+                      desc: 'Vous projetez directement votre écran : aucune réponse n\'apparaît avant la révélation, vous la découvrez avec le public.' },
+                  ].map(opt => {
+                    const sel = !!form.masquerReponses === opt.value
+                    return (
+                      <label key={String(opt.value)}
+                        className="flex items-start gap-3 p-3.5 rounded-lg cursor-pointer transition-all"
+                        style={{
+                          background: sel ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                        }}>
+                        <input type="radio" name="masquerReponses" checked={sel}
+                          onChange={() => setForm(f => ({ ...f, masquerReponses: opt.value }))}
+                          className="mt-0.5 accent-indigo-500" />
+                        <div>
+                          <p className="text-sm font-semibold mb-0.5" style={{ color: sel ? '#ECECF0' : '#9090A0' }}>{opt.label}</p>
+                          <p className="text-xs" style={{ color: '#5A5A6E' }}>{opt.desc}</p>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {form.mode !== 'animateur' && (
               <div className="card p-5">
