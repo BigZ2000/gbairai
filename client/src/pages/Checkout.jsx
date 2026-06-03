@@ -31,17 +31,17 @@ export default function Checkout() {
       </button>
 
       <div className="card p-6">
-        <h1 className="text-xl font-bold mb-1" style={{ color: '#ECECF0' }}>Récapitulatif de commande</h1>
-        <p className="text-sm mb-5" style={{ color: '#9090A0' }}>Vérifie ta commande avant de payer.</p>
+        <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)' }}>Récapitulatif de commande</h1>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Vérifie ta commande avant de payer.</p>
 
-        <div className="rounded-xl p-4 mb-4 space-y-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+        <div className="rounded-xl p-4 mb-4 space-y-3" style={{ background: 'var(--hover-overlay)' }}>
           <Row label="Offre" value={offre?.nom ?? 'Abonnement'} />
           {offre?.sieges > 1 && <Row label="Utilisateurs" value={`${offre.sieges} sièges`} />}
           <Row label="Durée" value={`${offre?.dureeJours ?? 30} jours`} />
-          <div className="h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+          <div className="h-px" style={{ background: 'var(--border)' }} />
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold" style={{ color: '#ECECF0' }}>Total</span>
-            <span className="text-xl font-extrabold" style={{ color: '#ECECF0' }}>{fmtFCFA(montant)}</span>
+            <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Total</span>
+            <span className="text-xl font-extrabold" style={{ color: 'var(--text)' }}>{fmtFCFA(montant)}</span>
           </div>
         </div>
 
@@ -56,7 +56,7 @@ export default function Checkout() {
         <button onClick={pay} disabled={paying} className="btn-primary w-full btn-lg gap-2">
           {paying ? <Loader2 size={16} className="animate-spin" /> : <><Lock size={15} />Payer {fmtFCFA(montant)}</>}
         </button>
-        <p className="text-2xs text-center mt-3 flex items-center justify-center gap-1.5" style={{ color: '#5A5A6E' }}>
+        <p className="text-2xs text-center mt-3 flex items-center justify-center gap-1.5" style={{ color: 'var(--text-dim)' }}>
           <ShieldCheck size={12} />Paiement sécurisé · Orange Money · MTN · Wave · Moov
         </p>
       </div>
@@ -67,8 +67,8 @@ export default function Checkout() {
 function Row({ label, value }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm" style={{ color: '#9090A0' }}>{label}</span>
-      <span className="text-sm font-medium" style={{ color: '#ECECF0' }}>{value}</span>
+      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{value}</span>
     </div>
   )
 }

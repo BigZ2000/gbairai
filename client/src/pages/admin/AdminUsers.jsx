@@ -6,7 +6,7 @@ import {
   Trophy, Gamepad2, KeyRound, Trash2, Ban, CheckCircle2, Crown, Mail, AtSign, Phone, Calendar,
 } from 'lucide-react'
 
-const PLANS = ['FREE', 'PRO', 'PREMIUM']
+const PLANS = ['FREE', 'PRO', 'ENTREPRISE', 'ECOLE']
 
 function Toast({ toast }) {
   if (!toast) return null

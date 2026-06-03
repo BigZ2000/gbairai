@@ -28,12 +28,12 @@ export default function AuthCallback() {
   }, [])
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0E0E12' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg"
           style={{ background: '#6366F1' }}>G</div>
         <Loader2 size={20} className="animate-spin" style={{ color: '#6366F1' }} />
-        <p className="text-sm" style={{ color: '#9090A0' }}>Connexion en cours…</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Connexion en cours…</p>
       </div>
     </div>
   )

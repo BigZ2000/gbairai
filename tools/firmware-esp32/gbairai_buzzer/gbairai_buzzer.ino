@@ -35,6 +35,7 @@
 #define BUTTON_PIN   13          // bouton arcade entre GPIO13 et GND
 #define LED_PIN      5           // entrée DATA d'une LED WS2812 (NeoPixel)
 #define LED_COUNT    1
+#define BUZZER_PIN   12          // piézo (sortie son) — mêmes déclencheurs que le simulateur
 #define BATTERY_PIN  34          // mesure batterie via pont diviseur (entrée ADC)
 #define FIRMWARE_VERSION "esp32-1.0"
 #define TELEMETRY_MS 30000UL     // télémétrie toutes les 30 s
@@ -102,6 +103,28 @@ void renderLed() {
   pixel.show();
 }
 
+// ── Son piézo (mêmes déclencheurs que le simulateur Web Audio) ──────────────
+// `tone(pin, freq, durée)` (Arduino-ESP32) ; non bloquant pour des bips courts.
+void sndBeep(int freq, int dur) { tone(BUZZER_PIN, freq, dur); }
+void sndConnect() { sndBeep(660, 90); }
+void sndAwaiting(){ sndBeep(500, 90); }
+void sndPaired()  { sndBeep(700, 90); delay(110); sndBeep(950, 130); }
+void sndArmed()   { sndBeep(880, 60); }
+void sndWinner()  { sndBeep(660,140); delay(120); sndBeep(880,140); delay(120); sndBeep(1175,180); }
+void sndLocked()  { sndBeep(160, 260); }
+void sndReveal()  { sndBeep(520, 180); }
+void sndPress()   { sndBeep(1000, 50); }
+
+void playSoundForState(LedState s) {
+  switch (s) {
+    case L_ARMED:  sndArmed();  break;
+    case L_WINNER: sndWinner(); break;
+    case L_LOCKED: sndLocked(); break;
+    case L_REVEAL: sndReveal(); break;
+    default: break;
+  }
+}
+
 void setLedFromState(const String& s) {
   if      (s == "armed")  gLed = L_ARMED;
   else if (s == "winner") gLed = L_WINNER;
@@ -166,6 +189,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
       gLed = L_READY;
       sendHello();                              // annonce de l'appareil au boot
       sendTelemetry();                          // 1re télémétrie immédiate
+      sndConnect();
       Serial.println("[WS] connecté → buzzer_hello");
       break;
 
@@ -177,11 +201,12 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
 
     case WStype_TEXT: {
       const char* p = (const char*)payload;
-      if (jsonHas(p, "\"awaiting_claim\""))       { gLed = L_AWAITING; Serial.println("[WS] à appairer"); }
-      else if (jsonHas(p, "\"pairing_success\"")) { gLed = L_READY;    Serial.println("[WS] appairé"); }
+      if (jsonHas(p, "\"awaiting_claim\""))       { gLed = L_AWAITING; sndAwaiting(); Serial.println("[WS] à appairer"); }
+      else if (jsonHas(p, "\"pairing_success\"")) { gLed = L_READY;    sndPaired();   Serial.println("[WS] appairé"); }
       else if (jsonHas(p, "\"type\":\"led\"")) {
         String s = jsonField(p, "\"state\":\"");
         setLedFromState(s);
+        playSoundForState(gLed);
         Serial.printf("[WS] led ← %s\n", s.c_str());
       }
       else if (jsonHas(p, "\"type\":\"ota\"")) {  // mise à jour proposée par le serveur
@@ -204,6 +229,7 @@ void handleButton() {
     gLastBtn = b;
     if (b == LOW) {                                 // appui (pull-up → LOW = pressé)
       gFlashUntil = now + 180;                      // flash blanc local immédiat
+      sndPress();
       if (gConnected) { sendBuzz(); Serial.println("→ BUZZ"); }
     }
   }

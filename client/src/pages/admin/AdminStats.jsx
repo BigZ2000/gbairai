@@ -20,13 +20,13 @@ export default function AdminStats() {
 
   return (
     <AdminLayout>
-      <h1 className="text-2xl font-bold mb-8" style={{ color: '#ECECF0' }}>Statistiques</h1>
+      <h1 className="text-2xl font-bold mb-8" style={{ color: 'var(--text)' }}>Statistiques</h1>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map(c => (
           <div key={c.label} className="card p-6">
             <c.icon size={22} style={{ color: c.color }} className="mb-3" />
-            <p className="text-3xl font-black mb-1" style={{ color: '#ECECF0' }}>{c.value}</p>
-            <p className="text-sm" style={{ color: '#5A5A6E' }}>{c.label}</p>
+            <p className="text-3xl font-black mb-1" style={{ color: 'var(--text)' }}>{c.value}</p>
+            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>{c.label}</p>
           </div>
         ))}
       </div>

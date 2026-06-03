@@ -154,8 +154,8 @@ export default function Questions() {
     <Layout maxWidth="max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: '#ECECF0' }}>Bibliothèque de questions</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#9090A0' }}>{total} question{total !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Bibliothèque de questions</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{total} question{total !== 1 ? 's' : ''}</p>
         </div>
         <button onClick={openNew} className="btn-primary gap-1.5">
           <Plus size={14} />Nouvelle question
@@ -165,7 +165,7 @@ export default function Questions() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-5">
         <div className="relative flex-1 min-w-48">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
           <input
             type="text"
             placeholder="Rechercher…"
@@ -175,7 +175,7 @@ export default function Questions() {
           />
           {q && (
             <button onClick={() => setQ('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-              <X size={12} style={{ color: '#5A5A6E' }} />
+              <X size={12} style={{ color: 'var(--text-dim)' }} />
             </button>
           )}
         </div>
@@ -206,8 +206,8 @@ export default function Questions() {
       ) : questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <BookOpen size={40} className="mb-4" style={{ color: '#2A2A35' }} />
-          <h2 className="text-lg font-semibold mb-1" style={{ color: '#ECECF0' }}>Aucune question</h2>
-          <p className="text-sm mb-5" style={{ color: '#9090A0' }}>Créez votre première question pour commencer.</p>
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text)' }}>Aucune question</h2>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Créez votre première question pour commencer.</p>
           <button onClick={openNew} className="btn-primary gap-1.5"><Plus size={14} />Créer une question</button>
         </div>
       ) : (
@@ -231,13 +231,13 @@ export default function Questions() {
                         {question.difficulte}
                       </span>
                       {question.categorie && (
-                        <span className="text-2xs" style={{ color: '#5A5A6E' }}>
+                        <span className="text-2xs" style={{ color: 'var(--text-dim)' }}>
                           {question.categorie.emoji} {question.categorie.nom}
                           {question.rubrique && ` › ${question.rubrique.nom}`}
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-medium mt-1 truncate" style={{ color: '#ECECF0' }}>
+                    <p className="text-sm font-medium mt-1 truncate" style={{ color: 'var(--text)' }}>
                       {question.enonce}
                     </p>
                   </div>
@@ -251,31 +251,31 @@ export default function Questions() {
                       <Trash2 size={13} />
                     </button>
                     {isExpanded
-                      ? <ChevronUp size={14} style={{ color: '#5A5A6E' }} />
-                      : <ChevronDown size={14} style={{ color: '#5A5A6E' }} />}
+                      ? <ChevronUp size={14} style={{ color: 'var(--text-dim)' }} />
+                      : <ChevronDown size={14} style={{ color: 'var(--text-dim)' }} />}
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <div className="px-4 pb-4 pt-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="px-4 pb-4 pt-0" style={{ borderTop: '1px solid var(--border)' }}>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-3">
                       <div>
-                        <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: '#5A5A6E' }}>Réponse</p>
+                        <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Réponse</p>
                         <p className="text-sm font-semibold" style={{ color: '#4ADE80' }}>{question.reponse}</p>
                       </div>
                       {question.indice && (
                         <div>
-                          <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: '#5A5A6E' }}>Indice</p>
-                          <p className="text-sm" style={{ color: '#9090A0' }}>{question.indice}</p>
+                          <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Indice</p>
+                          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{question.indice}</p>
                         </div>
                       )}
                       {question.choix?.length > 0 && (
                         <div className="col-span-2">
-                          <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: '#5A5A6E' }}>Choix</p>
+                          <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Choix</p>
                           <div className="flex flex-wrap gap-1.5">
                             {question.choix.map((c, i) => (
                               <span key={i} className="text-2xs px-2 py-0.5 rounded"
-                                style={{ background: 'rgba(255,255,255,0.05)', color: '#ECECF0' }}>
+                                style={{ background: 'var(--hover-overlay)', color: 'var(--text)' }}>
                                 {c}
                               </span>
                             ))}
@@ -283,12 +283,12 @@ export default function Questions() {
                         </div>
                       )}
                       <div>
-                        <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: '#5A5A6E' }}>Points</p>
+                        <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Points</p>
                         <p className="text-sm font-bold" style={{ color: '#F59E0B' }}>{question.points} pts</p>
                       </div>
                       <div>
-                        <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: '#5A5A6E' }}>Temps limite</p>
-                        <p className="text-sm" style={{ color: '#ECECF0' }}>{question.tempsLimite}s</p>
+                        <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Temps limite</p>
+                        <p className="text-sm" style={{ color: 'var(--text)' }}>{question.tempsLimite}s</p>
                       </div>
                     </div>
                   </div>
@@ -305,10 +305,10 @@ export default function Questions() {
           style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
           onClick={e => { if (e.target === e.currentTarget) closeForm() }}>
           <div className="w-full max-w-lg h-full overflow-y-auto animate-slideInRight"
-            style={{ background: '#141418', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+            style={{ background: 'var(--surface-2)', borderLeft: '1px solid var(--border)' }}>
             <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4"
-              style={{ background: '#141418', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-              <h2 className="font-semibold" style={{ color: '#ECECF0' }}>
+              style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+              <h2 className="font-semibold" style={{ color: 'var(--text)' }}>
                 {editingId ? 'Modifier la question' : 'Nouvelle question'}
               </h2>
               <button onClick={closeForm} className="btn-ghost btn-sm"><X size={14} /></button>
@@ -376,7 +376,7 @@ export default function Questions() {
 
               {/* Indice */}
               <div>
-                <label className="label">Indice <span style={{ color: '#5A5A6E' }}>(optionnel)</span></label>
+                <label className="label">Indice <span style={{ color: 'var(--text-dim)' }}>(optionnel)</span></label>
                 <input maxLength={500}
                   value={form.indice} onChange={e => setForm(f => ({ ...f, indice: e.target.value }))}
                   placeholder="Ville lumière…"
@@ -463,7 +463,7 @@ export default function Questions() {
                   <div className="w-4 h-4 rounded-full bg-white transition-transform"
                     style={{ transform: form.publique ? 'translateX(1.125rem)' : 'translateX(0)' }} />
                 </div>
-                <span className="text-sm" style={{ color: '#9090A0' }}>Visible par tous</span>
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Visible par tous</span>
               </label>
 
               {formError && (

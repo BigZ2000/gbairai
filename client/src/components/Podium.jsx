@@ -23,7 +23,7 @@ export default function Podium({ classement = [], variant = 'tv', onClose, title
       <div className="text-center">
         <div className="flex items-center justify-center gap-3 mb-2">
           <Trophy size={big ? 40 : 26} style={{ color: '#F59E0B' }} />
-          <h2 className={`${big ? 'text-5xl' : 'text-2xl'} font-black`} style={{ color: '#ECECF0' }}>
+          <h2 className={`${big ? 'text-5xl' : 'text-2xl'} font-black`} style={{ color: 'var(--text)' }}>
             {title}
           </h2>
         </div>
@@ -54,7 +54,7 @@ export default function Podium({ classement = [], variant = 'tv', onClose, title
               </div>
               <Icon size={big ? 26 : 18} style={{ color: m.color }} />
               <p className={`${big ? 'text-xl' : 'text-sm'} font-bold mt-1 text-center max-w-[10rem] truncate`}
-                style={{ color: '#ECECF0' }}>{p.prenom}</p>
+                style={{ color: 'var(--text)' }}>{p.prenom}</p>
               <p className={`${big ? 'text-lg' : 'text-xs'} font-black`} style={{ color: '#F59E0B' }}>
                 {p.score} pt{p.score !== 1 ? 's' : ''}
               </p>
@@ -80,15 +80,15 @@ export default function Podium({ classement = [], variant = 'tv', onClose, title
         <div className={`w-full ${big ? 'max-w-xl' : 'max-w-sm'} space-y-1.5`}>
           {rest.map(p => (
             <div key={p.id} className="flex items-center gap-3 rounded-lg px-4 py-2"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <span className={`${big ? 'text-base' : 'text-sm'} font-bold w-6`} style={{ color: '#5A5A6E' }}>
+              style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)' }}>
+              <span className={`${big ? 'text-base' : 'text-sm'} font-bold w-6`} style={{ color: 'var(--text-dim)' }}>
                 {p.rang}
               </span>
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
                 style={{ background: p.couleur }}>
                 {p.prenom?.[0]?.toUpperCase() ?? '?'}
               </div>
-              <span className={`${big ? 'text-base' : 'text-sm'} font-medium flex-1 truncate`} style={{ color: '#ECECF0' }}>
+              <span className={`${big ? 'text-base' : 'text-sm'} font-medium flex-1 truncate`} style={{ color: 'var(--text)' }}>
                 {p.prenom}
               </span>
               <span className={`${big ? 'text-base' : 'text-sm'} font-black`} style={{ color: '#F59E0B' }}>

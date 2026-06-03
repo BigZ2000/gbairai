@@ -263,9 +263,9 @@ export default function SalleAttente() {
       <Layout>
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <SearchX size={40} className="mb-4" style={{ color: '#2A2A35' }} />
-          <h2 className="text-xl font-bold mb-2" style={{ color: '#ECECF0' }}>Partie introuvable</h2>
-          <p className="text-sm mb-6" style={{ color: '#9090A0' }}>
-            Le code <span className="font-mono font-bold" style={{ color: '#ECECF0' }}>{code}</span> ne correspond à aucune partie active.
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Partie introuvable</h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+            Le code <span className="font-mono font-bold" style={{ color: 'var(--text)' }}>{code}</span> ne correspond à aucune partie active.
           </p>
           <button onClick={() => navigate('/dashboard')} className="btn-primary">Retour au tableau de bord</button>
         </div>
@@ -308,10 +308,10 @@ export default function SalleAttente() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6 gap-4">
           <div>
-            <h1 className="text-xl font-bold mb-1" style={{ color: '#ECECF0' }}>{partie.nom}</h1>
+            <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)' }}>{partie.nom}</h1>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="code-tag flex items-center gap-1"><Hash size={10} />{partie.code}</span>
-              <span className="text-sm" style={{ color: '#9090A0' }}>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 {participants.length} joueur{participants.length !== 1 ? 's' : ''} en attente
               </span>
               {isModeLibre && (
@@ -358,7 +358,7 @@ export default function SalleAttente() {
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4">
               <Users size={14} style={{ color: '#6366F1' }} />
-              <h2 className="font-semibold text-sm" style={{ color: '#ECECF0' }}>Participants</h2>
+              <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Participants</h2>
             </div>
 
             <ul className="space-y-1.5">
@@ -368,8 +368,8 @@ export default function SalleAttente() {
                   <li key={p.id}
                     className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-all duration-150"
                     style={{
-                      background: dragOverId === p.id ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${dragOverId === p.id ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                      background: dragOverId === p.id ? 'rgba(99,102,241,0.08)' : 'var(--hover-overlay)',
+                      border: `1px solid ${dragOverId === p.id ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
                     }}
                     onDragOver={canManage && showBuzzerZone ? e => { e.preventDefault(); setDragOverId(p.id) } : undefined}
                     onDragLeave={canManage && showBuzzerZone ? () => setDragOverId(null) : undefined}
@@ -378,8 +378,8 @@ export default function SalleAttente() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: p.userId ? '#22C55E' : '#F59E0B' }} />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: '#ECECF0' }}>{p.prenom}</p>
-                        <p className="text-2xs" style={{ color: '#5A5A6E' }}>
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{p.prenom}</p>
+                        <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
                           {p.isAnimateur ? 'Animateur' : p.userId ? 'Membre' : 'Invité'}
                         </p>
                       </div>
@@ -484,7 +484,7 @@ export default function SalleAttente() {
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
                   <Radio size={14} style={{ color: '#6366F1' }} />
-                  <h2 className="font-semibold text-sm" style={{ color: '#ECECF0' }}>Buzzers disponibles</h2>
+                  <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Buzzers disponibles</h2>
                 </div>
                 {autoAssignCount > 0 && (
                   <button onClick={autoAssignBuzzers} className="btn-secondary btn-sm gap-1.5">
@@ -492,10 +492,10 @@ export default function SalleAttente() {
                   </button>
                 )}
               </div>
-              <p className="text-2xs mb-3" style={{ color: '#5A5A6E' }}>Glissez un buzzer vers un participant, ou attribuez automatiquement.</p>
+              <p className="text-2xs mb-3" style={{ color: 'var(--text-dim)' }}>Glissez un buzzer vers un participant, ou attribuez automatiquement.</p>
 
               {unassignedBuzzers.length === 0 ? (
-                <p className="text-sm" style={{ color: '#5A5A6E' }}>Tous les buzzers sont assignés.</p>
+                <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Tous les buzzers sont assignés.</p>
               ) : (
                 <ul className="space-y-1.5">
                   {unassignedBuzzers.map(b => (
@@ -503,16 +503,16 @@ export default function SalleAttente() {
                       onDragStart={() => setDraggingBuzzer(b)}
                       onDragEnd={() => { setDraggingBuzzer(null); setDragOverId(null) }}
                       className="flex items-center justify-between rounded-lg px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-all"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)' }}>
                       <div className="flex items-center gap-2.5">
-                        <GripVertical size={12} style={{ color: '#5A5A6E' }} />
+                        <GripVertical size={12} style={{ color: 'var(--text-dim)' }} />
                         <div>
-                          <p className="text-sm font-medium" style={{ color: '#ECECF0' }}>{b.nom ?? b.mac.slice(-8)}</p>
+                          <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{b.nom ?? b.mac.slice(-8)}</p>
                           <div className="flex items-center gap-1 mt-0.5">
                             {b.status === 'ONLINE'
                               ? <Wifi size={10} style={{ color: '#22C55E' }} />
-                              : <WifiOff size={10} style={{ color: '#5A5A6E' }} />}
-                            <span className="text-2xs" style={{ color: b.status === 'ONLINE' ? '#22C55E' : '#5A5A6E' }}>
+                              : <WifiOff size={10} style={{ color: 'var(--text-dim)' }} />}
+                            <span className="text-2xs" style={{ color: b.status === 'ONLINE' ? '#22C55E' : 'var(--text-dim)' }}>
                               {b.status === 'ONLINE' ? 'Connecté' : b.status === 'AWAITING_CLAIM' ? 'Appairage…' : 'Hors ligne'}
                             </span>
                             <BatteryBadge battery={b.battery} />
@@ -533,24 +533,24 @@ export default function SalleAttente() {
           <div className="card p-5 mb-4">
             <div className="flex items-center gap-2 mb-4">
               <Layers size={14} style={{ color: '#6366F1' }} />
-              <h2 className="font-semibold text-sm" style={{ color: '#ECECF0' }}>Manches configurées</h2>
+              <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Manches configurées</h2>
               <span className="badge-indigo">{totalQuestions} questions tirées au lancement</span>
             </div>
             <div className="space-y-2">
               {manches.map((m, i) => (
                 <div key={m.id} className="flex items-center justify-between rounded-lg px-4 py-3"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold px-1.5 py-0.5 rounded"
                       style={{ background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>M{i + 1}</span>
                     <div>
-                      <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>{m.nom}</p>
-                      <p className="text-2xs" style={{ color: '#5A5A6E' }}>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{m.nom}</p>
+                      <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
                         {m.theme === 'MELANGE' ? '🔀 Mélange' : m.theme}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-3 text-xs" style={{ color: '#5A5A6E' }}>
+                  <div className="flex gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
                     <span>{DIFF_LABELS[m.difficulte] ?? m.difficulte}</span>
                     <span>{m.nbQuestions} q.</span>
                     <span>{m.tempsLimite}s</span>

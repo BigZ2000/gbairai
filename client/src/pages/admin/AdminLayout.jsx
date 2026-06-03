@@ -24,17 +24,17 @@ export default function AdminLayout({ children }) {
   function handleLogout() { logout(); navigate('/login') }
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#0E0E12' }}>
+    <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
       {/* Sidebar */}
       <aside className="w-56 flex flex-col shrink-0"
-        style={{ background: '#141418', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+        style={{ background: 'var(--surface-2)', borderRight: '1px solid var(--border)' }}>
         <div className="px-5 py-5 flex items-center gap-2.5"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white"
             style={{ background: '#EF4444' }}>A</div>
           <div>
-            <p className="text-sm font-bold" style={{ color: '#ECECF0' }}>Admin</p>
-            <p className="text-2xs" style={{ color: '#5A5A6E' }}>Gbairai</p>
+            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Admin</p>
+            <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Gbairai</p>
           </div>
         </div>
 
@@ -46,7 +46,7 @@ export default function AdminLayout({ children }) {
                 className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
                 style={{
                   background: active ? 'rgba(239,68,68,0.1)' : 'transparent',
-                  color: active ? '#F87171' : '#9090A0',
+                  color: active ? '#F87171' : 'var(--text-muted)',
                 }}>
                 <Icon size={14} />
                 {label}
@@ -55,16 +55,16 @@ export default function AdminLayout({ children }) {
           })}
         </nav>
 
-        <div className="p-3 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="p-3 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
           <Link to="/dashboard"
             className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-sm transition-all"
-            style={{ color: '#5A5A6E' }}>
+            style={{ color: 'var(--text-dim)' }}>
             <LayoutDashboard size={14} />
             Dashboard
           </Link>
           <button onClick={handleLogout}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all"
-            style={{ color: '#5A5A6E' }}>
+            style={{ color: 'var(--text-dim)' }}>
             <LogOut size={14} />
             Déconnexion
           </button>

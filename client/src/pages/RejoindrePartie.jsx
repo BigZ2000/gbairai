@@ -77,7 +77,7 @@ export default function RejoindrePartie() {
           <Loader2 size={24} className="animate-spin mx-auto my-4" style={{ color: '#6366F1' }} />
         ) : error && !partieNom ? (
           <>
-            <h1 className="text-lg font-bold mb-2" style={{ color: '#ECECF0' }}>Partie introuvable</h1>
+            <h1 className="text-lg font-bold mb-2" style={{ color: 'var(--text)' }}>Partie introuvable</h1>
             <p className="text-sm mb-5 flex items-center justify-center gap-1.5" style={{ color: '#F87171' }}>
               <AlertCircle size={14} />{error}
             </p>
@@ -85,12 +85,12 @@ export default function RejoindrePartie() {
           </>
         ) : (
           <>
-            <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: '#5A5A6E' }}>Tu rejoins</p>
-            <h1 className="text-xl font-bold mb-1" style={{ color: '#ECECF0' }}>{partieNom}</h1>
-            <p className="text-2xs font-mono mb-5" style={{ color: '#5A5A6E' }}>{code}</p>
+            <p className="text-2xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Tu rejoins</p>
+            <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)' }}>{partieNom}</h1>
+            <p className="text-2xs font-mono mb-5" style={{ color: 'var(--text-dim)' }}>{code}</p>
 
             {user || busy ? (
-              <div className="flex items-center justify-center gap-2 py-3" style={{ color: '#9090A0' }}>
+              <div className="flex items-center justify-center gap-2 py-3" style={{ color: 'var(--text-muted)' }}>
                 <Loader2 size={18} className="animate-spin" /> Connexion à la partie…
               </div>
             ) : (
@@ -101,7 +101,7 @@ export default function RejoindrePartie() {
                 <button type="submit" disabled={!prenom.trim()} className="btn-primary w-full btn-lg gap-2">
                   Jouer <ArrowRight size={16} />
                 </button>
-                <p className="text-2xs" style={{ color: '#5A5A6E' }}>Pas besoin de compte — un pseudo suffit.</p>
+                <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Pas besoin de compte — un pseudo suffit.</p>
               </form>
             )}
           </>

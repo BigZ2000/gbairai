@@ -126,15 +126,15 @@ export default function CreatePartie() {
               <div className="flex items-center gap-1.5">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all`}
                   style={{
-                    background: step > s.n ? '#22C55E' : step === s.n ? '#6366F1' : 'rgba(255,255,255,0.06)',
-                    color: step >= s.n ? '#fff' : '#5A5A6E',
+                    background: step > s.n ? '#22C55E' : step === s.n ? '#6366F1' : 'var(--border)',
+                    color: step >= s.n ? '#fff' : 'var(--text-dim)',
                   }}>
                   {step > s.n ? <Check size={12} /> : s.n}
                 </div>
-                <span className="text-sm hidden sm:block" style={{ color: step === s.n ? '#ECECF0' : '#5A5A6E' }}>{s.label}</span>
+                <span className="text-sm hidden sm:block" style={{ color: step === s.n ? 'var(--text)' : 'var(--text-dim)' }}>{s.label}</span>
               </div>
               {i < steps.length - 1 && (
-                <div className="flex-1 h-px" style={{ background: step > s.n ? '#22C55E' : 'rgba(255,255,255,0.08)' }} />
+                <div className="flex-1 h-px" style={{ background: step > s.n ? '#22C55E' : 'var(--border)' }} />
               )}
             </React.Fragment>
           ))}
@@ -165,17 +165,17 @@ export default function CreatePartie() {
                       className="flex items-start gap-3 p-3.5 rounded-lg cursor-pointer transition-all"
                       style={{
                         background: sel ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                        border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
                       }}>
                       <input type="radio" name="mode" value={m.value} checked={sel}
                         onChange={e => setForm(f => ({ ...f, mode: e.target.value }))}
                         className="mt-0.5 accent-indigo-500" />
                       <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                          <Icon size={14} style={{ color: sel ? '#818CF8' : '#5A5A6E' }} />
-                          <p className="text-sm font-semibold" style={{ color: sel ? '#ECECF0' : '#9090A0' }}>{m.label}</p>
+                          <Icon size={14} style={{ color: sel ? '#818CF8' : 'var(--text-dim)' }} />
+                          <p className="text-sm font-semibold" style={{ color: sel ? 'var(--text)' : 'var(--text-muted)' }}>{m.label}</p>
                         </div>
-                        <p className="text-xs" style={{ color: '#5A5A6E' }}>{m.desc}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{m.desc}</p>
                       </div>
                     </label>
                   )
@@ -203,14 +203,14 @@ export default function CreatePartie() {
                         className="flex items-start gap-3 p-3.5 rounded-lg cursor-pointer transition-all"
                         style={{
                           background: sel ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
-                          border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                          border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
                         }}>
                         <input type="radio" name="masquerReponses" checked={sel}
                           onChange={() => setForm(f => ({ ...f, masquerReponses: opt.value }))}
                           className="mt-0.5 accent-indigo-500" />
                         <div>
-                          <p className="text-sm font-semibold mb-0.5" style={{ color: sel ? '#ECECF0' : '#9090A0' }}>{opt.label}</p>
-                          <p className="text-xs" style={{ color: '#5A5A6E' }}>{opt.desc}</p>
+                          <p className="text-sm font-semibold mb-0.5" style={{ color: sel ? 'var(--text)' : 'var(--text-muted)' }}>{opt.label}</p>
+                          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{opt.desc}</p>
                         </div>
                       </label>
                     )
@@ -248,7 +248,7 @@ export default function CreatePartie() {
               <div className="flex items-center gap-3 mt-2">
                 <button type="button" onClick={() => setNbManches(form.nbManches - 1)}
                   className="btn-ghost btn-sm w-9 h-9 flex items-center justify-center font-bold text-lg">−</button>
-                <span className="text-2xl font-bold w-10 text-center" style={{ color: '#ECECF0' }}>{form.nbManches}</span>
+                <span className="text-2xl font-bold w-10 text-center" style={{ color: 'var(--text)' }}>{form.nbManches}</span>
                 <button type="button" onClick={() => setNbManches(form.nbManches + 1)}
                   className="btn-ghost btn-sm w-9 h-9 flex items-center justify-center font-bold text-lg">+</button>
               </div>
@@ -265,7 +265,7 @@ export default function CreatePartie() {
         {/* ── Étape 2 : Manches ── */}
         {step === 2 && (
           <div className="space-y-4 animate-fadeUp">
-            <p className="text-sm" style={{ color: '#9090A0' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Les questions seront tirées aléatoirement depuis la bibliothèque selon les critères de chaque manche.
             </p>
 
@@ -273,7 +273,7 @@ export default function CreatePartie() {
               <div key={m.id} className="card p-5 space-y-4">
                 <div className="flex items-center gap-2 mb-1">
                   <Layers size={14} style={{ color: '#6366F1' }} />
-                  <span className="text-sm font-semibold" style={{ color: '#ECECF0' }}>Manche {i + 1}</span>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Manche {i + 1}</span>
                 </div>
 
                 <div>
@@ -335,33 +335,33 @@ export default function CreatePartie() {
         {step === 3 && (
           <div className="space-y-4 animate-fadeUp">
             <div className="card p-5 space-y-3">
-              <h2 className="text-base font-semibold" style={{ color: '#ECECF0' }}>Récapitulatif</h2>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Récapitulatif</h2>
               <div className="flex justify-between text-sm">
-                <span style={{ color: '#9090A0' }}>Nom</span>
-                <span className="font-semibold" style={{ color: '#ECECF0' }}>{form.nom}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Nom</span>
+                <span className="font-semibold" style={{ color: 'var(--text)' }}>{form.nom}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span style={{ color: '#9090A0' }}>Mode</span>
-                <span className="font-semibold" style={{ color: '#ECECF0' }}>{MODES.find(m => m.value === form.mode)?.label}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Mode</span>
+                <span className="font-semibold" style={{ color: 'var(--text)' }}>{MODES.find(m => m.value === form.mode)?.label}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span style={{ color: '#9090A0' }}>Manches</span>
-                <span className="font-semibold" style={{ color: '#ECECF0' }}>{manches.length}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Manches</span>
+                <span className="font-semibold" style={{ color: 'var(--text)' }}>{manches.length}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span style={{ color: '#9090A0' }}>Questions totales</span>
-                <span className="font-semibold" style={{ color: '#ECECF0' }}>{manches.reduce((s, m) => s + m.nbQuestions, 0)}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Questions totales</span>
+                <span className="font-semibold" style={{ color: 'var(--text)' }}>{manches.reduce((s, m) => s + m.nbQuestions, 0)}</span>
               </div>
             </div>
 
             {manches.map((m, i) => (
               <div key={m.id} className="rounded-xl px-4 py-3 flex items-center justify-between"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
                 <div>
                   <span className="text-xs font-bold mr-2" style={{ color: '#818CF8' }}>M{i + 1}</span>
-                  <span className="text-sm font-medium" style={{ color: '#ECECF0' }}>{m.nom}</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{m.nom}</span>
                 </div>
-                <div className="flex gap-3 text-xs" style={{ color: '#5A5A6E' }}>
+                <div className="flex gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
                   <span>{m.theme === 'MELANGE' ? '🔀 Mélange' : m.theme}</span>
                   <span>{m.difficulte === 'MIXTE' ? 'Mixte' : m.difficulte.toLowerCase()}</span>
                   <span>{m.nbQuestions} q.</span>

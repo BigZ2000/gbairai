@@ -14,7 +14,7 @@ const OffreSchema = z.object({
   nom: z.string().min(1).max(80),
   description: z.string().max(500).optional().default(''),
   categorie: z.enum(['PERSONNEL', 'ORGANISATION']).optional(),
-  plan: z.enum(['FREE', 'PRO', 'PREMIUM', 'ENTREPRISE', 'ECOLE']).optional(),
+  plan: z.enum(['FREE', 'PRO', 'ENTREPRISE', 'ECOLE']).optional(),
   prix: z.number().int().min(0).max(100000000).optional(),
   dureeJours: z.number().int().min(0).max(3650).optional(),
   sieges: z.number().int().min(1).max(100000).optional(),

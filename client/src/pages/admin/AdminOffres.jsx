@@ -37,8 +37,8 @@ export default function AdminOffres() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>Offres</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#5A5A6E' }}>Catalogue commercial — piloté ici, jamais dans le code.</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Offres</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-dim)' }}>Catalogue commercial — piloté ici, jamais dans le code.</p>
         </div>
         <button onClick={() => setEditing({ ...EMPTY })} className="btn-primary gap-2"><Plus size={14} />Nouvelle offre</button>
       </div>
@@ -46,32 +46,32 @@ export default function AdminOffres() {
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['Offre', 'Catégorie', 'Plan', 'Prix', 'Durée', 'Sièges', 'Abonnés', 'Visible', ''].map((h, i) => (
-                <th key={i} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#5A5A6E' }}>{h}</th>
+                <th key={i} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {offres.map(o => (
-              <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} className="hover:bg-white/[0.02]">
+              <tr key={o.id} style={{ borderBottom: '1px solid var(--input-bg)' }} className="hover:bg-white/[0.02]">
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: o.couleur }} />
-                    <span className="font-medium" style={{ color: '#ECECF0' }}>{o.nom}</span>
+                    <span className="font-medium" style={{ color: 'var(--text)' }}>{o.nom}</span>
                     {o.populaire && <Star size={11} style={{ color: '#EAB308', fill: '#EAB308' }} />}
-                    <span className="text-2xs font-mono" style={{ color: '#5A5A6E' }}>{o.code}</span>
+                    <span className="text-2xs font-mono" style={{ color: 'var(--text-dim)' }}>{o.code}</span>
                   </div>
                 </td>
-                <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{o.categorie}</td>
-                <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{o.plan}</td>
-                <td className="px-3 py-3 font-medium" style={{ color: '#ECECF0' }}>{o.prix.toLocaleString('fr-FR')} F</td>
-                <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{o.dureeJours} j</td>
-                <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{o.sieges}</td>
-                <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{o.abonnesPlan}</td>
+                <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{o.categorie}</td>
+                <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{o.plan}</td>
+                <td className="px-3 py-3 font-medium" style={{ color: 'var(--text)' }}>{o.prix.toLocaleString('fr-FR')} F</td>
+                <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{o.dureeJours} j</td>
+                <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{o.sieges}</td>
+                <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{o.abonnesPlan}</td>
                 <td className="px-3 py-3">
                   <button onClick={() => toggleVisible(o)} className="btn-ghost btn-sm">
-                    {o.visible ? <Eye size={13} style={{ color: '#22C55E' }} /> : <EyeOff size={13} style={{ color: '#5A5A6E' }} />}
+                    {o.visible ? <Eye size={13} style={{ color: '#22C55E' }} /> : <EyeOff size={13} style={{ color: 'var(--text-dim)' }} />}
                   </button>
                 </td>
                 <td className="px-3 py-3">
@@ -82,8 +82,8 @@ export default function AdminOffres() {
                 </td>
               </tr>
             ))}
-            {!loading && offres.length === 0 && <tr><td colSpan={9} className="px-4 py-8 text-center text-sm" style={{ color: '#5A5A6E' }}>Aucune offre</td></tr>}
-            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center"><Loader2 size={20} className="animate-spin mx-auto" style={{ color: '#5A5A6E' }} /></td></tr>}
+            {!loading && offres.length === 0 && <tr><td colSpan={9} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>Aucune offre</td></tr>}
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center"><Loader2 size={20} className="animate-spin mx-auto" style={{ color: 'var(--text-dim)' }} /></td></tr>}
           </tbody>
         </table>
       </div>
@@ -121,7 +121,7 @@ function OffreEditor({ offre, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
       <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 animate-scaleIn space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold" style={{ color: '#ECECF0' }}>{isNew ? 'Nouvelle offre' : 'Modifier l\'offre'}</h2>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{isNew ? 'Nouvelle offre' : 'Modifier l\'offre'}</h2>
           <button onClick={onClose} className="btn-ghost btn-sm"><X size={16} /></button>
         </div>
         {err && <p className="text-sm" style={{ color: '#F87171' }}>{err}</p>}
@@ -175,7 +175,7 @@ function Toggle({ label, checked, onChange }) {
       <span className="w-9 h-5 rounded-full transition-all relative shrink-0" style={{ background: checked ? '#6366F1' : 'rgba(255,255,255,0.1)' }}>
         <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: checked ? '18px' : '2px' }} />
       </span>
-      <span className="text-sm" style={{ color: '#ECECF0' }}>{label}</span>
+      <span className="text-sm" style={{ color: 'var(--text)' }}>{label}</span>
     </button>
   )
 }

@@ -28,6 +28,8 @@ serveur → led {state}  → pilote la LED RGB
 | NeoPixel **DIN** | **GPIO 5** |
 | NeoPixel **VCC** | **3V3** (ou 5V) |
 | NeoPixel **GND** | **GND** |
+| Piézo **+** | **GPIO 12** |
+| Piézo **−** | **GND** |
 
 > Le bouton utilise la résistance de tirage interne (`INPUT_PULLUP`) : appui = niveau bas.
 > Tu peux changer les broches en haut du `.ino` (`BUTTON_PIN`, `LED_PIN`).

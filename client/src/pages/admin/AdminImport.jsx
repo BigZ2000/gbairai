@@ -52,8 +52,8 @@ export default function AdminImport() {
 
   return (
     <AdminLayout>
-      <h1 className="text-2xl font-bold mb-2" style={{ color: '#ECECF0' }}>Import en masse</h1>
-      <p className="text-sm mb-6" style={{ color: '#9090A0' }}>
+      <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)' }}>Import en masse</h1>
+      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
         Importez des questions depuis un CSV. Les colonnes <code>mediaFile</code> / <code>audioFile</code> / <code>videoFile</code>
         {' '}référencent les médias d'un dossier ou d'un ZIP joint (correspondance par nom de fichier).
       </p>
@@ -63,8 +63,8 @@ export default function AdminImport() {
         <div className="flex items-center gap-3">
           <FileText size={20} style={{ color: '#6366F1' }} />
           <div>
-            <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>Modèle CSV</p>
-            <p className="text-xs" style={{ color: '#5A5A6E' }}>Colonnes attendues, dont les références médias</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Modèle CSV</p>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Colonnes attendues, dont les références médias</p>
           </div>
         </div>
         <button onClick={downloadTemplate} className="btn-secondary btn-sm">Télécharger le template</button>
@@ -74,8 +74,8 @@ export default function AdminImport() {
         {/* CSV */}
         <div className="card p-5 cursor-pointer" onClick={() => csvRef.current?.click()}>
           <FileText size={22} style={{ color: '#818CF8', marginBottom: 8 }} />
-          <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>1. Fichier CSV *</p>
-          <p className="text-xs mt-1 truncate" style={{ color: csvFile ? '#4ADE80' : '#5A5A6E' }}>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>1. Fichier CSV *</p>
+          <p className="text-xs mt-1 truncate" style={{ color: csvFile ? '#4ADE80' : 'var(--text-dim)' }}>
             {csvFile ? csvFile.name : 'Aucun fichier'}
           </p>
           <input ref={csvRef} type="file" accept=".csv" className="hidden"
@@ -85,8 +85,8 @@ export default function AdminImport() {
         {/* Dossier de médias */}
         <div className="card p-5 cursor-pointer" onClick={() => mediaRef.current?.click()}>
           <Image size={22} style={{ color: '#F472B6', marginBottom: 8 }} />
-          <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>2. Dossier de médias</p>
-          <p className="text-xs mt-1" style={{ color: mediaFiles.length ? '#4ADE80' : '#5A5A6E' }}>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>2. Dossier de médias</p>
+          <p className="text-xs mt-1" style={{ color: mediaFiles.length ? '#4ADE80' : 'var(--text-dim)' }}>
             {mediaFiles.length ? `${mediaFiles.length} fichier(s)` : 'Images / audio / vidéo'}
           </p>
           <input ref={mediaRef} type="file" multiple webkitdirectory="" directory="" className="hidden"
@@ -96,8 +96,8 @@ export default function AdminImport() {
         {/* ZIP */}
         <div className="card p-5 cursor-pointer" onClick={() => zipRef.current?.click()}>
           <FolderArchive size={22} style={{ color: '#FCD34D', marginBottom: 8 }} />
-          <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>… ou un ZIP</p>
-          <p className="text-xs mt-1 truncate" style={{ color: zipFile ? '#4ADE80' : '#5A5A6E' }}>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>… ou un ZIP</p>
+          <p className="text-xs mt-1 truncate" style={{ color: zipFile ? '#4ADE80' : 'var(--text-dim)' }}>
             {zipFile ? zipFile.name : 'Archive .zip de médias'}
           </p>
           <input ref={zipRef} type="file" accept=".zip" className="hidden"
@@ -121,7 +121,7 @@ export default function AdminImport() {
         <div className="card p-5 mt-4" style={{ border: '1px solid rgba(34,197,94,0.25)', background: 'rgba(34,197,94,0.04)' }}>
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle size={18} style={{ color: '#4ADE80' }} />
-            <p className="font-semibold" style={{ color: '#ECECF0' }}>Import terminé</p>
+            <p className="font-semibold" style={{ color: 'var(--text)' }}>Import terminé</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <Stat label="Questions" value={result.questionsCreated} color="#4ADE80" />
@@ -138,7 +138,7 @@ export default function AdminImport() {
           {result.errors?.length > 0 && (
             <details className="mt-3">
               <summary className="text-xs cursor-pointer" style={{ color: '#F87171' }}>Voir les erreurs</summary>
-              <pre className="text-2xs mt-2 overflow-x-auto p-2 rounded" style={{ background: 'rgba(0,0,0,0.3)', color: '#9090A0' }}>
+              <pre className="text-2xs mt-2 overflow-x-auto p-2 rounded" style={{ background: 'rgba(0,0,0,0.3)', color: 'var(--text-muted)' }}>
                 {JSON.stringify(result.errors.slice(0, 20), null, 2)}
               </pre>
             </details>
@@ -151,9 +151,9 @@ export default function AdminImport() {
 
 function Stat({ label, value, color }) {
   return (
-    <div className="rounded-lg py-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+    <div className="rounded-lg py-3" style={{ background: 'var(--hover-overlay)' }}>
       <p className="text-2xl font-black" style={{ color }}>{value ?? 0}</p>
-      <p className="text-2xs uppercase tracking-wider mt-1" style={{ color: '#5A5A6E' }}>{label}</p>
+      <p className="text-2xs uppercase tracking-wider mt-1" style={{ color: 'var(--text-dim)' }}>{label}</p>
     </div>
   )
 }

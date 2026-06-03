@@ -110,8 +110,8 @@ export default function AdminQuestions() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>Questions</h1>
-          <p className="text-sm mt-1" style={{ color: '#5A5A6E' }}>{total} question{total !== 1 ? 's' : ''} au total</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Questions</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>{total} question{total !== 1 ? 's' : ''} au total</p>
         </div>
         <button onClick={() => setEditing({ ...EMPTY })} className="btn-primary gap-2">
           <Plus size={14} />Nouvelle question
@@ -121,7 +121,7 @@ export default function AdminQuestions() {
       {/* Filters */}
       <div className="flex gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 min-w-48">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
           <input type="text" placeholder="Rechercher…" value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
             className="input pl-8 text-sm w-full" />
@@ -145,29 +145,29 @@ export default function AdminQuestions() {
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['Type', 'Énoncé', 'Difficulté', 'Catégorie', ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: '#5A5A6E' }}>{h}</th>
+                    style={{ color: 'var(--text-dim)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {questions.map(q => (
-                <tr key={q.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                <tr key={q.id} style={{ borderBottom: '1px solid var(--input-bg)' }}
                   className="transition-colors hover:bg-white/[0.02]">
                   <td className="px-4 py-3">
                     <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(255,255,255,0.06)', color: TYPE_COLOR[q.type] ?? '#9090A0' }}>
+                      style={{ background: 'var(--border)', color: TYPE_COLOR[q.type] ?? 'var(--text-muted)' }}>
                       {q.type}
                     </span>
                   </td>
                   <td className="px-4 py-3 max-w-xs">
-                    <p className="truncate" style={{ color: '#ECECF0' }}>{q.enonce}</p>
-                    <p className="text-xs truncate" style={{ color: '#5A5A6E' }}>{q.reponse}</p>
+                    <p className="truncate" style={{ color: 'var(--text)' }}>{q.enonce}</p>
+                    <p className="text-xs truncate" style={{ color: 'var(--text-dim)' }}>{q.reponse}</p>
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: '#9090A0' }}>{q.difficulte}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: '#9090A0' }}>{q.categorie?.nom ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{q.difficulte}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{q.categorie?.nom ?? '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end">
                       <button onClick={() => setEditing({ ...q })} className="btn-ghost btn-sm">
@@ -182,7 +182,7 @@ export default function AdminQuestions() {
                 </tr>
               ))}
               {questions.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm" style={{ color: '#5A5A6E' }}>Aucune question</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>Aucune question</td></tr>
               )}
             </tbody>
           </table>
@@ -195,7 +195,7 @@ export default function AdminQuestions() {
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost btn-sm">
             <ChevronLeft size={14} />
           </button>
-          <span className="text-sm" style={{ color: '#9090A0' }}>{page} / {pages}</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{page} / {pages}</span>
           <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages} className="btn-ghost btn-sm">
             <ChevronRight size={14} />
           </button>
@@ -208,7 +208,7 @@ export default function AdminQuestions() {
           style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
           <div className="card p-6 w-full max-w-2xl my-8 animate-scaleIn space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold" style={{ color: '#ECECF0' }}>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
                 {editing.id ? 'Modifier la question' : 'Nouvelle question'}
               </h2>
               <button onClick={() => setEditing(null)} className="btn-ghost btn-sm"><X size={14} /></button>
