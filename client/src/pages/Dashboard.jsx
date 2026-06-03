@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedPack, setSelectedPack] = useState(null)
   const [launching, setLaunching] = useState(null)
+  const [animateurJoue, setAnimateurJoue] = useState(false) // mode animateur : l'hôte joue aussi ?
   const [quota, setQuota] = useState(null)
   const [paywall, setPaywall] = useState(null) // { reason, requiredPlan } | null
 
@@ -127,7 +128,7 @@ export default function Dashboard() {
   async function launchPack(packId, gameMode) {
     setLaunching(packId)
     try {
-      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode } })
+      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false } })
       if (!res?.ok) {
         const err = await res?.json().catch(() => ({}))
         setLaunching(null); setSelectedPack(null)
@@ -155,14 +156,14 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-end justify-between mb-7">
         <div>
-          <p className="text-sm mb-0.5" style={{ color: '#9090A0' }}>{greeting} 👋</p>
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: '#ECECF0' }}>{displayName}</h1>
+          <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>{greeting} 👋</p>
+          <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>{displayName}</h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            {onlineBuzzers > 0 ? <Wifi size={13} style={{ color: '#22C55E' }} /> : <WifiOff size={13} style={{ color: '#5A5A6E' }} />}
-            <span className="text-xs font-medium" style={{ color: onlineBuzzers > 0 ? '#22C55E' : '#5A5A6E' }}>
+            style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)' }}>
+            {onlineBuzzers > 0 ? <Wifi size={13} style={{ color: '#22C55E' }} /> : <WifiOff size={13} style={{ color: 'var(--text-dim)' }} />}
+            <span className="text-xs font-medium" style={{ color: onlineBuzzers > 0 ? '#22C55E' : 'var(--text-dim)' }}>
               {onlineBuzzers}/{buzzers.length} buzzer{buzzers.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -207,8 +208,8 @@ export default function Dashboard() {
               <Link key={p.id} to={`/parties/${p.code}/${p.status === 'EN_COURS' ? 'jeu' : 'attente'}`}
                 className="card card-hover p-4 flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate" style={{ color: '#ECECF0' }}>{p.nom}</p>
-                  <p className="text-2xs mt-0.5 font-mono" style={{ color: '#5A5A6E' }}>
+                  <p className="font-semibold text-sm truncate" style={{ color: 'var(--text)' }}>{p.nom}</p>
+                  <p className="text-2xs mt-0.5 font-mono" style={{ color: 'var(--text-dim)' }}>
                     {p.code} · {p.participants?.length ?? 0} joueur{(p.participants?.length ?? 0) !== 1 ? 's' : ''}
                   </p>
                 </div>
@@ -224,7 +225,7 @@ export default function Dashboard() {
       {/* Recherche + filtres */}
       <div className="mb-6 space-y-3">
         <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher un pack… (football, musique, Abidjan…)"
             className="input w-full pl-10" />
@@ -236,7 +237,7 @@ export default function Dashboard() {
           )}
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <SlidersHorizontal size={14} style={{ color: '#5A5A6E' }} />
+          <SlidersHorizontal size={14} style={{ color: 'var(--text-dim)' }} />
           <FilterChips value={fCat} onChange={setFCat} options={categories.map(c => [c, c])} placeholder="Catégorie" />
           <FilterChips value={fDiff} onChange={setFDiff} options={DIFFICULTES} placeholder="Difficulté" />
           <FilterChips value={fDuree} onChange={setFDuree} options={DUREES} placeholder="Durée" />
@@ -254,7 +255,7 @@ export default function Dashboard() {
           {filtered.length === 0 ? (
             <div className="card p-8 text-center">
               <Search size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
-              <p className="text-sm" style={{ color: '#5A5A6E' }}>Aucun pack ne correspond à ta recherche.</p>
+              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Aucun pack ne correspond à ta recherche.</p>
             </div>
           ) : (
             <PackGrid packs={filtered} launching={launching} onPick={pickPack} />
@@ -286,8 +287,8 @@ export default function Dashboard() {
                         : <Play size={15} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: sig.couleur }} />}
                     </div>
                     <div>
-                      <p className="font-bold text-sm leading-tight" style={{ color: '#ECECF0' }}>{sig.nom}</p>
-                      <p className="text-2xs mt-0.5 line-clamp-1" style={{ color: '#9090A0' }}>{sig.description}</p>
+                      <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>{sig.nom}</p>
+                      <p className="text-2xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{sig.description}</p>
                     </div>
                   </button>
                 ))}
@@ -317,23 +318,23 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-3">
           <SectionTitle icon={Radio} title="Mes buzzers" inline />
           <div className="flex items-center gap-3">
-            <Link to="/buzzer" className="text-xs font-medium" style={{ color: '#9090A0' }}>Comment ça marche ?</Link>
+            <Link to="/buzzer" className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Comment ça marche ?</Link>
             <Link to="/compte" className="text-xs font-medium" style={{ color: '#818CF8' }}>Gérer →</Link>
           </div>
         </div>
         {buzzers.length === 0 ? (
           <div className="card p-6 text-center">
             <Radio size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
-            <p className="text-sm mb-3" style={{ color: '#5A5A6E' }}>Aucun buzzer appairé.</p>
+            <p className="text-sm mb-3" style={{ color: 'var(--text-dim)' }}>Aucun buzzer appairé.</p>
             <Link to="/compte" className="btn-secondary btn-sm">Ajouter un buzzer</Link>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {buzzers.map(b => (
               <div key={b.id} className="flex items-center gap-2 rounded-lg px-3 py-2"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: b.status === 'OFFLINE' ? '#5A5A6E' : b.status === 'IN_GAME' ? '#F59E0B' : '#22C55E' }} />
-                <span className="text-sm font-medium" style={{ color: '#ECECF0' }}>{b.nom ?? b.mac.slice(-5)}</span>
+                style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)' }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: b.status === 'OFFLINE' ? 'var(--text-dim)' : b.status === 'IN_GAME' ? '#F59E0B' : '#22C55E' }} />
+                <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{b.nom ?? b.mac.slice(-5)}</span>
               </div>
             ))}
           </div>
@@ -351,11 +352,25 @@ export default function Dashboard() {
               <span className="text-4xl">{selectedPack.emoji}</span>
               <button onClick={() => setSelectedPack(null)} className="btn-ghost btn-sm"><X size={16} /></button>
             </div>
-            <h3 className="text-xl font-bold mt-2" style={{ color: '#ECECF0' }}>{selectedPack.nom}</h3>
-            <p className="text-sm mt-1 mb-1.5" style={{ color: '#9090A0' }}>{selectedPack.description}</p>
-            <p className="text-2xs mb-4" style={{ color: '#5A5A6E' }}>
+            <h3 className="text-xl font-bold mt-2" style={{ color: 'var(--text)' }}>{selectedPack.nom}</h3>
+            <p className="text-sm mt-1 mb-1.5" style={{ color: 'var(--text-muted)' }}>{selectedPack.description}</p>
+            <p className="text-2xs mb-4" style={{ color: 'var(--text-dim)' }}>
               {selectedPack.nbManches} manche{selectedPack.nbManches > 1 ? 's' : ''} · {selectedPack.nbManches * selectedPack.nbQuestions} questions · {selectedPack.tempsParQuestion}s/question
             </p>
+
+            {/* Mode animateur : l'hôte peut choisir d'être Maître du jeu (défaut)
+                ou de jouer aussi (compté au classement). */}
+            <button onClick={() => setAnimateurJoue(v => !v)}
+              className="flex items-center gap-2 mb-3 text-left">
+              <span className="w-9 h-5 rounded-full relative transition-all shrink-0"
+                style={{ background: animateurJoue ? '#6366F1' : 'rgba(255,255,255,0.12)' }}>
+                <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: animateurJoue ? '18px' : '2px' }} />
+              </span>
+              <span className="text-2xs" style={{ color: 'var(--text-muted)' }}>
+                {animateurJoue ? 'Je joue aussi (compté au score)' : 'Je suis Maître du jeu (hors classement)'}
+                <span className="block" style={{ color: 'var(--text-dim)' }}>Mode Animateur uniquement</span>
+              </span>
+            </button>
 
             <p className="label mb-2">Choisis le mode de jeu</p>
             <div className="space-y-2">
@@ -367,23 +382,23 @@ export default function Dashboard() {
                     onClick={() => launchPack(selectedPack.id, m.id)}
                     className="w-full flex items-center gap-3 p-3.5 rounded-xl transition-all text-left"
                     style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${recommended ? hex(selectedPack.couleur, 0.4) : 'rgba(255,255,255,0.08)'}`,
+                      background: 'var(--hover-overlay)',
+                      border: `1px solid ${recommended ? hex(selectedPack.couleur, 0.4) : 'var(--border)'}`,
                     }}>
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                       style={{ background: hex(selectedPack.couleur, 0.15) }}>
                       <Icon size={16} style={{ color: selectedPack.couleur }} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#ECECF0' }}>
+                      <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
                         {m.emoji} {m.label}
                         {recommended && <span className="text-2xs px-1.5 py-0.5 rounded-full" style={{ background: hex(selectedPack.couleur, 0.15), color: selectedPack.couleur }}>Recommandé</span>}
                       </p>
-                      <p className="text-2xs" style={{ color: '#5A5A6E' }}>{m.desc}</p>
+                      <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>{m.desc}</p>
                     </div>
                     {launching === selectedPack.id
                       ? <Loader2 size={16} className="animate-spin" style={{ color: selectedPack.couleur }} />
-                      : <ArrowRight size={15} style={{ color: '#5A5A6E' }} />}
+                      : <ArrowRight size={15} style={{ color: 'var(--text-dim)' }} />}
                   </button>
                 )
               })}
@@ -405,10 +420,10 @@ export default function Dashboard() {
               style={{ background: 'rgba(99,102,241,0.12)' }}>
               {paywall.quota ? <Gauge size={26} style={{ color: '#818CF8' }} /> : <Lock size={24} style={{ color: '#818CF8' }} />}
             </div>
-            <h3 className="text-lg font-bold mb-1.5" style={{ color: '#ECECF0' }}>
+            <h3 className="text-lg font-bold mb-1.5" style={{ color: 'var(--text)' }}>
               {paywall.quota ? 'Limite atteinte' : 'Pack réservé'}
             </h3>
-            <p className="text-sm mb-5" style={{ color: '#9090A0' }}>{paywall.reason}</p>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{paywall.reason}</p>
             <div className="flex flex-col gap-2">
               <Link to="/abonnement" className="btn-primary w-full gap-2">
                 <Crown size={15} />{paywall.quota ? 'Passer à PRO' : 'Découvrir les offres'}
@@ -437,18 +452,18 @@ function QuotaBanner({ quota }) {
       <div className="flex items-center gap-2.5 shrink-0">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center"
           style={{ background: quota.plan === 'FREE' ? 'rgba(144,144,160,0.15)' : 'rgba(99,102,241,0.15)' }}>
-          <Crown size={16} style={{ color: quota.plan === 'FREE' ? '#9090A0' : '#818CF8' }} />
+          <Crown size={16} style={{ color: quota.plan === 'FREE' ? 'var(--text-muted)' : '#818CF8' }} />
         </div>
         <div>
           {org ? (
             <>
-              <p className="text-sm font-bold" style={{ color: '#ECECF0' }}>{org.nom}</p>
-              <p className="text-2xs" style={{ color: '#5A5A6E' }}>Plan Organisation {org.sieges} utilisateurs</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{org.nom}</p>
+              <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Plan Organisation {org.sieges} utilisateurs</p>
             </>
           ) : (
             <>
-              <p className="text-sm font-bold" style={{ color: '#ECECF0' }}>Plan {quota.planNom}</p>
-              <p className="text-2xs" style={{ color: '#5A5A6E' }}>
+              <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Plan {quota.planNom}</p>
+              <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
                 Joueurs max : {quota.limites.joueursMax ?? '∞'}
                 {renouvellement && <> · renouvellement le {new Date(renouvellement).toLocaleDateString('fr-FR')}</>}
               </p>
@@ -460,20 +475,20 @@ function QuotaBanner({ quota }) {
         {org ? (
           <>
             <div className="flex items-center justify-between text-2xs mb-1">
-              <span style={{ color: '#9090A0' }}>Utilisateurs actifs</span>
-              <span style={{ color: '#9090A0' }}>{org.siegesUtilises} / {org.sieges}</span>
+              <span style={{ color: 'var(--text-muted)' }}>Utilisateurs actifs</span>
+              <span style={{ color: 'var(--text-muted)' }}>{org.siegesUtilises} / {org.sieges}</span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--hover-overlay)' }}>
               <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((org.siegesUtilises / org.sieges) * 100)}%`, background: '#38BDF8' }} />
             </div>
           </>
         ) : (
           <>
             <div className="flex items-center justify-between text-2xs mb-1">
-              <span style={{ color: '#9090A0' }}>Parties ce mois</span>
-              <span style={{ color: presduMax ? '#F59E0B' : '#9090A0' }}>{illimite ? `${used} · illimité` : `${used} / ${max}`}</span>
+              <span style={{ color: 'var(--text-muted)' }}>Parties ce mois</span>
+              <span style={{ color: presduMax ? '#F59E0B' : 'var(--text-muted)' }}>{illimite ? `${used} · illimité` : `${used} / ${max}`}</span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--hover-overlay)' }}>
               <div className="h-full rounded-full transition-all"
                 style={{ width: illimite ? '100%' : `${pct}%`, background: illimite ? '#22C55E' : presduMax ? '#F59E0B' : '#6366F1' }} />
             </div>
@@ -513,12 +528,12 @@ function PackRating({ pack, apiFetch }) {
 
   const mien = data?.mien?.note ?? 0
   return (
-    <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+    <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
       <div>
-        <p className="text-2xs mb-0.5" style={{ color: '#5A5A6E' }}>
+        <p className="text-2xs mb-0.5" style={{ color: 'var(--text-dim)' }}>
           {data?.nbAvis ? <>⭐ {data.noteMoyenne} / 5 · {data.nbAvis} avis</> : 'Aucun avis — sois le premier !'}
         </p>
-        <p className="text-2xs" style={{ color: '#5A5A6E' }}>Ta note :</p>
+        <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Ta note :</p>
       </div>
       <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map(n => (
@@ -569,11 +584,11 @@ function PackGrid({ packs, launching, onPick, highlight }) {
             </div>
           </div>
           <div className="relative z-10">
-            <p className="font-bold text-sm leading-tight" style={{ color: '#ECECF0' }}>{pack.nom}</p>
-            <p className="text-2xs mt-1 line-clamp-2" style={{ color: '#9090A0' }}>{pack.description}</p>
+            <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>{pack.nom}</p>
+            <p className="text-2xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{pack.description}</p>
             {pack.nbAvis > 0 && (
               <p className="text-2xs mt-1 flex items-center gap-1" style={{ color: '#EAB308' }}>
-                <Star size={9} style={{ fill: '#EAB308' }} />{pack.noteMoyenne} <span style={{ color: '#5A5A6E' }}>({pack.nbAvis})</span>
+                <Star size={9} style={{ fill: '#EAB308' }} />{pack.noteMoyenne} <span style={{ color: 'var(--text-dim)' }}>({pack.nbAvis})</span>
               </p>
             )}
           </div>
@@ -594,9 +609,9 @@ function FilterChips({ value, onChange, options, placeholder }) {
     <select value={value} onChange={e => onChange(e.target.value)}
       className="text-xs font-medium rounded-lg px-2.5 py-1.5 cursor-pointer outline-none"
       style={{
-        background: value ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.03)',
-        color: value ? '#818CF8' : '#9090A0',
-        border: '1px solid rgba(255,255,255,0.06)',
+        background: value ? 'rgba(99,102,241,0.15)' : 'var(--hover-overlay)',
+        color: value ? '#818CF8' : 'var(--text-muted)',
+        border: '1px solid var(--border)',
       }}>
       <option value="">{placeholder}</option>
       {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -609,9 +624,9 @@ function SectionTitle({ icon: Icon, title, subtitle, inline }) {
     <div className={inline ? '' : 'mb-3'}>
       <div className="flex items-center gap-2">
         <Icon size={15} style={{ color: '#818CF8' }} />
-        <h2 className="font-semibold text-base" style={{ color: '#ECECF0' }}>{title}</h2>
+        <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>{title}</h2>
       </div>
-      {subtitle && <p className="text-xs mt-0.5 ml-6" style={{ color: '#5A5A6E' }}>{subtitle}</p>}
+      {subtitle && <p className="text-xs mt-0.5 ml-6" style={{ color: 'var(--text-dim)' }}>{subtitle}</p>}
     </div>
   )
 }

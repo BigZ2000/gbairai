@@ -142,7 +142,8 @@ async function broadcastParticipants(partieCode) {
   const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { id: true } })
   if (!partie) return
   const participants = await prisma.participant.findMany({
-    where: { partieId: partie.id },
+    // Le maître du jeu (animateur) n'est pas un joueur → exclu du classement.
+    where: { partieId: partie.id, isAnimateur: false },
     orderBy: { score: 'desc' },
     include: { buzzer: { select: { couleur: true, mac: true, status: true, battery: true } } },
   })
@@ -251,25 +252,31 @@ function questionAChoix(q) {
 //    réponse marque des points, pondérés par la rapidité (modèle Kahoot).
 //  • Question ouverte (BUZZER) : la bonne réponse ne peut pas être jugée
 //    automatiquement → le plus rapide à buzzer marque (jeu de réflexe).
+// Barème UNIFIÉ (même échelle pour tous les modes) : 50 % garantis pour une
+// bonne réponse + 50 % selon la rapidité. `ms` = temps de réponse/buzz.
+export function questionPoints(q, ms) {
+  const base = q?.pointsParQ ?? q?.points ?? 100
+  const limitMs = (q?.tempsLimite ?? 30) * 1000
+  const speed = Math.max(0, Math.min(1, 1 - (ms ?? limitMs) / limitMs))
+  return Math.round(base * (0.5 + 0.5 * speed))
+}
+
 async function scoreAutoQuestion(partieCode) {
   const state = getGameState(partieCode)
   const q = state.questions?.[state.currentQuestion]
   if (!q) return
-  const base = q.pointsParQ ?? q.points ?? 100
-  const limitMs = (q.tempsLimite ?? 30) * 1000
   const updates = []
 
+  // MODE AUTO = SÉLECTION uniquement : on ne score QUE les questions à choix
+  // (chacun tape sa réponse). Les questions ouvertes ne sont pas buzzées en auto
+  // (pas de juge) → aucun point attribué « à l'aveugle ».
   if (questionAChoix(q)) {
     const correct = normalizeAnswer(q.reponse)
     for (const [pid, a] of state.answers) {
       if (normalizeAnswer(a.answer) === correct) {
-        // 50 % garantis pour une bonne réponse + 50 % selon la rapidité.
-        const speed = Math.max(0, Math.min(1, 1 - (a.ms ?? limitMs) / limitMs))
-        updates.push({ participantId: pid, pts: Math.round(base * (0.5 + 0.5 * speed)) })
+        updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
       }
     }
-  } else if (state.currentWinnerParticipantId) {
-    updates.push({ participantId: state.currentWinnerParticipantId, pts: base })
   }
 
   for (const u of updates) {
@@ -369,6 +376,10 @@ async function handleBuzz({ ws, partieCode, participantId, mac, source }, broadc
   const partie = await prisma.partie.findUnique({ where: { code: pc } })
   if (!partie || partie.status !== 'EN_COURS') return
 
+  // MODE AUTO = SÉLECTION : le buzz est désactivé (aucun juge pour trancher une
+  // réponse orale). Les joueurs répondent en tapant un choix. → buzz ignoré.
+  if (partie.modeAuto) return
+
   const state = getGameState(pc)
   // Réponse révélée → question close : aucun buzz (ni traité ni affiché).
   if (state.revealed) return
@@ -387,6 +398,7 @@ async function handleBuzz({ ws, partieCode, participantId, mac, source }, broadc
   state.currentWinnerParticipantId = participant?.id ?? null
 
   const responseMs = state.questionShownAt ? Date.now() - state.questionShownAt : null
+  state.winnerResponseMs = responseMs // sert au barème unifié (validation / vote)
   recordEvent(pc, {
     type: 'buzz',
     questionIndex: state.currentQuestion ?? 0,
@@ -403,13 +415,6 @@ async function handleBuzz({ ws, partieCode, participantId, mac, source }, broadc
     responseMs,
   })
   await pushLedToBuzzers(pc, 'winner', { winnerParticipantId: participant?.id })
-
-  if (partie.modeAuto) {
-    // Un buzz interrompt le minuteur : délai de réponse (timerBuzz) puis reveal.
-    clearAutoTimer(pc)
-    const timer = setTimeout(() => { doReveal(pc).catch(() => {}) }, partie.timerBuzz * 1000)
-    autoTimers.set(pc, timer)
-  }
 }
 
 // ── Main WS handler ────────────────────────────────────────────────────────
@@ -458,6 +463,9 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
       const partie = await prisma.partie.findUnique({ where: { code: partieCode } })
       if (!partie?.modeVote) return
 
+      // Pas d'auto-vote : le joueur qui a buzzé ne peut pas voter sur sa propre réponse.
+      if (participantId && participantId === getGameState(partieCode).currentWinnerParticipantId) return
+
       const participant = await prisma.participant.findFirst({
         where: { id: participantId, partie: { code: partieCode } },
       })
@@ -469,7 +477,12 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
         update: { valide },
       })
 
-      const allParticipants = await prisma.participant.count({ where: { partieId: partie.id } })
+      // Votants attendus = tous les JOUEURS sauf le buzzeur (qui ne vote pas sa
+      // propre réponse) et sauf le maître du jeu (hors classement).
+      const winnerId = getGameState(partieCode).currentWinnerParticipantId
+      const expectedVoters = await prisma.participant.count({
+        where: { partieId: partie.id, isAnimateur: false, id: winnerId ? { not: winnerId } : undefined },
+      })
       const votes = await prisma.vote.findMany({ where: { partieId: partie.id, questionIndex } })
       const pour = votes.filter(v => v.valide).length
       const contre = votes.filter(v => !v.valide).length
@@ -480,18 +493,32 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
       // réponse, attribue les points au joueur qui avait buzzé si le vote est
       // favorable, met à jour les scores, puis enchaîne automatiquement.
       const state = getGameState(partieCode)
-      if (votes.length >= allParticipants && !state.revealed && questionIndex === state.currentQuestion) {
+      if (votes.length >= expectedVoters && !state.revealed && questionIndex === state.currentQuestion) {
         state.revealed = true
         const resultValid = pour > contre
 
         const questions = await loadQuestions(partieCode, state)
         const q = questions[state.currentQuestion]
 
+        // Le buzzeur marque les points de la question (barème unifié) si la
+        // salle valide sa réponse.
         if (resultValid && state.currentWinnerParticipantId) {
-          const pts = q?.pointsParQ ?? q?.points ?? 1
           await prisma.participant.update({
             where: { id: state.currentWinnerParticipantId },
-            data: { score: { increment: pts } },
+            data: { score: { increment: questionPoints(q, state.winnerResponseMs) } },
+          })
+        }
+        // Les VOTANTS ont un enjeu : ceux qui ont voté avec la majorité (le bon
+        // jugement collectif) gagnent un petit bonus de consensus.
+        const base = q?.pointsParQ ?? q?.points ?? 100
+        const consensusPts = Math.round(base * 0.3)
+        const goodVoters = votes
+          .filter(v => v.valide === resultValid && v.participantId !== state.currentWinnerParticipantId)
+          .map(v => v.participantId)
+        if (goodVoters.length) {
+          await prisma.participant.updateMany({
+            where: { id: { in: goodVoters } },
+            data: { score: { increment: consensusPts } },
           })
         }
         recordEvent(partieCode, {
@@ -521,14 +548,18 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
     }
 
     case 'validate_answer': {
-      const { valide, scoreIncrement } = msg
+      const { valide } = msg
       const state = getGameState(partieCode)
-      broadcast(partieCode, { type: 'answer_validated', valide, scoreIncrement: scoreIncrement ?? 1 })
+      // Barème UNIFIÉ : une bonne réponse vaut les points de la question
+      // (base + bonus de rapidité du buzz), comme en auto/vote — fini le « +1 ».
+      const q = state.questions?.[state.currentQuestion]
+      const pts = questionPoints(q, state.winnerResponseMs)
+      broadcast(partieCode, { type: 'answer_validated', valide, points: valide ? pts : 0 })
 
       if (valide && participantId) {
         await prisma.participant.update({
           where: { id: participantId },
-          data: { score: { increment: scoreIncrement ?? 1 } },
+          data: { score: { increment: pts } },
         })
         // Met à jour le tableau des scores (écran public + page de jeu).
         await broadcastParticipants(partieCode)
@@ -671,9 +702,9 @@ async function endGameInternal(partieCode) {
     data: { status: 'TERMINEE', endedAt: new Date() },
   })
 
-  // Classement final (podium) — trié par score décroissant.
+  // Classement final (podium) — joueurs uniquement (le maître du jeu est exclu).
   const participants = await prisma.participant.findMany({
-    where: { partieId: partie.id },
+    where: { partieId: partie.id, isAnimateur: false },
     orderBy: { score: 'desc' },
     include: { buzzer: { select: { couleur: true } } },
   })

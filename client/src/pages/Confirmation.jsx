@@ -25,16 +25,16 @@ export default function Confirmation() {
           style={{ background: 'rgba(34,197,94,0.12)' }}>
           <CheckCircle2 size={32} style={{ color: '#22C55E' }} />
         </div>
-        <h1 className="text-2xl font-bold mb-2" style={{ color: '#ECECF0' }}>Paiement réussi 🎉</h1>
+        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)' }}>Paiement réussi 🎉</h1>
         {offre ? (
-          <p className="text-sm mb-1" style={{ color: '#9090A0' }}>
-            Ton abonnement <strong style={{ color: '#ECECF0' }}>{offre.nom}</strong> est désormais actif.
+          <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+            Ton abonnement <strong style={{ color: 'var(--text)' }}>{offre.nom}</strong> est désormais actif.
           </p>
         ) : (
-          <p className="text-sm mb-1" style={{ color: '#9090A0' }}>Ta commande a bien été enregistrée.</p>
+          <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Ta commande a bien été enregistrée.</p>
         )}
         {state?.montant != null && (
-          <p className="text-2xs mb-6" style={{ color: '#5A5A6E' }}>
+          <p className="text-2xs mb-6" style={{ color: 'var(--text-dim)' }}>
             Montant : {fmtFCFA(state.montant)} · Réf. {state?.reference}
           </p>
         )}

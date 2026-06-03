@@ -12,7 +12,7 @@ export default function ThemeToggle({ className = '' }) {
       title={dark ? 'Passer en clair' : 'Passer en sombre'}
       aria-label="Changer de thème"
       className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${className}`}
-      style={{ background: 'var(--hover-overlay, rgba(255,255,255,0.05))', color: 'var(--text-muted, #9090A0)' }}
+      style={{ background: 'var(--hover-overlay, var(--hover-overlay))', color: 'var(--text-muted, var(--text-muted))' }}
     >
       {dark ? <Sun size={16} /> : <Moon size={16} />}
     </button>

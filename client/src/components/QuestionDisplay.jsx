@@ -29,16 +29,16 @@ export default function QuestionDisplay({ question, revealed = false, showAnswer
 
   return (
     <div className={`rounded-2xl w-full ${padding} text-center`}
-      style={{ background: '#18181C', border: '1px solid rgba(255,255,255,0.07)' }}>
+      style={{ background: '#18181C', border: '1px solid var(--border)' }}>
 
       {/* Question text */}
-      <p className={`font-bold leading-tight mb-6 ${enoneSize}`} style={{ color: '#ECECF0' }}>
+      <p className={`font-bold leading-tight mb-6 ${enoneSize}`} style={{ color: 'var(--text)' }}>
         {question.enonce}
       </p>
 
       {/* Type-specific body */}
       {question.type === 'BUZZER' && (
-        <p className="text-sm font-medium uppercase tracking-widest" style={{ color: '#5A5A6E' }}>
+        <p className="text-sm font-medium uppercase tracking-widest" style={{ color: 'var(--text-dim)' }}>
           Buzzer pour répondre
         </p>
       )}
@@ -56,7 +56,7 @@ export default function QuestionDisplay({ question, revealed = false, showAnswer
                   border: `1px solid ${isCorrect ? 'rgba(34,197,94,0.5)' : col.border}`,
                 }}>
                 <span className="text-lg font-black shrink-0" style={{ color: col.text }}>{LETTER[i]}</span>
-                <span className="text-base font-medium" style={{ color: '#ECECF0' }}>{c}</span>
+                <span className="text-base font-medium" style={{ color: 'var(--text)' }}>{c}</span>
                 {isCorrect && <CheckCircle size={16} style={{ color: '#4ADE80', marginLeft: 'auto' }} />}
               </div>
             )
@@ -77,7 +77,7 @@ export default function QuestionDisplay({ question, revealed = false, showAnswer
                 style={{
                   background: isCorrect ? bg.replace('0.08', '0.18') : bg,
                   border: `2px solid ${isCorrect ? color : border}`,
-                  color: isCorrect ? color : '#9090A0',
+                  color: isCorrect ? color : 'var(--text-muted)',
                   transform: isCorrect ? 'scale(1.05)' : 'none',
                 }}>
                 <Icon size={28} style={{ color }} />
@@ -110,7 +110,7 @@ export default function QuestionDisplay({ question, revealed = false, showAnswer
       {question.type === 'VIDEO' && question.videoUrl && (
         <div className="mt-4 flex justify-center">
           <div className="w-full max-w-2xl aspect-video rounded-xl overflow-hidden"
-            style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            style={{ border: '1px solid var(--border)' }}>
             <iframe
               src={buildYouTubeEmbed(question.videoUrl, question.videoDebut, question.videoFin)}
               className="w-full h-full"
@@ -127,9 +127,9 @@ export default function QuestionDisplay({ question, revealed = false, showAnswer
         <div className="mt-6 rounded-xl px-5 py-4 animate-fadeUp"
           style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)' }}>
           <p className="text-xs uppercase tracking-widest font-semibold mb-1" style={{ color: '#4ADE80' }}>Réponse</p>
-          <p className="text-xl font-bold" style={{ color: '#ECECF0' }}>{question.reponse}</p>
+          <p className="text-xl font-bold" style={{ color: 'var(--text)' }}>{question.reponse}</p>
           {question.explication && (
-            <p className="text-sm mt-2" style={{ color: '#9090A0' }}>{question.explication}</p>
+            <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>{question.explication}</p>
           )}
         </div>
       )}

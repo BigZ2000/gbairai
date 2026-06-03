@@ -14,10 +14,10 @@ export default function BuzzerGuide() {
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
 
   return (
-    <div className="min-h-screen" style={{ background: '#0E0E12', color: '#ECECF0' }}>
+    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       {/* Header */}
       <header className="sticky top-0 z-30 px-5 h-14 flex items-center justify-between"
-        style={{ background: 'rgba(20,20,24,0.8)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        style={{ background: 'rgba(20,20,24,0.8)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border)' }}>
         <Link to={user ? '/dashboard' : '/login'} className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white" style={{ background: '#6366F1' }}>G</div>
           <span className="font-bold text-sm">Gbairai · Buzzers</span>
@@ -32,7 +32,7 @@ export default function BuzzerGuide() {
             <Gamepad2 size={30} style={{ color: '#818CF8' }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Joue avec un buzzer</h1>
-          <p className="text-sm mt-2" style={{ color: '#9090A0' }}>
+          <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
             Physique, simulé ou ton téléphone — tout marche pareil. Aucune configuration compliquée.
           </p>
         </div>
@@ -67,11 +67,11 @@ export default function BuzzerGuide() {
           </div>
           <div>
             <h3 className="font-bold flex items-center gap-2"><QrCode size={16} style={{ color: '#818CF8' }} />Le QR sous ton buzzer</h3>
-            <p className="text-sm mt-1" style={{ color: '#9090A0' }}>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
               Chaque buzzer physique porte un QR Code imprimé. Le scanner ouvre <b>cette page</b> :
               démarrage immédiat, sans notice. Le buzzer simulé propose le même lien.
             </p>
-            <p className="text-2xs mt-2" style={{ color: '#5A5A6E' }}>
+            <p className="text-2xs mt-2" style={{ color: 'var(--text-dim)' }}>
               Tu peux scanner ce QR de démonstration : il mène ici.
             </p>
           </div>
@@ -127,7 +127,7 @@ function PathCard({ icon: Icon, color, title, text, cta }) {
         <Icon size={17} style={{ color }} />
       </div>
       <p className="font-bold text-sm">{title}</p>
-      <p className="text-2xs mt-1 flex-1" style={{ color: '#9090A0' }}>{text}</p>
+      <p className="text-2xs mt-1 flex-1" style={{ color: 'var(--text-muted)' }}>{text}</p>
       {cta && <a href={cta.href} className="text-xs font-medium mt-2" style={{ color }}>{cta.label} →</a>}
     </div>
   )
@@ -138,7 +138,7 @@ function Step({ n, icon: Icon, color, title, text }) {
       <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold" style={{ background: hex(color, 0.15), color }}>{n}</div>
       <div className="flex-1">
         <p className="font-semibold text-sm flex items-center gap-2"><Icon size={15} style={{ color }} />{title}</p>
-        <p className="text-2xs mt-1" style={{ color: '#9090A0' }}>{text}</p>
+        <p className="text-2xs mt-1" style={{ color: 'var(--text-muted)' }}>{text}</p>
       </div>
     </div>
   )
@@ -148,7 +148,7 @@ function Info({ icon: Icon, color, title, text }) {
     <div className="card p-4">
       <Icon size={18} style={{ color }} className="mb-2" />
       <p className="font-semibold text-sm">{title}</p>
-      <p className="text-2xs mt-1" style={{ color: '#9090A0' }}>{text}</p>
+      <p className="text-2xs mt-1" style={{ color: 'var(--text-muted)' }}>{text}</p>
     </div>
   )
 }
@@ -158,9 +158,9 @@ function FAQ({ q, children }) {
     <div className="card overflow-hidden">
       <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-4 py-3 text-left">
         <span className="text-sm font-medium">{q}</span>
-        <ChevronDown size={16} style={{ color: '#5A5A6E', transform: open ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
+        <ChevronDown size={16} style={{ color: 'var(--text-dim)', transform: open ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
       </button>
-      {open && <div className="px-4 pb-3 text-sm" style={{ color: '#9090A0' }}>{children}</div>}
+      {open && <div className="px-4 pb-3 text-sm" style={{ color: 'var(--text-muted)' }}>{children}</div>}
     </div>
   )
 }

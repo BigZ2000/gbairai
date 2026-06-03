@@ -65,7 +65,7 @@ export default function MediaPicker({ type = 'IMAGE', value, onChange }) {
   return (
     <div>
       {value ? (
-        <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="rounded-lg p-3" style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)' }}>
           <div className="flex items-center justify-center mb-2" style={{ maxHeight: 180, overflow: 'hidden' }}>
             <MediaPreview type={type} url={value} className="rounded" style={{ maxHeight: 160 }} />
           </div>
@@ -93,7 +93,7 @@ export default function MediaPicker({ type = 'IMAGE', value, onChange }) {
           ) : (
             <>
               <Icon size={22} style={{ color: '#6366F1', margin: '0 auto 8px' }} />
-              <p className="text-sm font-medium" style={{ color: '#ECECF0' }}>Glissez un fichier ou cliquez</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Glissez un fichier ou cliquez</p>
               <button type="button" onClick={(e) => { e.stopPropagation(); setLibOpen(true) }}
                 className="text-xs mt-2 underline" style={{ color: '#818CF8' }}>
                 ou choisir dans la médiathèque
@@ -142,11 +142,11 @@ function MediaLibraryModal({ type, apiFetch, onSelect, onClose }) {
       style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div className="card p-5 w-full max-w-3xl max-h-[80vh] flex flex-col animate-scaleIn" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-bold" style={{ color: '#ECECF0' }}>Médiathèque — {type}</h3>
+          <h3 className="text-base font-bold" style={{ color: 'var(--text)' }}>Médiathèque — {type}</h3>
           <button onClick={onClose} className="btn-ghost btn-sm"><X size={14} /></button>
         </div>
         <div className="relative mb-3">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…"
             className="input pl-8 text-sm w-full" autoFocus />
         </div>
@@ -154,13 +154,13 @@ function MediaLibraryModal({ type, apiFetch, onSelect, onClose }) {
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 size={22} className="animate-spin" style={{ color: '#6366F1' }} /></div>
           ) : items.length === 0 ? (
-            <p className="text-center text-sm py-10" style={{ color: '#5A5A6E' }}>Aucun média</p>
+            <p className="text-center text-sm py-10" style={{ color: 'var(--text-dim)' }}>Aucun média</p>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {items.map((m) => (
                 <button key={m.id} onClick={() => onSelect(m)}
                   className="rounded-lg overflow-hidden text-left transition-all hover:opacity-80"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  style={{ background: 'var(--input-bg)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center justify-center" style={{ height: 90, background: 'rgba(0,0,0,0.3)' }}>
                     {type === 'IMAGE'
                       ? <img src={m.url} alt="" className="w-full h-full" style={{ objectFit: 'cover' }} />
@@ -168,7 +168,7 @@ function MediaLibraryModal({ type, apiFetch, onSelect, onClose }) {
                         ? <Music size={26} style={{ color: '#C084FC' }} />
                         : <Video size={26} style={{ color: '#2DD4BF' }} />}
                   </div>
-                  <p className="text-2xs truncate px-2 py-1" style={{ color: '#9090A0' }}>{m.titre || m.filename}</p>
+                  <p className="text-2xs truncate px-2 py-1" style={{ color: 'var(--text-muted)' }}>{m.titre || m.filename}</p>
                 </button>
               ))}
             </div>

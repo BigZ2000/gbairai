@@ -77,8 +77,8 @@ export default function AdminMedia() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>Médiathèque</h1>
-          <p className="text-sm mt-1" style={{ color: '#5A5A6E' }}>{total} fichier{total !== 1 ? 's' : ''}</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Médiathèque</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>{total} fichier{total !== 1 ? 's' : ''}</p>
         </div>
         <button onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-primary gap-2">
           {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
@@ -91,15 +91,15 @@ export default function AdminMedia() {
       {/* Filtres */}
       <div className="flex gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 min-w-48">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…" className="input pl-8 text-sm w-full" />
         </div>
         {TYPES.map(t => (
           <button key={t || 'all'} onClick={() => setType(t)}
             className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
             style={{
-              background: type === t ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)',
-              color: type === t ? '#818CF8' : '#9090A0',
+              background: type === t ? 'rgba(99,102,241,0.15)' : 'var(--input-bg)',
+              color: type === t ? '#818CF8' : 'var(--text-muted)',
             }}>
             {TYPE_LABEL[t]}
           </button>
@@ -109,7 +109,7 @@ export default function AdminMedia() {
       {/* Zone drop */}
       <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleFiles(Array.from(e.dataTransfer.files ?? [])) }}
         className="mb-4 rounded-xl border-2 border-dashed px-4 py-3 text-center text-xs"
-        style={{ borderColor: 'rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.03)', color: '#5A5A6E' }}>
+        style={{ borderColor: 'rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.03)', color: 'var(--text-dim)' }}>
         Glissez-déposez des fichiers ici pour les téléverser (images, audio, vidéo)
       </div>
 
@@ -117,7 +117,7 @@ export default function AdminMedia() {
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} /></div>
       ) : items.length === 0 ? (
-        <p className="text-center text-sm py-16" style={{ color: '#5A5A6E' }}>Aucun média</p>
+        <p className="text-center text-sm py-16" style={{ color: 'var(--text-dim)' }}>Aucun média</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {items.map(m => {
@@ -125,19 +125,19 @@ export default function AdminMedia() {
             return (
               <button key={m.id} onClick={() => setSelected(m)}
                 className="rounded-xl overflow-hidden text-left transition-all hover:opacity-85"
-                style={{ background: '#141418', border: '1px solid rgba(255,255,255,0.07)' }}>
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center justify-center relative" style={{ height: 110, background: 'rgba(0,0,0,0.35)' }}>
                   {m.type === 'IMAGE'
                     ? <img src={m.url} alt="" className="w-full h-full" style={{ objectFit: 'cover' }} />
                     : <Icon size={30} style={{ color: TYPE_COLOR[m.type] }} />}
                   {(m._count?.questions ?? 0) > 0 && (
                     <span className="absolute top-1.5 right-1.5 text-2xs px-1.5 py-0.5 rounded-full"
-                      style={{ background: 'rgba(0,0,0,0.6)', color: '#ECECF0' }}>{m._count.questions}×</span>
+                      style={{ background: 'rgba(0,0,0,0.6)', color: 'var(--text)' }}>{m._count.questions}×</span>
                   )}
                 </div>
                 <div className="px-2 py-1.5">
-                  <p className="text-xs truncate" style={{ color: '#ECECF0' }}>{m.titre || m.filename}</p>
-                  <p className="text-2xs" style={{ color: '#5A5A6E' }}>{humanSize(m.size)}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text)' }}>{m.titre || m.filename}</p>
+                  <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>{humanSize(m.size)}</p>
                 </div>
               </button>
             )
@@ -151,7 +151,7 @@ export default function AdminMedia() {
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }} onClick={() => setSelected(null)}>
           <div className="card p-5 w-full max-w-lg animate-scaleIn space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.06)', color: TYPE_COLOR[selected.type] }}>
+              <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'var(--border)', color: TYPE_COLOR[selected.type] }}>
                 {selected.type}
               </span>
               <button onClick={() => setSelected(null)} className="btn-ghost btn-sm"><X size={14} /></button>
@@ -169,7 +169,7 @@ export default function AdminMedia() {
                 </button>
               </div>
             </div>
-            <div className="text-xs space-y-1" style={{ color: '#9090A0' }}>
+            <div className="text-xs space-y-1" style={{ color: 'var(--text-muted)' }}>
               <p>Fichier : {selected.filename}</p>
               <p>Taille : {humanSize(selected.size)} · {selected.mimeType}</p>
               <p>Utilisé par {selected._count?.questions ?? 0} question(s)</p>

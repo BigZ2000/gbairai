@@ -7,7 +7,7 @@ const STATUT = {
   ONLINE:        { c: '#22C55E', l: 'En ligne' },
   IN_GAME:       { c: '#3B82F6', l: 'En jeu' },
   AWAITING_CLAIM:{ c: '#EAB308', l: 'À appairer' },
-  OFFLINE:       { c: '#5A5A6E', l: 'Hors ligne' },
+  OFFLINE:       { c: 'var(--text-dim)', l: 'Hors ligne' },
 }
 
 export default function AdminBuzzers() {
@@ -33,18 +33,18 @@ export default function AdminBuzzers() {
     if (res?.ok) { const d = await res.json(); setPushed(d.pushed); setTimeout(() => setPushed(null), 4000) }
   }
 
-  if (!data) return <AdminLayout><Loader2 size={22} className="animate-spin mx-auto my-16" style={{ color: '#5A5A6E' }} /></AdminLayout>
+  if (!data) return <AdminLayout><Loader2 size={22} className="animate-spin mx-auto my-16" style={{ color: 'var(--text-dim)' }} /></AdminLayout>
 
   return (
     <AdminLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>Parc de buzzers</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#5A5A6E' }}>Supervision (batterie, signal, firmware) & mises à jour OTA.</p>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Parc de buzzers</h1>
+        <p className="text-sm mt-0.5" style={{ color: 'var(--text-dim)' }}>Supervision (batterie, signal, firmware) & mises à jour OTA.</p>
       </div>
 
       {/* Cible OTA */}
       <div className="card p-5 mb-6">
-        <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: '#ECECF0' }}>
+        <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text)' }}>
           <UploadCloud size={16} style={{ color: '#818CF8' }} />Mise à jour firmware (OTA)
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 items-end">
@@ -62,7 +62,7 @@ export default function AdminBuzzers() {
             <span className="w-9 h-5 rounded-full relative transition-all" style={{ background: cfg.enabled ? '#22C55E' : 'rgba(255,255,255,0.12)' }}>
               <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: cfg.enabled ? '18px' : '2px' }} />
             </span>
-            <span className="text-sm" style={{ color: '#ECECF0' }}>OTA activé</span>
+            <span className="text-sm" style={{ color: 'var(--text)' }}>OTA activé</span>
           </button>
           <button onClick={saveCfg} disabled={saving} className="btn-primary gap-2">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}Enregistrer
@@ -72,7 +72,7 @@ export default function AdminBuzzers() {
           </button>
           {pushed != null && <span className="text-sm" style={{ color: '#22C55E' }}>OTA poussé à {pushed} buzzer(s)</span>}
         </div>
-        <p className="text-2xs mt-3" style={{ color: '#5A5A6E' }}>
+        <p className="text-2xs mt-3" style={{ color: 'var(--text-dim)' }}>
           L'OTA n'est proposé qu'aux buzzers <strong>en ligne, au repos et obsolètes</strong> (jamais en pleine partie).
         </p>
       </div>
@@ -81,9 +81,9 @@ export default function AdminBuzzers() {
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['Buzzer', 'Propriétaire', 'Statut', 'Batterie', 'Signal', 'Firmware', 'Vu'].map((h, i) => (
-                <th key={i} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#5A5A6E' }}>{h}</th>
+                <th key={i} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -93,31 +93,31 @@ export default function AdminBuzzers() {
               const low = b.battery != null && b.battery <= 15
               const outdated = data.config.enabled && data.config.version && b.firmware !== data.config.version
               return (
-                <tr key={b.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <td className="px-3 py-3 font-mono text-xs" style={{ color: '#ECECF0' }}>{b.nom || b.mac}</td>
-                  <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{b.owner?.email ?? '—'}</td>
+                <tr key={b.id} style={{ borderBottom: '1px solid var(--input-bg)' }}>
+                  <td className="px-3 py-3 font-mono text-xs" style={{ color: 'var(--text)' }}>{b.nom || b.mac}</td>
+                  <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{b.owner?.email ?? '—'}</td>
                   <td className="px-3 py-3"><span className="text-2xs font-semibold px-2 py-0.5 rounded-full" style={{ background: st.c + '22', color: st.c }}>{st.l}</span></td>
                   <td className="px-3 py-3 text-xs">
-                    {b.battery == null ? <span style={{ color: '#5A5A6E' }}>—</span> : (
-                      <span className="inline-flex items-center gap-1" style={{ color: low ? '#F87171' : '#9090A0' }}>
+                    {b.battery == null ? <span style={{ color: 'var(--text-dim)' }}>—</span> : (
+                      <span className="inline-flex items-center gap-1" style={{ color: low ? '#F87171' : 'var(--text-muted)' }}>
                         {low ? <BatteryLow size={13} /> : <Battery size={13} />}{b.battery}%
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>
+                  <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                     {b.rssi == null ? '—' : <span className="inline-flex items-center gap-1"><Wifi size={12} />{b.rssi} dBm</span>}
                   </td>
                   <td className="px-3 py-3 text-xs">
-                    <span style={{ color: outdated ? '#F59E0B' : '#9090A0' }}>{b.firmware ?? '—'}{outdated ? ' ⟳' : ''}</span>
+                    <span style={{ color: outdated ? '#F59E0B' : 'var(--text-muted)' }}>{b.firmware ?? '—'}{outdated ? ' ⟳' : ''}</span>
                   </td>
-                  <td className="px-3 py-3 text-2xs" style={{ color: '#5A5A6E' }}>
+                  <td className="px-3 py-3 text-2xs" style={{ color: 'var(--text-dim)' }}>
                     {b.lastSeenAt ? new Date(b.lastSeenAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
                   </td>
                 </tr>
               )
             })}
             {data.buzzers.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: '#5A5A6E' }}>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
                 <Radio size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />Aucun buzzer enregistré
               </td></tr>
             )}

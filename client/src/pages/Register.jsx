@@ -63,14 +63,14 @@ export default function Register() {
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0E0E12' }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-sm animate-fadeUp">
 
         <div className="flex flex-col items-center mb-8">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg mb-4"
             style={{ background: '#6366F1', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>G</div>
-          <h1 className="text-xl font-bold" style={{ color: '#ECECF0' }}>Créer un compte</h1>
-          <p className="text-sm mt-1" style={{ color: '#9090A0' }}>Rejoignez et créez des parties en quelques secondes</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Créer un compte</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Rejoignez et créez des parties en quelques secondes</p>
         </div>
 
         <div className="card p-6 space-y-4">
@@ -94,7 +94,7 @@ export default function Register() {
             <div>
               <label className="label">Prénom</label>
               <div className="relative">
-                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                 <input type="text" required maxLength={50}
                   value={form.prenom} onChange={set('prenom')}
                   placeholder="Affiché pendant les parties"
@@ -107,14 +107,14 @@ export default function Register() {
             <div>
               <label className="label">Pseudo unique</label>
               <div className="relative">
-                <AtSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <AtSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                 <input type="text" required minLength={3} maxLength={30}
                   value={form.username} onChange={set('username')}
                   placeholder="mon_pseudo"
                   className={`input pl-9 pr-9 ${usernameState === 'taken' ? 'input-error' : usernameState === 'available' ? 'input-success' : ''}`}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {usernameState === 'checking' && <Loader2 size={14} className="animate-spin" style={{ color: '#5A5A6E' }} />}
+                  {usernameState === 'checking' && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--text-dim)' }} />}
                   {usernameState === 'available' && <CheckCircle2 size={14} style={{ color: '#22C55E' }} />}
                   {usernameState === 'taken' && <XCircle size={14} style={{ color: '#EF4444' }} />}
                 </div>
@@ -139,14 +139,14 @@ export default function Register() {
                   )}
                 </div>
               )}
-              <p className="text-2xs mt-1" style={{ color: '#5A5A6E' }}>Lettres, chiffres, _ et - · Min. 3 caractères</p>
+              <p className="text-2xs mt-1" style={{ color: 'var(--text-dim)' }}>Lettres, chiffres, _ et - · Min. 3 caractères</p>
             </div>
 
             {/* Email */}
             <div>
               <label className="label">Email</label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                 <input type="email" required autoComplete="email"
                   value={form.email} onChange={set('email')}
                   placeholder="vous@exemple.com"
@@ -159,7 +159,7 @@ export default function Register() {
             <div>
               <label className="label">Mot de passe</label>
               <div className="relative">
-                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                 <input type="password" required minLength={6} autoComplete="new-password"
                   value={form.password} onChange={set('password')}
                   placeholder="Minimum 6 caractères"
@@ -184,7 +184,7 @@ export default function Register() {
           </form>
         </div>
 
-        <p className="text-center text-sm mt-5" style={{ color: '#5A5A6E' }}>
+        <p className="text-center text-sm mt-5" style={{ color: 'var(--text-dim)' }}>
           Déjà un compte ?{' '}
           <Link to="/login" className="font-medium" style={{ color: '#818CF8' }}>Se connecter</Link>
         </p>

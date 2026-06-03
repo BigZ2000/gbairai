@@ -203,6 +203,13 @@ export default function JoueurJeu() {
           </div>
         ) : isAuto && hasChoix ? (
           <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed} revealReponse={revealReponse} onAnswer={answer} />
+        ) : isAuto ? (
+          // Mode auto + question ouverte : pas de buzz (aucun juge) → observation.
+          <div className="text-center px-6">
+            <div className="text-5xl mb-3">👀</div>
+            <p className="text-xl font-bold" style={{ color: '#ECECF0' }}>{revealed ? 'Réponse révélée' : 'Regarde l\'écran'}</p>
+            <p className="text-sm mt-1" style={{ color: '#9090A0' }}>{revealed ? (revealReponse ?? '') : 'Question d\'observation'}</p>
+          </div>
         ) : (
           <BuzzButton armed={armed} winner={winner} iWon={iWon} revealed={revealed} onBuzz={buzz} />
         )}

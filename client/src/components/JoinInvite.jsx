@@ -31,10 +31,10 @@ export default function JoinInvite({ code, compact = false }) {
         <QRCodeSVG value={url} size={compact ? 96 : 112} level="M" includeMargin={false} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>Scanne pour rejoindre</p>
-        <p className="text-2xs mb-2" style={{ color: '#5A5A6E' }}>Pas besoin de compte — un pseudo suffit.</p>
+        <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Scanne pour rejoindre</p>
+        <p className="text-2xs mb-2" style={{ color: 'var(--text-dim)' }}>Pas besoin de compte — un pseudo suffit.</p>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-2xs uppercase tracking-wider" style={{ color: '#5A5A6E' }}>Code</span>
+          <span className="text-2xs uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Code</span>
           <span className="font-mono font-black text-lg tracking-widest" style={{ color: '#818CF8' }}>{code}</span>
           <button onClick={copy} className="btn-ghost btn-sm gap-1 text-2xs">
             {copied ? <Check size={12} style={{ color: '#22C55E' }} /> : <Copy size={12} />}{copied ? 'Copié' : 'Copier le lien'}

@@ -54,13 +54,13 @@ export default function MonOrganisation() {
     load()
   }
 
-  if (loading) return <Layout><Loader2 size={22} className="animate-spin mx-auto my-16" style={{ color: '#5A5A6E' }} /></Layout>
+  if (loading) return <Layout><Loader2 size={22} className="animate-spin mx-auto my-16" style={{ color: 'var(--text-dim)' }} /></Layout>
   if (notFound) return (
     <Layout maxWidth="max-w-lg">
       <div className="card p-10 text-center">
         <Building2 size={28} className="mx-auto mb-3" style={{ color: '#2A2A35' }} />
-        <h1 className="text-lg font-bold mb-1" style={{ color: '#ECECF0' }}>Aucune organisation</h1>
-        <p className="text-sm mb-5" style={{ color: '#9090A0' }}>Passe à l'offre Organisation pour gérer une équipe, une école ou une entreprise.</p>
+        <h1 className="text-lg font-bold mb-1" style={{ color: 'var(--text)' }}>Aucune organisation</h1>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Passe à l'offre Organisation pour gérer une équipe, une école ou une entreprise.</p>
         <button onClick={() => navigate('/abonnement')} className="btn-primary gap-2"><Crown size={15} />Voir l'offre Organisation</button>
       </div>
     </Layout>
@@ -81,18 +81,18 @@ export default function MonOrganisation() {
               <Building2 size={22} style={{ color: '#38BDF8' }} />
             </div>
             <div>
-              <h1 className="text-xl font-bold" style={{ color: '#ECECF0' }}>{org.nom}</h1>
-              <p className="text-2xs" style={{ color: '#5A5A6E' }}>
+              <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>{org.nom}</h1>
+              <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
                 {TYPE_LABEL[org.type]} · Plan Organisation {org.sieges} utilisateurs
                 {org.expireAt && <> · renouvellement le {new Date(org.expireAt).toLocaleDateString('fr-FR')}</>}
               </p>
             </div>
           </div>
           <div className="text-right min-w-[160px]">
-            <p className="text-sm font-bold" style={{ color: '#ECECF0' }}>
-              {org.siegesUtilises} / {org.sieges} <span className="font-normal text-2xs" style={{ color: '#5A5A6E' }}>utilisateurs actifs</span>
+            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+              {org.siegesUtilises} / {org.sieges} <span className="font-normal text-2xs" style={{ color: 'var(--text-dim)' }}>utilisateurs actifs</span>
             </p>
-            <div className="h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: 'var(--border)' }}>
               <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 90 ? '#F59E0B' : '#38BDF8' }} />
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function MonOrganisation() {
       {/* Invitation (gestionnaires) */}
       {peutGerer && (
         <div className="card p-5 mb-5">
-          <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: '#ECECF0' }}>
+          <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text)' }}>
             <Mail size={16} style={{ color: '#818CF8' }} />Inviter un collaborateur
           </h2>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -117,7 +117,7 @@ export default function MonOrganisation() {
               {copied ? 'Copié !' : 'Copier le lien'}
             </button>
           </div>
-          <p className="text-2xs mt-2" style={{ color: '#5A5A6E' }}>
+          <p className="text-2xs mt-2" style={{ color: 'var(--text-dim)' }}>
             Envoie un email d'invitation, ou partage simplement le lien : la personne rejoint en un clic.
           </p>
         </div>
@@ -125,9 +125,9 @@ export default function MonOrganisation() {
 
       {/* Membres */}
       <div className="card overflow-hidden">
-        <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
           <Users size={15} style={{ color: '#818CF8' }} />
-          <h2 className="font-semibold text-sm" style={{ color: '#ECECF0' }}>Membres ({membres.length})</h2>
+          <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Membres ({membres.length})</h2>
         </div>
         <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[420px]">
@@ -136,18 +136,18 @@ export default function MonOrganisation() {
               const isSelf = m.userId === user?.id
               const isResp = m.role === 'RESPONSABLE'
               return (
-                <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <tr key={m.id} style={{ borderBottom: '1px solid var(--input-bg)' }}>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-2xs font-bold text-white"
-                        style={{ background: m.statut === 'SUSPENDU' ? '#5A5A6E' : '#6366F1' }}>
+                        style={{ background: m.statut === 'SUSPENDU' ? 'var(--text-dim)' : '#6366F1' }}>
                         {(m.prenom?.[0] ?? m.email?.[0] ?? '?').toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-medium" style={{ color: '#ECECF0' }}>
-                          {m.prenom} {m.nom} {isSelf && <span className="text-2xs" style={{ color: '#5A5A6E' }}>(vous)</span>}
+                        <p className="font-medium" style={{ color: 'var(--text)' }}>
+                          {m.prenom} {m.nom} {isSelf && <span className="text-2xs" style={{ color: 'var(--text-dim)' }}>(vous)</span>}
                         </p>
-                        <p className="text-2xs" style={{ color: '#5A5A6E' }}>{m.email}</p>
+                        <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>{m.email}</p>
                       </div>
                     </div>
                   </td>

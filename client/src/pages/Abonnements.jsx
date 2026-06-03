@@ -10,7 +10,7 @@ export function fmtFCFA(n) {
 
 // 3 familles côté UX. L'Organisation regroupe toutes les offres multi-utilisateurs.
 const FAMILLES = {
-  gratuit: { icon: Sparkles, couleur: '#9090A0', titre: 'Gratuit', sousTitre: 'Pour découvrir Gbairai' },
+  gratuit: { icon: Sparkles, couleur: 'var(--text-muted)', titre: 'Gratuit', sousTitre: 'Pour découvrir Gbairai' },
   pro:     { icon: Crown,    couleur: '#6366F1', titre: 'Pro',     sousTitre: 'Animateurs, associations, événements et créateurs' },
   org:     { icon: Building2, couleur: '#0EA5E9', titre: 'Organisation', sousTitre: 'Écoles, entreprises et structures à plusieurs' },
 }
@@ -49,7 +49,7 @@ export default function Abonnements() {
     navigate('/abonnement/checkout', { state: { reference: data.reference, offre, montant: data.montant } })
   }
 
-  const isPro = current === 'PRO' || current === 'PREMIUM'
+  const isPro = current === 'PRO'
   const isOrg = current === 'ENTREPRISE' || current === 'ECOLE'
 
   return (
@@ -58,8 +58,8 @@ export default function Abonnements() {
         <ArrowLeft size={14} />Retour
       </button>
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold tracking-tight" style={{ color: '#ECECF0' }}>Choisis ton offre</h1>
-        <p className="text-sm mt-2" style={{ color: '#9090A0' }}>Simple, sans engagement. Change ou arrête quand tu veux.</p>
+        <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Choisis ton offre</h1>
+        <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Simple, sans engagement. Change ou arrête quand tu veux.</p>
       </div>
 
       {loading ? (
@@ -83,28 +83,28 @@ export default function Abonnements() {
             avantages={orgSize?.fonctionnalites ?? []}
             extra={
               <div className="mb-4">
-                <p className="text-2xs mb-1.5" style={{ color: '#5A5A6E' }}>Combien d'utilisateurs ?</p>
+                <p className="text-2xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Combien d'utilisateurs ?</p>
                 <div className="grid grid-cols-2 gap-1.5">
                   {orgOffres.map(o => (
                     <button key={o.id} onClick={() => setOrgSize(o)}
                       className="px-2 py-1.5 rounded-lg text-xs font-medium transition-all"
                       style={{
-                        background: orgSize?.id === o.id ? 'rgba(14,165,233,0.18)' : 'rgba(255,255,255,0.03)',
-                        color: orgSize?.id === o.id ? '#38BDF8' : '#9090A0',
-                        border: `1px solid ${orgSize?.id === o.id ? 'rgba(14,165,233,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                        background: orgSize?.id === o.id ? 'rgba(14,165,233,0.18)' : 'var(--hover-overlay)',
+                        color: orgSize?.id === o.id ? '#38BDF8' : 'var(--text-muted)',
+                        border: `1px solid ${orgSize?.id === o.id ? 'rgba(14,165,233,0.4)' : 'var(--border)'}`,
                       }}>
                       {o.sieges} pers.
                     </button>
                   ))}
                 </div>
-                {orgSize && <p className="text-2xs mt-2" style={{ color: '#9090A0' }}>{fmtFCFA(orgSize.prix)} / mois · {orgSize.sieges} utilisateurs</p>}
+                {orgSize && <p className="text-2xs mt-2" style={{ color: 'var(--text-muted)' }}>{fmtFCFA(orgSize.prix)} / mois · {orgSize.sieges} utilisateurs</p>}
               </div>
             }
             cta={isOrg ? { label: 'Offre actuelle', disabled: true } : { label: 'Choisir Organisation', onClick: () => subscribe(orgSize), loading: subscribing === orgSize?.id }} />
         </div>
       )}
 
-      <p className="text-center text-2xs mt-6" style={{ color: '#5A5A6E' }}>
+      <p className="text-center text-2xs mt-6" style={{ color: 'var(--text-dim)' }}>
         Paiement en préparation (CinetPay) — démonstration sans débit réel.
       </p>
     </Layout>
@@ -118,7 +118,7 @@ function Carte({ famille, prixLabel, avantages, cta, extra, populaire }) {
     <div className="relative rounded-2xl p-5 flex flex-col"
       style={{
         background: populaire ? `linear-gradient(160deg, ${hex(f.couleur, 0.12)}, rgba(20,20,24,0.7))` : 'rgba(255,255,255,0.02)',
-        border: `1px solid ${populaire ? hex(f.couleur, 0.4) : 'rgba(255,255,255,0.07)'}`,
+        border: `1px solid ${populaire ? hex(f.couleur, 0.4) : 'var(--border)'}`,
       }}>
       {populaire && (
         <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-2xs font-bold px-2.5 py-0.5 rounded-full"
@@ -127,13 +127,13 @@ function Carte({ famille, prixLabel, avantages, cta, extra, populaire }) {
       <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: hex(f.couleur, 0.15) }}>
         <Icon size={18} style={{ color: f.couleur }} />
       </div>
-      <h3 className="text-lg font-bold" style={{ color: '#ECECF0' }}>{f.titre}</h3>
-      <p className="text-2xs mb-3" style={{ color: '#5A5A6E' }}>{f.sousTitre}</p>
-      <p className="text-xl font-extrabold mb-4" style={{ color: '#ECECF0' }}>{prixLabel}</p>
+      <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{f.titre}</h3>
+      <p className="text-2xs mb-3" style={{ color: 'var(--text-dim)' }}>{f.sousTitre}</p>
+      <p className="text-xl font-extrabold mb-4" style={{ color: 'var(--text)' }}>{prixLabel}</p>
       {extra}
       <ul className="space-y-2 mb-5 flex-1">
         {avantages.map((a, i) => (
-          <li key={i} className="flex items-start gap-2 text-xs" style={{ color: '#ECECF0' }}>
+          <li key={i} className="flex items-start gap-2 text-xs" style={{ color: 'var(--text)' }}>
             <Check size={13} style={{ color: f.couleur, marginTop: 1 }} className="shrink-0" />{a}
           </li>
         ))}

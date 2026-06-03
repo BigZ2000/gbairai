@@ -99,6 +99,8 @@ const StartSchema = z.object({
   mode: z.enum(['rapide', 'standard', 'long']).optional(),
   gameMode: z.enum(['animateur', 'auto', 'vote']).optional(),
   nom: z.string().min(1).max(100).optional(),
+  // Mode animateur : l'animateur participe-t-il aussi (compté au score) ?
+  animateurJoue: z.boolean().optional(),
 })
 
 function buildDynamicPlan(pack, modeId) {
@@ -116,7 +118,7 @@ function buildDynamicPlan(pack, modeId) {
   }))
 }
 
-async function createPartieFromPack({ userId, pack, gameMode, nom, mode }) {
+async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animateurJoue = false }) {
   let code
   for (let i = 0; i < 10; i++) {
     code = generateCode()
@@ -124,6 +126,10 @@ async function createPartieFromPack({ userId, pack, gameMode, nom, mode }) {
     if (!exists) break
   }
   const animateurId = gameMode === 'animateur' ? userId : null
+  // Maître du jeu = animateur qui NE joue PAS (exclu du classement). Si l'animateur
+  // « joue aussi », son participant n'est pas marqué maître → il est compté au score
+  // (et peut buzzer via un buzzer qui lui est attribué).
+  const estMaitre = gameMode === 'animateur' && !animateurJoue
   const partie = await prisma.partie.create({
     data: {
       nom, code, animateurId, creatorId: userId,
@@ -133,7 +139,7 @@ async function createPartieFromPack({ userId, pack, gameMode, nom, mode }) {
   })
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { prenom: true } })
   await prisma.participant.create({
-    data: { partieId: partie.id, userId, prenom: user?.prenom ?? 'Créateur', isAnimateur: gameMode === 'animateur' },
+    data: { partieId: partie.id, userId, prenom: user?.prenom ?? 'Créateur', isAnimateur: estMaitre },
   })
 
   if (pack.contentMode === 'MANUEL') await buildManchesManuel(partie.id, pack)
@@ -230,9 +236,9 @@ router.post('/:packId/start', requireAuth, async (req, res) => {
   const user = await guardLaunch(req, res, pack)
   if (!user) return
 
-  const { mode, gameMode, nom } = parsed.data
+  const { mode, gameMode, nom, animateurJoue } = parsed.data
   const partie = await createPartieFromPack({
-    userId: req.userId, pack,
+    userId: req.userId, pack, animateurJoue,
     gameMode: gameMode ?? pack.modeRecommande ?? 'animateur',
     nom: nom?.trim() || `${pack.emoji ?? ''} ${pack.nom}`.trim(),
     mode: mode ?? null,

@@ -100,7 +100,7 @@ export default function Login() {
             <div>
               <label className="label">Email</label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                 <input
                   type="email" required autoComplete="email"
                   value={email} onChange={e => setEmail(e.target.value)}
@@ -113,7 +113,7 @@ export default function Login() {
             <div>
               <label className="label">Mot de passe</label>
               <div className="relative">
-                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                 <input
                   type="password" required autoComplete="current-password"
                   value={password} onChange={e => setPassword(e.target.value)}
@@ -137,7 +137,7 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="text-center text-sm mt-5" style={{ color: '#5A5A6E' }}>
+        <p className="text-center text-sm mt-5" style={{ color: 'var(--text-dim)' }}>
           Pas de compte ?{' '}
           <Link to="/register" className="font-medium transition-colors" style={{ color: '#818CF8' }}>
             S'inscrire

@@ -89,7 +89,7 @@ export default function AdminCategories() {
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>Catégories</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Catégories</h1>
         <button onClick={() => openEdit(null)} className="btn-primary gap-2">
           <Plus size={14} />Nouvelle catégorie
         </button>
@@ -98,24 +98,24 @@ export default function AdminCategories() {
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['', 'Nom', 'Description', 'Rubriques', 'Questions', ''].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#5A5A6E' }}>{h}</th>
+                  style={{ color: 'var(--text-dim)' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {categories.map(c => (
-              <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+              <tr key={c.id} style={{ borderBottom: '1px solid var(--input-bg)' }}
                 className="transition-colors hover:bg-white/[0.02]">
                 <td className="px-4 py-3 text-xl w-12">{c.emoji}</td>
-                <td className="px-4 py-3 font-medium" style={{ color: '#ECECF0' }}>{c.nom}</td>
-                <td className="px-4 py-3 text-sm max-w-xs truncate" style={{ color: '#9090A0' }}>{c.description}</td>
-                <td className="px-4 py-3 text-sm" style={{ color: '#9090A0' }}>
+                <td className="px-4 py-3 font-medium" style={{ color: 'var(--text)' }}>{c.nom}</td>
+                <td className="px-4 py-3 text-sm max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{c.description}</td>
+                <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
                   {c._count?.rubriques ?? c.rubriques?.length ?? '—'}
                 </td>
-                <td className="px-4 py-3 text-sm" style={{ color: '#9090A0' }}>
+                <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
                   {c._count?.questions ?? c.questions?.length ?? '—'}
                 </td>
                 <td className="px-4 py-3">
@@ -129,7 +129,7 @@ export default function AdminCategories() {
               </tr>
             ))}
             {categories.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm" style={{ color: '#5A5A6E' }}>Aucune catégorie</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>Aucune catégorie</td></tr>
             )}
           </tbody>
         </table>
@@ -140,7 +140,7 @@ export default function AdminCategories() {
           style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
           <div className="card p-6 w-full max-w-md animate-scaleIn space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold" style={{ color: '#ECECF0' }}>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
                 {editing.id ? 'Modifier' : 'Nouvelle catégorie'}
               </h2>
               <button onClick={() => setEditing(null)} className="btn-ghost btn-sm"><X size={14} /></button>
@@ -161,15 +161,15 @@ export default function AdminCategories() {
                 rows={2} className="input w-full resize-none" />
             </div>
             {editing.id && (
-              <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
                 <label className="label">Rubriques</label>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {rubriques.map(r => (
                     <div key={r.id} className="flex items-center justify-between rounded px-2 py-1.5"
-                      style={{ background: 'rgba(255,255,255,0.03)' }}>
-                      <span className="text-sm" style={{ color: '#ECECF0' }}>
+                      style={{ background: 'var(--hover-overlay)' }}>
+                      <span className="text-sm" style={{ color: 'var(--text)' }}>
                         {r.nom}
-                        <span className="ml-2 text-xs" style={{ color: '#5A5A6E' }}>
+                        <span className="ml-2 text-xs" style={{ color: 'var(--text-dim)' }}>
                           {r._count?.questions ?? 0} question{(r._count?.questions ?? 0) > 1 ? 's' : ''}
                         </span>
                       </span>
@@ -182,7 +182,7 @@ export default function AdminCategories() {
                     </div>
                   ))}
                   {rubriques.length === 0 && (
-                    <p className="text-xs py-1" style={{ color: '#5A5A6E' }}>Aucune rubrique</p>
+                    <p className="text-xs py-1" style={{ color: 'var(--text-dim)' }}>Aucune rubrique</p>
                   )}
                 </div>
                 <div className="flex gap-2 mt-2">

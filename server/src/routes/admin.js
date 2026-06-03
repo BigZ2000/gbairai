@@ -113,7 +113,7 @@ const CreateUserSchema = z.object({
   nom: z.string().max(50).optional(),
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).optional(),
   telephone: z.string().max(30).optional(),
-  plan: z.enum(['FREE', 'PRO', 'PREMIUM']).optional(),
+  plan: z.enum(['FREE', 'PRO', 'ENTREPRISE', 'ECOLE']).optional(),
   isAdmin: z.boolean().optional(),
 })
 
@@ -145,7 +145,7 @@ const UpdateUserSchema = z.object({
   nom: z.string().max(50).nullable().optional(),
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).nullable().optional(),
   telephone: z.string().max(30).nullable().optional(),
-  plan: z.enum(['FREE', 'PRO', 'PREMIUM']).optional(),
+  plan: z.enum(['FREE', 'PRO', 'ENTREPRISE', 'ECOLE']).optional(),
   isAdmin: z.boolean().optional(),
   isActive: z.boolean().optional(),
 })

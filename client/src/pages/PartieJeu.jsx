@@ -24,7 +24,7 @@ export default function PartieJeu() {
   }, [partieCode, user?.id])
 
   if (isHost === null) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: '#0E0E12' }}>
+    return <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <Loader2 size={26} className="animate-spin" style={{ color: '#6366F1' }} />
     </div>
   }

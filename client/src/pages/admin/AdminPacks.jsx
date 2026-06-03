@@ -22,7 +22,7 @@ const TIERS = [
 const STATUT_STYLE = {
   ACTIF:   { bg: 'rgba(34,197,94,0.12)',  fg: '#22C55E' },
   INACTIF: { bg: 'rgba(245,158,11,0.12)', fg: '#F59E0B' },
-  ARCHIVE: { bg: 'rgba(90,90,110,0.18)',  fg: '#9090A0' },
+  ARCHIVE: { bg: 'rgba(90,90,110,0.18)',  fg: 'var(--text-muted)' },
 }
 
 const EMPTY_PACK = {
@@ -85,8 +85,8 @@ export default function AdminPacks() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#ECECF0' }}>Packs</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#5A5A6E' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Packs</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-dim)' }}>
             Parties prêtes à jouer, pilotées par les données.
           </p>
         </div>
@@ -100,13 +100,13 @@ export default function AdminPacks() {
             <button key={v || 'all'} onClick={() => setFilterStatut(v)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
               style={{
-                background: filterStatut === v ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.03)',
-                color: filterStatut === v ? '#818CF8' : '#9090A0',
+                background: filterStatut === v ? 'rgba(99,102,241,0.15)' : 'var(--hover-overlay)',
+                color: filterStatut === v ? '#818CF8' : 'var(--text-muted)',
               }}>{l}</button>
           ))}
         </div>
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher (nom, description, catégorie, tag)…"
             className="input w-full pl-9" />
@@ -116,10 +116,10 @@ export default function AdminPacks() {
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['Pack', 'Catégorie', 'Diff.', 'Durée', 'Prio', 'Contenu', 'Lancements', 'Statut', ''].map((h, i) => (
                 <th key={i} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#5A5A6E' }}>{h}</th>
+                  style={{ color: 'var(--text-dim)' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -127,7 +127,7 @@ export default function AdminPacks() {
             {packs.map(p => {
               const st = STATUT_STYLE[p.statut] ?? STATUT_STYLE.INACTIF
               return (
-                <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                <tr key={p.id} style={{ borderBottom: '1px solid var(--input-bg)' }}
                   className="transition-colors hover:bg-white/[0.02]">
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2.5">
@@ -135,7 +135,7 @@ export default function AdminPacks() {
                         style={{ background: hex(p.couleur, 0.15) }}>{p.emoji}</div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-medium truncate" style={{ color: '#ECECF0' }}>{p.nom}</span>
+                          <span className="font-medium truncate" style={{ color: 'var(--text)' }}>{p.nom}</span>
                           {p.vedette && <Star size={11} style={{ color: '#EAB308', fill: '#EAB308' }} />}
                           {p.signature && <span className="badge-wait">Signature</span>}
                           {p.tier && p.tier !== 'GRATUIT' && (
@@ -145,20 +145,20 @@ export default function AdminPacks() {
                             </span>
                           )}
                         </div>
-                        <p className="text-2xs truncate max-w-xs" style={{ color: '#5A5A6E' }}>{p.description}</p>
+                        <p className="text-2xs truncate max-w-xs" style={{ color: 'var(--text-dim)' }}>{p.description}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-3" style={{ color: '#9090A0' }}>{p.categorie ?? '—'}</td>
-                  <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{p.difficulte}</td>
-                  <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>{p.duree}</td>
-                  <td className="px-3 py-3 font-mono" style={{ color: '#ECECF0' }}>{p.priorite}</td>
-                  <td className="px-3 py-3 text-xs" style={{ color: '#9090A0' }}>
+                  <td className="px-3 py-3" style={{ color: 'var(--text-muted)' }}>{p.categorie ?? '—'}</td>
+                  <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{p.difficulte}</td>
+                  <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{p.duree}</td>
+                  <td className="px-3 py-3 font-mono" style={{ color: 'var(--text)' }}>{p.priorite}</td>
+                  <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                     {p.contentMode === 'MANUEL'
                       ? <span>Manuel · {p.nbQuestionsManuelles}q</span>
                       : <span>Dynamique</span>}
                   </td>
-                  <td className="px-3 py-3 font-mono" style={{ color: '#9090A0' }}>{p.lancements}</td>
+                  <td className="px-3 py-3 font-mono" style={{ color: 'var(--text-muted)' }}>{p.lancements}</td>
                   <td className="px-3 py-3">
                     <span className="text-2xs font-semibold px-2 py-0.5 rounded-full"
                       style={{ background: st.bg, color: st.fg }}>
@@ -183,13 +183,13 @@ export default function AdminPacks() {
               )
             })}
             {!loading && packs.length === 0 && (
-              <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: '#5A5A6E' }}>
+              <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
                 <Package size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
                 Aucun pack
               </td></tr>
             )}
             {loading && (
-              <tr><td colSpan={9} className="px-4 py-10 text-center"><Loader2 size={20} className="animate-spin mx-auto" style={{ color: '#5A5A6E' }} /></td></tr>
+              <tr><td colSpan={9} className="px-4 py-10 text-center"><Loader2 size={20} className="animate-spin mx-auto" style={{ color: 'var(--text-dim)' }} /></td></tr>
             )}
           </tbody>
         </table>
@@ -245,8 +245,8 @@ function PackEditor({ pack, onClose, onSaved }) {
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
       <div className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scaleIn">
         <div className="flex items-center justify-between p-5 sticky top-0 z-10"
-          style={{ background: '#141418', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <h2 className="text-lg font-bold" style={{ color: '#ECECF0' }}>
+          style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
             {isNew ? 'Nouveau pack' : `Modifier « ${form.nom} »`}
           </h2>
           <button onClick={onClose} className="btn-ghost btn-sm"><X size={16} /></button>
@@ -336,8 +336,8 @@ function PackEditor({ pack, onClose, onSaved }) {
                   <button key={t} onClick={() => toggleType(t)}
                     className="px-2.5 py-1 rounded-lg text-2xs font-medium transition-all"
                     style={{
-                      background: form.typesAutorises.includes(t) ? 'rgba(99,102,241,0.18)' : 'rgba(255,255,255,0.03)',
-                      color: form.typesAutorises.includes(t) ? '#818CF8' : '#9090A0',
+                      background: form.typesAutorises.includes(t) ? 'rgba(99,102,241,0.18)' : 'var(--hover-overlay)',
+                      color: form.typesAutorises.includes(t) ? '#818CF8' : 'var(--text-muted)',
                     }}>{t}</button>
                 ))}
               </div>
@@ -351,11 +351,11 @@ function PackEditor({ pack, onClose, onSaved }) {
                 <button key={v} onClick={() => set('contentMode', v)}
                   className="flex-1 p-3 rounded-xl text-left transition-all"
                   style={{
-                    background: form.contentMode === v ? hex(form.couleur, 0.12) : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${form.contentMode === v ? hex(form.couleur, 0.4) : 'rgba(255,255,255,0.06)'}`,
+                    background: form.contentMode === v ? hex(form.couleur, 0.12) : 'var(--hover-overlay)',
+                    border: `1px solid ${form.contentMode === v ? hex(form.couleur, 0.4) : 'var(--border)'}`,
                   }}>
-                  <p className="text-sm font-semibold" style={{ color: '#ECECF0' }}>{l}</p>
-                  <p className="text-2xs mt-0.5" style={{ color: '#5A5A6E' }}>{d}</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{l}</p>
+                  <p className="text-2xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{d}</p>
                 </button>
               ))}
             </div>
@@ -364,11 +364,11 @@ function PackEditor({ pack, onClose, onSaved }) {
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {form.categories.map(c => (
                     <span key={c} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: '#ECECF0' }}>
+                      style={{ background: 'var(--hover-overlay)', color: 'var(--text)' }}>
                       {c}<button onClick={() => set('categories', form.categories.filter(x => x !== c))}><X size={10} /></button>
                     </span>
                   ))}
-                  {form.categories.length === 0 && <span className="text-2xs" style={{ color: '#5A5A6E' }}>Toutes catégories (mélange)</span>}
+                  {form.categories.length === 0 && <span className="text-2xs" style={{ color: 'var(--text-dim)' }}>Toutes catégories (mélange)</span>}
                 </div>
                 <input value={catInput} onChange={e => setCatInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCat() } }}
@@ -391,7 +391,7 @@ function PackEditor({ pack, onClose, onSaved }) {
                 <input type="number" min={0} value={form.prix} onChange={e => set('prix', e.target.value)} className="input w-full" />
               </Field>
             </div>
-            <p className="text-2xs" style={{ color: '#5A5A6E' }}>
+            <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
               Un pack non gratuit est verrouillé pour les plans qui n'y donnent pas droit ; il peut aussi être acheté à l'unité si un prix &gt; 0 est défini.
             </p>
           </Section>
@@ -416,7 +416,7 @@ function PackEditor({ pack, onClose, onSaved }) {
         </div>
 
         <div className="flex gap-2 justify-end p-5 sticky bottom-0"
-          style={{ background: '#141418', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
           <button onClick={onClose} className="btn-ghost">Annuler</button>
           <button onClick={save} disabled={saving || !form.nom?.trim()} className="btn-primary gap-2">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}Enregistrer
@@ -476,17 +476,17 @@ function ManualQuestions({ pack }) {
       )}
       {/* Recherche */}
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Chercher des questions à ajouter…" className="input w-full pl-9" />
-        {searching && <Loader2 size={14} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />}
+        {searching && <Loader2 size={14} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />}
       </div>
       {results.length > 0 && (
-        <div className="rounded-lg max-h-40 overflow-y-auto" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-lg max-h-40 overflow-y-auto" style={{ border: '1px solid var(--border)' }}>
           {results.map(q => (
             <button key={q.id} onClick={() => add(q)}
               className="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <span className="text-xs truncate" style={{ color: '#ECECF0' }}>{q.enonce}</span>
+              style={{ borderBottom: '1px solid var(--input-bg)' }}>
+              <span className="text-xs truncate" style={{ color: 'var(--text)' }}>{q.enonce}</span>
               <Plus size={13} style={{ color: '#818CF8' }} />
             </button>
           ))}
@@ -505,8 +505,8 @@ function ManualQuestions({ pack }) {
           {selected.map(s => {
             const id = s.questionId ?? s.question?.id
             return (
-              <div key={id} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <span className="text-xs flex-1 truncate" style={{ color: '#ECECF0' }}>{s.question?.enonce ?? id}</span>
+              <div key={id} className="flex items-center gap-2 px-2 py-1.5 rounded" style={{ background: 'var(--hover-overlay)' }}>
+                <span className="text-xs flex-1 truncate" style={{ color: 'var(--text)' }}>{s.question?.enonce ?? id}</span>
                 <select value={s.manche ?? 1} onChange={e => setManche(id, e.target.value)}
                   className="input py-0.5 px-1.5 text-2xs w-auto" title="Manche">
                   {Array.from({ length: Number(pack.nbManches) || 1 }).map((_, i) => <option key={i} value={i + 1}>M{i + 1}</option>)}
@@ -515,7 +515,7 @@ function ManualQuestions({ pack }) {
               </div>
             )
           })}
-          {selected.length === 0 && <p className="text-2xs py-2" style={{ color: '#5A5A6E' }}>Aucune question sélectionnée</p>}
+          {selected.length === 0 && <p className="text-2xs py-2" style={{ color: 'var(--text-dim)' }}>Aucune question sélectionnée</p>}
         </div>
       </div>
     </div>
@@ -540,17 +540,17 @@ function StatsModal({ pack, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div className="card p-6 w-full max-w-md animate-scaleIn" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: '#ECECF0' }}>
+          <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--text)' }}>
             <span className="text-xl">{pack.emoji}</span>{pack.nom}
           </h2>
           <button onClick={onClose} className="btn-ghost btn-sm"><X size={16} /></button>
         </div>
-        {!stats ? <Loader2 size={20} className="animate-spin mx-auto my-6" style={{ color: '#5A5A6E' }} /> : (
+        {!stats ? <Loader2 size={20} className="animate-spin mx-auto my-6" style={{ color: 'var(--text-dim)' }} /> : (
           <div className="grid grid-cols-2 gap-3">
             {items.map(([l, v]) => (
-              <div key={l} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <p className="text-2xs" style={{ color: '#5A5A6E' }}>{l}</p>
-                <p className="text-xl font-bold mt-0.5" style={{ color: '#ECECF0' }}>{v}</p>
+              <div key={l} className="rounded-xl p-3" style={{ background: 'var(--hover-overlay)' }}>
+                <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>{l}</p>
+                <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--text)' }}>{v}</p>
               </div>
             ))}
           </div>
@@ -568,10 +568,10 @@ function MediaField({ value, onChange, banner }) {
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => setOpen(true)}
           className="rounded-lg overflow-hidden shrink-0 flex items-center justify-center"
-          style={{ width: banner ? 88 : 44, height: 44, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ width: banner ? 88 : 44, height: 44, background: 'var(--input-bg)', border: '1px solid var(--border)' }}>
           {value
             ? <img src={value} alt="" className="w-full h-full object-cover" />
-            : <ImageIcon size={16} style={{ color: '#5A5A6E' }} />}
+            : <ImageIcon size={16} style={{ color: 'var(--text-dim)' }} />}
         </button>
         <div className="flex flex-col gap-1">
           <button type="button" onClick={() => setOpen(true)} className="btn-secondary btn-sm">Choisir…</button>
@@ -600,21 +600,21 @@ function MediaPicker({ onClose, onSelect }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div className="card w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#5A5A6E' }} />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une image…" className="input w-full pl-9" autoFocus />
           </div>
           <button onClick={onClose} className="btn-ghost btn-sm"><X size={16} /></button>
         </div>
         <div className="p-4 overflow-y-auto">
-          {loading ? <Loader2 size={20} className="animate-spin mx-auto my-8" style={{ color: '#5A5A6E' }} />
-            : media.length === 0 ? <p className="text-sm text-center py-8" style={{ color: '#5A5A6E' }}>Aucune image dans la médiathèque.</p>
+          {loading ? <Loader2 size={20} className="animate-spin mx-auto my-8" style={{ color: 'var(--text-dim)' }} />
+            : media.length === 0 ? <p className="text-sm text-center py-8" style={{ color: 'var(--text-dim)' }}>Aucune image dans la médiathèque.</p>
             : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {media.map(m => (
                   <button key={m.id} onClick={() => onSelect(m.url)}
-                    className="aspect-square rounded-lg overflow-hidden group relative" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                    className="aspect-square rounded-lg overflow-hidden group relative" style={{ border: '1px solid var(--border)' }}>
                     <img src={m.thumbUrl ?? m.url} alt={m.titre ?? ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   </button>
                 ))}
@@ -646,7 +646,7 @@ function Toggle({ label, checked, onChange }) {
         <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
           style={{ left: checked ? '18px' : '2px' }} />
       </span>
-      <span className="text-sm" style={{ color: '#ECECF0' }}>{label}</span>
+      <span className="text-sm" style={{ color: 'var(--text)' }}>{label}</span>
     </button>
   )
 }
