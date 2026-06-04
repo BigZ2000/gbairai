@@ -1,0 +1,59 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# DÉVELOPPEMENT — base de données + backend conteneurisés (hot reload).
+#
+#   docker compose -f docker-compose.dev.yml up
+#
+# Le FRONTEND reste lancé SUR L'HÔTE (`cd client && npm run dev`) : Vite (HMR)
+# et son proxy `/api → localhost:4000` fonctionnent mieux hors conteneur, et le
+# backend publie justement le port 4000 sur l'hôte. C'est le réglage le plus
+# simple qui marche.
+# ──────────────────────────────────────────────────────────────────────────────
+name: gbairai-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gbairai
+      POSTGRES_PASSWORD: gbairai
+      POSTGRES_DB: gbairai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gbairai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # En dev : on synchronise le schéma puis on lance node --watch (rechargement
+    # à chaque modif). On surcharge donc l'ENTRYPOINT de l'image.
+    entrypoint: ["sh", "-c"]
+    command: ["npx prisma db push --skip-generate && node --watch src/server.js"]
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://gbairai:gbairai@db:5432/gbairai
+      JWT_SECRET: dev-secret-change-me
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-me
+      CLIENT_URL: http://localhost:5173
+      SERVER_URL: http://localhost:4000
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server:/app            # code monté → hot reload
+      - /app/node_modules        # volume anonyme : garde les node_modules Linux de l'image
+      - uploads_data_dev:/app/uploads
+
+volumes:
+  postgres_data_dev:
+  uploads_data_dev:

@@ -1,0 +1,83 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# PRODUCTION — Option A (bootstrap) : tout sur UNE machine (1× EC2).
+#   edge (Caddy + SPA, TLS auto) ─► server (API + WebSocket) ─► db (Postgres)
+#
+#   cp .env.prod.example .env   # puis renseigner les valeurs
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Migration vers Option B (plus tard) :
+#   - db        → supprimer ce service, pointer DATABASE_URL vers RDS
+#   - uploads   → migrer vers S3 (voir docs/devops/05-deployment.md)
+#   - server    → `build:` peut devenir `image:` (poussée par le CI vers ECR/GHCR)
+# ──────────────────────────────────────────────────────────────────────────────
+name: gbairai
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      PRISMA_BOOTSTRAP: db-push
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CLIENT_URL: https://${APP_DOMAIN}
+      SERVER_URL: https://${API_DOMAIN}
+      CORS_STRICT: "true"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      CINETPAY_ENABLED: ${CINETPAY_ENABLED:-false}
+      CINETPAY_API_KEY: ${CINETPAY_API_KEY:-}
+      CINETPAY_SITE_ID: ${CINETPAY_SITE_ID:-}
+      CINETPAY_SECRET_KEY: ${CINETPAY_SECRET_KEY:-}
+      CINETPAY_MODE: ${CINETPAY_MODE:-PRODUCTION}
+      CINETPAY_NOTIFY_URL: https://${API_DOMAIN}/api/billing/webhook
+      CINETPAY_RETURN_URL: https://${APP_DOMAIN}/abonnement/confirmation
+    volumes:
+      - uploads_data:/app/uploads
+    expose:
+      - "4000"
+
+  edge:
+    build:
+      context: ./client
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data        # certificats Let's Encrypt (persistance = pas de re-émission)
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+  uploads_data:
+  caddy_data:
+  caddy_config:
