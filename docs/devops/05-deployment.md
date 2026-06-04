@@ -6,19 +6,23 @@
 
 ---
 
-## Pré-requis 🔴 — Réconcilier les migrations Prisma
+## Pré-requis — Migrations Prisma ✅ (fait le 2026-06-04)
 
-**Objectif** : éviter un schéma incomplet (les migrations sont en retard sur
-`schema.prisma`). En Option A on démarre en `db push` (déjà câblé), donc **non
-bloquant pour A** ; à faire avant de passer à `migrate deploy`.
+L'historique de migrations était désynchronisé du `schema.prisma`. Il a été **remis
+à plat en une baseline unique** `20260604104618_init` (squash). La prod utilise donc
+`PRISMA_BOOTSTRAP=migrate` (`prisma migrate deploy` au démarrage du conteneur).
 
-**Action** (sur ta machine de dev, base de dev) :
-```bash
-cd server
-npx prisma migrate dev --name reconcile_schema
-git add prisma/migrations && git commit -m "chore(prisma): reconcile migrations"
-```
-**Vérification** : `npx prisma migrate status` → *Database schema is up to date*.
+> Pour mémoire, la procédure de squash (si à refaire un jour) :
+> ```bash
+> cd server
+> rm -rf prisma/migrations
+> npx prisma migrate reset --force --skip-seed
+> npx prisma migrate dev --name init
+> node prisma/seed.js   # données de base (admin + catégories + questions)
+> ```
+> ⚠️ Destructif (réinitialise la base). À ne faire qu'en dev.
+
+**Vérification** : `npx prisma migrate status` → *Database schema is up to date!*
 
 ---
 

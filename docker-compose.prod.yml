@@ -38,7 +38,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      PRISMA_BOOTSTRAP: db-push
+      PRISMA_BOOTSTRAP: migrate
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}

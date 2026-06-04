@@ -35,7 +35,7 @@
 
 ## 3. Risques & dette technique 🔴 / ⚠️
 
-1. 🔴 **Migrations Prisma désynchronisées du schéma.** Les 6 migrations s'arrêtent à `media_thumbnail` ; les évolutions suivantes (organisations, offres, packs, retrait `PREMIUM`…) ont été appliquées via `prisma db push`. → **Bootstrap en `db push`** (déjà câblé : `PRISMA_BOOTSTRAP=db-push`). **Avant** de passer à `migrate deploy`, réconcilier l'historique : `npx prisma migrate dev --name reconcile_schema` puis committer la migration.
+1. ✅ **Migrations Prisma — RÉSOLU (2026-06-04).** L'historique était désynchronisé (évolutions faites en `db push`). Une tentative de migration « reconcile » a échoué (bug d'ordre Prisma : `AlterEnum` du type `Plan` émis avant les `CreateTable` des tables qui l'utilisent). **Correctif appliqué : squash en une baseline unique** `20260604104618_init` (que des `CREATE`, enum `Plan` final, 0 `AlterEnum`). `prisma migrate status` → *up to date*. La prod utilise désormais `PRISMA_BOOTSTRAP=migrate` (`migrate deploy`).
 2. ⚠️ **WebSocket mono-instance (état en mémoire).** ✅ Conforme à Option A/B (1 nœud). La montée en charge (Option C) impose un refacto `wsServer.js` → Redis pub/sub + sticky sessions.
 3. ⚠️ **Médias sur disque local.** OK en Option A (volume Docker). À migrer vers **S3** en Option B (compute futur éphémère).
 4. ⚠️ **ESP32 en `ws://` clair.** Le firmware utilise `webSocket.begin` (non chiffré). En prod cloud → **`wss://api.gbairai.robotechci.com`** : passer à `beginSSL`, port 443, et gérer le certificat. (Évolution firmware validée.)
@@ -44,7 +44,7 @@
 
 ## 4. Recommandations (ordre)
 
-1. Réconcilier les migrations Prisma (lever le bloquant #1).
+1. ~~Réconcilier les migrations Prisma~~ ✅ fait (baseline `init`).
 2. Déployer Option A en suivant `docs/devops/05-deployment.md`.
 3. Activer backups + monitoring (docs 06/07) **avant** d'ouvrir au public.
 4. Activer CinetPay (TEST → PRODUCTION) une fois le webhook public joignable.
