@@ -1,0 +1,14 @@
+# Ne JAMAIS copier dans l'image :
+node_modules
+uploads
+.env
+.env.*
+npm-debug.log*
+
+# Outillage de seed/catalogue (non utilisé au runtime)
+catalog
+
+# Divers
+.DS_Store
+Dockerfile
+.dockerignore

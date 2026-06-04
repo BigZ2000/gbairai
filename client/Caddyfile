@@ -1,0 +1,38 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Caddyfile Gbairai (edge / reverse-proxy).
+# Les variables {$APP_DOMAIN} {$API_DOMAIN} {$ACME_EMAIL} sont injectées par
+# docker-compose.prod.yml (section "edge" → environment).
+#
+# Caddy obtient et renouvelle TOUT SEUL les certificats TLS (Let's Encrypt / ACME)
+#   → prérequis : ports 80 et 443 ouverts + DNS public pointant vers le serveur.
+# Caddy proxifie aussi nativement les WebSockets (upgrade HTTP/1.1) : aucune
+#   directive spéciale nécessaire.
+# ──────────────────────────────────────────────────────────────────────────────
+{
+	email {$ACME_EMAIL}
+}
+
+# Application (SPA) — la SPA appelle l'API en chemins RELATIFS (/api, /ws,
+# /uploads), donc on proxifie ces préfixes vers le backend sur le MÊME domaine
+# (aucun CORS pour le navigateur), et on sert le reste en statique.
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	@backend path /api/* /uploads/* /ws*
+	handle @backend {
+		reverse_proxy server:4000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# API publique — utilisée par les buzzers ESP32 (wss), le webhook CinetPay et
+# tout accès direct à l'API. Tout est proxifié vers le backend.
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy server:4000
+}
