@@ -150,9 +150,12 @@ Déclarer l'URL de notification chez CinetPay :
 Le firmware bascule **automatiquement en `wss://` (TLS) quand le port = 443** (sinon
 `ws://` en LAN) — aucune autre modif de code nécessaire.
 
-**Action** :
-1. **Flasher** `tools/firmware-esp32/gbairai_buzzer/gbairai_buzzer.ino` sur le boîtier.
-2. Au **captive portal**, saisir : hôte `api.gbairai.robotechci.com` + port `443`.
+Le serveur est **codé en dur** dans le firmware (`GBAIRAI_HOST`/`GBAIRAI_PORT` =
+`api.gbairai.robotechci.com:443`) → au captive portal, l'utilisateur ne saisit **que
+son Wi-Fi** (UX plug & play, aucune adresse technique).
+
+**Action** : **flasher** `tools/firmware-esp32/gbairai_buzzer/gbairai_buzzer.ino` sur le
+boîtier (changer les 2 constantes en tête de fichier seulement pour un déploiement LAN/dev).
 
 **Vérification** : le buzzer se connecte via Internet et apparaît **« en ligne »** dans
 l'app (Administration → Buzzers). Moniteur série → `[WS] liaison sécurisée (wss)`.

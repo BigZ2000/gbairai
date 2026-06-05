@@ -46,8 +46,11 @@ Adafruit_NeoPixel pixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 Preferences prefs;
 
 String gMac;                      // "AA:BB:CC:DD:EE:FF"
-String gServerHost = "192.168.1.10";
-uint16_t gServerPort = 4000;
+// Serveur Gbairai CODÉ EN DUR : l'utilisateur ne saisit QUE son Wi-Fi (plug & play,
+// zéro réglage technique). Déploiement LAN/dev : remplacer ces 2 valeurs puis
+// reflasher (ex. "192.168.1.10" / 4000 → liaison ws:// claire).
+const char*    GBAIRAI_HOST = "api.gbairai.robotechci.com";
+const uint16_t GBAIRAI_PORT = 443;   // 443 → wss (TLS) auto ; 4000 → ws (LAN)
 bool gConnected = false;
 
 // ── États de LED (miroir exact du simulateur) ───────────────────────────────
@@ -238,28 +241,10 @@ void handleButton() {
 // ============================================================================
 //  Configuration Wi-Fi + serveur (captive portal)
 // ============================================================================
-void loadConfig() {
-  prefs.begin("gbairai", true);
-  gServerHost = prefs.getString("host", gServerHost);
-  gServerPort = prefs.getUShort("port", gServerPort);
-  prefs.end();
-}
-void saveConfig(const String& host, uint16_t port) {
-  prefs.begin("gbairai", false);
-  prefs.putString("host", host);
-  prefs.putUShort("port", port);
-  prefs.end();
-}
-
 void startPortalIfNeeded() {
   WiFiManager wm;
-  // Paramètres personnalisés : adresse IP et port du serveur Gbairai.
-  // Serveur : IP en LAN (port 4000) OU domaine en prod cloud (port 443 = wss auto).
-  WiFiManagerParameter pHost("host", "Serveur (IP ou domaine)", gServerHost.c_str(), 64);
-  WiFiManagerParameter pPort("port", "Port (4000 LAN / 443 cloud)", String(gServerPort).c_str(), 6);
-  wm.addParameter(&pHost);
-  wm.addParameter(&pPort);
-
+  // Le portail ne demande QUE le Wi-Fi (SSID + mot de passe). Le serveur Gbairai
+  // est codé en dur (GBAIRAI_HOST/PORT) → aucune saisie technique pour l'utilisateur.
   gLed = L_PORTAL;
   // Nom du point d'accès de configuration : "Gbairai-Buzzer-XXXX".
   String ap = "Gbairai-Buzzer-" + gMac.substring(gMac.length() - 5);
@@ -270,13 +255,7 @@ void startPortalIfNeeded() {
     Serial.println("[WiFi] échec portail → redémarrage");
     delay(2000); ESP.restart();
   }
-  // Sauvegarde des paramètres serveur saisis dans le portail.
-  String host = pHost.getValue();
-  uint16_t port = (uint16_t) String(pPort.getValue()).toInt();
-  if (host.length()) gServerHost = host;
-  if (port) gServerPort = port;
-  saveConfig(gServerHost, gServerPort);
-  Serial.printf("[WiFi] connecté. Serveur = %s:%u\n", gServerHost.c_str(), gServerPort);
+  Serial.printf("[WiFi] connecté. Serveur = %s:%u\n", GBAIRAI_HOST, GBAIRAI_PORT);
 }
 
 // Reset d'usine : bouton maintenu enfoncé au démarrage → efface Wi-Fi + config.
@@ -305,18 +284,17 @@ void setup() {
   Serial.printf("\nGbairai Buzzer — MAC %s\n", gMac.c_str());
 
   maybeFactoryReset();                // reset d'usine si bouton tenu au boot
-  loadConfig();
   startPortalIfNeeded();              // Wi-Fi (captive portal au 1er démarrage)
 
-  // Connexion WebSocket au serveur (chemin "/" — le serveur accepte tout chemin).
+  // Connexion WebSocket au serveur codé en dur (chemin "/" — le serveur accepte tout chemin).
   // Port 443 → WSS (TLS, prod cloud) ; sinon WS clair (LAN). Sur ESP32, beginSSL
   // sans CA chiffre la liaison sans valider le certificat (suffisant ici ;
   // durcissement futur = épingler la CA Let's Encrypt via beginSslWithCA).
-  if (gServerPort == 443) {
+  if (GBAIRAI_PORT == 443) {
     Serial.println("[WS] liaison sécurisée (wss)");
-    webSocket.beginSSL(gServerHost.c_str(), gServerPort, "/");
+    webSocket.beginSSL(GBAIRAI_HOST, GBAIRAI_PORT, "/");
   } else {
-    webSocket.begin(gServerHost.c_str(), gServerPort, "/");
+    webSocket.begin(GBAIRAI_HOST, GBAIRAI_PORT, "/");
   }
   webSocket.onEvent(onWsEvent);
   webSocket.setReconnectInterval(3000);   // reconnexion auto toutes les 3 s

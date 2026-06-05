@@ -47,7 +47,6 @@
   </div>
 
   <div class="panel">
-    <div class="row"><label>Serveur</label><input id="url" /></div>
     <div class="row"><label>MAC du buzzer</label><input id="mac" /></div>
     <div class="row"><label>Batterie (%)</label><input id="bat" type="number" value="100" min="0" max="100" /></div>
     <button class="connect" id="connectBtn">Allumer le buzzer</button>
@@ -82,12 +81,17 @@ const PAIRING = {
 };
 const $ = id => document.getElementById(id);
 
-// Détection auto du serveur : si la page est servie par l'app (http://<ip>:5173),
-// on cible ws://<même-ip>:4000 → fonctionne tel quel sur téléphone/tablette en LAN.
-const host = (location.protocol.startsWith("http") && location.hostname) ? location.hostname : "localhost";
-$("url").value = `ws://${host}:4000`;
+// Serveur déduit AUTOMATIQUEMENT de l'URL où le simulateur est servi (même origine,
+// chemin /ws routé vers le backend) → aucune adresse à saisir (plug & play).
+//   prod    : wss://gbairai.robotechci.com/ws
+//   LAN/dev : ws://<ip>:5173/ws  (proxifié par Vite vers :4000)
+const WS_URL = ((location.protocol === "https:") ? "wss" : "ws") + "://" + location.host + "/ws";
 const randMac = () => "5E:" + Array.from({length:5}, () => Math.floor(Math.random()*256).toString(16).padStart(2,"0").toUpperCase()).join(":");
 $("mac").value = randMac();
+// Auto-formatage de la MAC à la saisie : on ne tape que l'hex, les « : » s'ajoutent.
+const formatMac = v => { const h=(v||"").replace(/[^0-9a-fA-F]/g,"").toUpperCase().slice(0,12); return h.match(/.{1,2}/g)?.join(":") ?? ""; };
+$("mac").setAttribute("maxlength","17");
+$("mac").addEventListener("input", e => { e.target.value = formatMac(e.target.value); });
 
 // ── Sons (Web Audio) — mêmes déclencheurs que le futur piézo ESP32 ──────────
 let audio = null;
@@ -127,7 +131,7 @@ function sendTelemetry(){ if(!connected) return; ws.send(JSON.stringify({type:"d
 
 function connect(){
   ac(); // débloque l'audio (geste utilisateur)
-  try { ws = new WebSocket($("url").value.trim()); } catch { setPairing("disconnected"); return; }
+  try { ws = new WebSocket(WS_URL); } catch { setPairing("disconnected"); return; }
   $("connectBtn").textContent="Démarrage…";
   ws.onopen = () => {
     connected=true;
@@ -137,7 +141,7 @@ function connect(){
     sendTelemetry(); clearInterval(teleTimer); teleTimer=setInterval(sendTelemetry,20000);
   };
   ws.onclose = () => { connected=false; clearInterval(teleTimer); setLed("disconnected",false); setPairing("disconnected"); $("connectBtn").textContent="Allumer le buzzer"; log("Éteint / déconnecté"); };
-  ws.onerror = () => { setPairing("disconnected"); log("Erreur WebSocket — vérifie l'adresse du serveur"); };
+  ws.onerror = () => { setPairing("disconnected"); log("Erreur de connexion au serveur — nouvelle tentative…"); };
   ws.onmessage = (e) => {
     let m; try { m=JSON.parse(e.data); } catch { return; }
     switch (m.type) {

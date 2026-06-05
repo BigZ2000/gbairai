@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import Layout from '../components/Layout.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
+import { formatMac } from '../utils/mac.js'
 import {
   Radio, Pencil, Unlink, Check, X, Link2, Wifi, WifiOff, Cpu, Palette, AtSign,
   User, Shield, Sliders, BarChart3, Sun, Moon, Monitor, LogOut, Trophy,
@@ -567,7 +568,8 @@ function BuzzersTab({ apiFetch, showToast }) {
           <div className="relative flex-1">
             <Cpu size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
             <input type="text" value={claimMac} placeholder="AA:BB:CC:DD:EE:FF"
-              onChange={e => setClaimMac(e.target.value)} className="input pl-8 font-mono text-sm" />
+              inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false} maxLength={17}
+              onChange={e => setClaimMac(formatMac(e.target.value))} className="input pl-8 font-mono text-sm" />
           </div>
           <button type="submit" disabled={!claimMac.trim()} className="btn-primary btn-sm shrink-0">Appairer</button>
         </form>
