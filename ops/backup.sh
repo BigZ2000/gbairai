@@ -13,6 +13,15 @@
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Sécurité : les sauvegardes contiennent le dump complet (hashes de mots de passe,
+# données users) + les médias. umask 077 → dossier 700 et fichiers 600 (illisibles
+# par les autres comptes locaux de la machine).
+umask 077
+
+# Cron a un PATH minimal (/usr/bin:/bin) : on s'assure que l'AWS CLI soit trouvable,
+# qu'elle vienne de l'installeur v2 (/usr/local/bin) ou de snap (/snap/bin).
+export PATH="/usr/local/bin:/snap/bin:$PATH"
+
 # Racine du projet (= dossier parent de ops/), quel que soit le cwd du cron.
 cd "$(dirname "$0")/.."
 
@@ -24,19 +33,23 @@ COMPOSE="docker compose -f docker-compose.prod.yml"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
 STAMP="$(date +%F_%H%M)"
-mkdir -p "$BACKUP_DIR"
+mkdir -p "$BACKUP_DIR"; chmod 700 "$BACKUP_DIR"   # verrouille aussi un dossier préexistant
 
 # 1) Base de données — dump SQL compressé.
 DB_FILE="$BACKUP_DIR/gbairai_db_${STAMP}.sql.gz"
 $COMPOSE exec -T db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" | gzip > "$DB_FILE"
 echo "[backup] DB     → $DB_FILE ($(du -h "$DB_FILE" | cut -f1))"
 
-# 2) Médias — archive du volume uploads (best-effort, ne bloque pas si vide).
+# 2) Médias — archive du volume uploads. tar réussit même si le dossier est vide,
+#    donc un échec ici est une VRAIE panne (serveur arrêté, tar KO…) → on la fait
+#    remonter (stderr + exit) au lieu de la masquer. Le dump DB, lui, est déjà écrit.
 MEDIA_FILE="$BACKUP_DIR/gbairai_uploads_${STAMP}.tgz"
-if $COMPOSE exec -T server tar czf - -C /app/uploads . > "$MEDIA_FILE" 2>/dev/null; then
+if $COMPOSE exec -T server tar czf - -C /app/uploads . > "$MEDIA_FILE"; then
   echo "[backup] médias → $MEDIA_FILE ($(du -h "$MEDIA_FILE" | cut -f1))"
 else
-  rm -f "$MEDIA_FILE"; echo "[backup] médias → (rien à sauvegarder)"
+  rm -f "$MEDIA_FILE"
+  echo "[backup] ERREUR: sauvegarde des médias échouée (serveur arrêté ? tar ?)" >&2
+  exit 1
 fi
 
 # 3) Rotation locale — supprime les sauvegardes de plus de RETENTION_DAYS jours.

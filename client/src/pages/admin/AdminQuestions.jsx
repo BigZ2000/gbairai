@@ -25,6 +25,7 @@ export default function AdminQuestions() {
   const [search, setSearch]       = useState('')
   const [filterType, setFilterType]   = useState('')
   const [filterDiff, setFilterDiff]   = useState('')
+  const [filterCat, setFilterCat]     = useState('')
   const [categories, setCategories]   = useState([])
   const [loading, setLoading]     = useState(false)
 
@@ -41,6 +42,7 @@ export default function AdminQuestions() {
     if (search)     params.set('q', search)
     if (filterType) params.set('type', filterType)
     if (filterDiff) params.set('difficulte', filterDiff)
+    if (filterCat)  params.set('categorieId', filterCat)
     const res = await apiFetch(`/questions?${params}`)
     if (res?.ok) {
       const d = await res.json()
@@ -48,7 +50,7 @@ export default function AdminQuestions() {
       setTotal(d.total ?? 0)
     }
     setLoading(false)
-  }, [page, search, filterType, filterDiff])
+  }, [page, search, filterType, filterDiff, filterCat])
 
   useEffect(() => { load() }, [load])
 
@@ -135,6 +137,11 @@ export default function AdminQuestions() {
           className="input text-sm">
           <option value="">Toutes difficultés</option>
           {DIFFS.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1) }}
+          className="input text-sm">
+          <option value="">Toutes catégories</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.emoji ? c.emoji + ' ' : ''}{c.nom}</option>)}
         </select>
       </div>
 

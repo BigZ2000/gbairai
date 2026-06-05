@@ -59,7 +59,7 @@ export const PACKS = [
     nom: 'Culture Générale',
     description: 'Un peu de tout pour tester vos connaissances.',
     couleur: '#6366F1',
-    categories: ['Culture générale', 'Culture Générale'],
+    categories: ['Culture Générale'],
     difficulte: 'MIXTE',
   },
   {
@@ -77,7 +77,7 @@ export const PACKS = [
     nom: 'Afrique & Monde',
     description: "Histoire et géographie de l'Afrique de l'Ouest et du monde.",
     couleur: '#14B8A6',
-    categories: ['Géographie', 'Histoire', 'Histoire & Géographie'],
+    categories: ['Géographie', 'Histoire'],
     difficulte: 'MIXTE',
   },
   {
@@ -86,7 +86,7 @@ export const PACKS = [
     nom: 'Science & Technologie',
     description: 'Sciences, innovations et technologie expliquées simplement.',
     couleur: '#3B82F6',
-    categories: ['Sciences', 'Technologie', 'Science & Technologie'],
+    categories: ['Sciences', 'Technologie'],
     difficulte: 'MIXTE',
   },
   {
@@ -149,7 +149,7 @@ export const SIGNATURES = [
     nom: 'Côte d\'Ivoire Challenge',
     description: 'Le grand défi 100 % ivoirien.',
     couleur: '#F77F00',
-    categories: ['Actualité Ivoirienne', 'Histoire & Géographie', 'Gastronomie'],
+    categories: ['Actualité Ivoirienne', 'Histoire', 'Géographie', 'Gastronomie'],
     difficulte: 'DIFFICILE',
     mode: 'long',
   },
