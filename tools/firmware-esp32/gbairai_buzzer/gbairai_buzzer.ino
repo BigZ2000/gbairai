@@ -254,8 +254,9 @@ void saveConfig(const String& host, uint16_t port) {
 void startPortalIfNeeded() {
   WiFiManager wm;
   // Paramètres personnalisés : adresse IP et port du serveur Gbairai.
-  WiFiManagerParameter pHost("host", "Serveur (IP)", gServerHost.c_str(), 32);
-  WiFiManagerParameter pPort("port", "Port", String(gServerPort).c_str(), 6);
+  // Serveur : IP en LAN (port 4000) OU domaine en prod cloud (port 443 = wss auto).
+  WiFiManagerParameter pHost("host", "Serveur (IP ou domaine)", gServerHost.c_str(), 64);
+  WiFiManagerParameter pPort("port", "Port (4000 LAN / 443 cloud)", String(gServerPort).c_str(), 6);
   wm.addParameter(&pHost);
   wm.addParameter(&pPort);
 
@@ -308,7 +309,15 @@ void setup() {
   startPortalIfNeeded();              // Wi-Fi (captive portal au 1er démarrage)
 
   // Connexion WebSocket au serveur (chemin "/" — le serveur accepte tout chemin).
-  webSocket.begin(gServerHost.c_str(), gServerPort, "/");
+  // Port 443 → WSS (TLS, prod cloud) ; sinon WS clair (LAN). Sur ESP32, beginSSL
+  // sans CA chiffre la liaison sans valider le certificat (suffisant ici ;
+  // durcissement futur = épingler la CA Let's Encrypt via beginSslWithCA).
+  if (gServerPort == 443) {
+    Serial.println("[WS] liaison sécurisée (wss)");
+    webSocket.beginSSL(gServerHost.c_str(), gServerPort, "/");
+  } else {
+    webSocket.begin(gServerHost.c_str(), gServerPort, "/");
+  }
   webSocket.onEvent(onWsEvent);
   webSocket.setReconnectInterval(3000);   // reconnexion auto toutes les 3 s
   webSocket.enableHeartbeat(15000, 3000, 2);

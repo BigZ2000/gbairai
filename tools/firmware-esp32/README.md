@@ -56,7 +56,10 @@ serveur → led {state}  → pilote la LED RGB
 
 1. Au 1er boot, le buzzer crée un Wi-Fi **`Gbairai-Buzzer-XXXX`** (LED blanche pulsée).
 2. Connecte ton téléphone/PC à ce réseau → un **portail** s'ouvre.
-3. Saisis : ton **Wi-Fi** (SSID + mot de passe) + l'**IP du serveur** Gbairai et le **port** (`4000`).
+3. Saisis : ton **Wi-Fi** (SSID + mot de passe) + l'adresse du serveur Gbairai :
+   - **LAN** : l'**IP** locale + port **`4000`** → liaison `ws://`.
+   - **Cloud (prod)** : le **domaine** `api.gbairai.robotechci.com` + port **`443`**
+     → le firmware bascule **automatiquement en `wss://`** (TLS).
 4. Enregistre → le buzzer redémarre et se connecte (les identifiants sont mémorisés).
 
 ## 5. Appairage & jeu (workflow réel)
@@ -101,7 +104,9 @@ la config serveur (clignotement rouge de confirmation), puis rouvre le portail.
 
 ## 9. Notes production
 
-- **LAN / `ws://`** par défaut. Pour Internet (`wss://`), utiliser `webSocket.beginSSL(...)`
-  + certificat (et `https` pour l'OTA) ; non requis en réseau local.
+- **Bascule auto `ws`/`wss`** : le firmware utilise `beginSSL` (TLS) **dès que le port
+  saisi = `443`** (prod cloud), sinon `ws://` clair (LAN). Sur ESP32, `beginSSL` sans CA
+  **chiffre sans valider** le certificat — suffisant ici ; durcissement = épingler la CA
+  Let's Encrypt (`beginSslWithCA`). Pour l'OTA en cloud, héberger le `.bin` en `https`.
 - Le contrat protocole étant **commun au simulateur**, toute évolution se valide
   d'abord sans matériel via `tools/buzzer-simulator`.

@@ -145,11 +145,20 @@ Déclarer l'URL de notification chez CinetPay :
 (voir `04-github-actions.md`).
 **Vérification** : l'onglet **Actions** montre le job *Deploy (prod)* vert.
 
-## Étape 10 — ESP32 en wss (prod)
+## Étape 10 — ESP32 en wss (prod) ✅ (firmware prêt)
 
-**Action** : faire évoluer le firmware → `beginSSL("api.gbairai.robotechci.com", 443, "/")`.
-Au captive portal, saisir l'hôte `api.gbairai.robotechci.com` et le port `443`.
-**Vérification** : le buzzer apparaît « en ligne » dans l'app via Internet.
+Le firmware bascule **automatiquement en `wss://` (TLS) quand le port = 443** (sinon
+`ws://` en LAN) — aucune autre modif de code nécessaire.
+
+**Action** :
+1. **Flasher** `tools/firmware-esp32/gbairai_buzzer/gbairai_buzzer.ino` sur le boîtier.
+2. Au **captive portal**, saisir : hôte `api.gbairai.robotechci.com` + port `443`.
+
+**Vérification** : le buzzer se connecte via Internet et apparaît **« en ligne »** dans
+l'app (Administration → Buzzers). Moniteur série → `[WS] liaison sécurisée (wss)`.
+
+> Sécurité : `beginSSL` sans CA **chiffre sans valider** le certificat (suffisant ici).
+> Durcissement : épingler la CA Let's Encrypt via `beginSslWithCA`.
 
 ---
 

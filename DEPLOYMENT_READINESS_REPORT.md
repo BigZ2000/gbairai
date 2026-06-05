@@ -38,7 +38,7 @@
 1. ✅ **Migrations Prisma — RÉSOLU (2026-06-04).** L'historique était désynchronisé (évolutions faites en `db push`). Une tentative de migration « reconcile » a échoué (bug d'ordre Prisma : `AlterEnum` du type `Plan` émis avant les `CreateTable` des tables qui l'utilisent). **Correctif appliqué : squash en une baseline unique** `20260604104618_init` (que des `CREATE`, enum `Plan` final, 0 `AlterEnum`). `prisma migrate status` → *up to date*. La prod utilise désormais `PRISMA_BOOTSTRAP=migrate` (`migrate deploy`).
 2. ⚠️ **WebSocket mono-instance (état en mémoire).** ✅ Conforme à Option A/B (1 nœud). La montée en charge (Option C) impose un refacto `wsServer.js` → Redis pub/sub + sticky sessions.
 3. ⚠️ **Médias sur disque local.** OK en Option A (volume Docker). À migrer vers **S3** en Option B (compute futur éphémère).
-4. ⚠️ **ESP32 en `ws://` clair.** Le firmware utilise `webSocket.begin` (non chiffré). En prod cloud → **`wss://api.gbairai.robotechci.com`** : passer à `beginSSL`, port 443, et gérer le certificat. (Évolution firmware validée.)
+4. ✅ **ESP32 en `wss` — fait.** Le firmware bascule en `beginSSL` (TLS) **automatiquement quand le port saisi au portail = 443** (sinon `ws://` en LAN). Reste à **flasher** les boîtiers et saisir `api.gbairai.robotechci.com` / `443`. Durcissement futur : épingler la CA Let's Encrypt (`beginSslWithCA`) — actuellement chiffré sans validation.
 5. ⚠️ **Pas de tests automatisés formels.** Les `_t*.mjs` sont des scripts manuels. Le CI vérifie build + syntaxe, pas la logique métier.
 6. ⚠️ **Pas de HA applicative en Option A** (1 instance). Mitigation : `restart: unless-stopped`, backups DB, et bascule Option B (RDS Multi-AZ possible).
 
