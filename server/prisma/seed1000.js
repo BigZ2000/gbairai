@@ -1,31 +1,26 @@
-import { PrismaClient } from '@prisma/client'
-const prisma = new PrismaClient()
+// Banque de ~1000 questions (thèmes généraux), exportée comme MODULE pour le seed
+// consolidé (prisma/seed-full.js). Ce fichier ne touche plus la base lui-même.
 
 const F = 'FACILE', M = 'MOYEN', D = 'DIFFICILE'
 const b = (e, r, d, p = 100) => ({ enonce: e, type: 'BUZZER', reponse: r, difficulte: d, points: p, choix: [], tempsLimite: 30, publique: true })
 const v = (e, r, d, p = 50) => ({ enonce: e, type: 'VRAI_FAUX', reponse: r, difficulte: d, points: p, choix: ['Vrai', 'Faux'], tempsLimite: 20, publique: true })
 const q = (e, r, d, c, p = 100) => ({ enonce: e, type: 'QCM', reponse: r, difficulte: d, points: p, choix: c, tempsLimite: 30, publique: true })
 
-async function main() {
-  console.log('🌱 Démarrage du seeding...')
-
-  await prisma.mancheQuestion.deleteMany()
-  await prisma.question.deleteMany()
-  await prisma.rubrique.deleteMany()
-  await prisma.categorie.deleteMany()
-
-  const geo    = await prisma.categorie.create({ data: { nom: 'Géographie',        emoji: '🌍', publique: true } })
-  const hist   = await prisma.categorie.create({ data: { nom: 'Histoire',          emoji: '🏛️', publique: true } })
-  const sci    = await prisma.categorie.create({ data: { nom: 'Sciences',          emoji: '🔬', publique: true } })
-  const cine   = await prisma.categorie.create({ data: { nom: 'Cinéma & Séries',   emoji: '🎬', publique: true } })
-  const mus    = await prisma.categorie.create({ data: { nom: 'Musique',           emoji: '🎵', publique: true } })
-  const sport  = await prisma.categorie.create({ data: { nom: 'Sport',            emoji: '⚽', publique: true } })
-  const gastro = await prisma.categorie.create({ data: { nom: 'Gastronomie',      emoji: '🍽️', publique: true } })
-  const litt   = await prisma.categorie.create({ data: { nom: 'Littérature',      emoji: '📚', publique: true } })
-  const art    = await prisma.categorie.create({ data: { nom: 'Art & Culture',    emoji: '🎨', publique: true } })
-  const tech   = await prisma.categorie.create({ data: { nom: 'Technologie',      emoji: '💻', publique: true } })
-  const nature = await prisma.categorie.create({ data: { nom: 'Nature & Animaux', emoji: '🌿', publique: true } })
-  const cult   = await prisma.categorie.create({ data: { nom: 'Culture générale', emoji: '🧠', publique: true } })
+export function getQuestions1000(catMap) {
+  // catMap : { 'Géographie': id, 'Histoire': id, … }. On enveloppe en { id } pour
+  // que les `geo.id`, `hist.id`… du reste du fichier restent valides sans modif.
+  const geo    = { id: catMap['Géographie'] }
+  const hist   = { id: catMap['Histoire'] }
+  const sci    = { id: catMap['Sciences'] }
+  const cine   = { id: catMap['Cinéma & Séries'] }
+  const mus    = { id: catMap['Musique'] }
+  const sport  = { id: catMap['Sport'] }
+  const gastro = { id: catMap['Gastronomie'] }
+  const litt   = { id: catMap['Littérature'] }
+  const art    = { id: catMap['Art & Culture'] }
+  const tech   = { id: catMap['Technologie'] }
+  const nature = { id: catMap['Nature & Animaux'] }
+  const cult   = { id: catMap['Culture Générale'] }
 
   const geoQ = [
     b('Quelle est la capitale de la France ?', 'Paris', F),
@@ -1111,12 +1106,5 @@ async function main() {
     ].map(o => ({ ...o, categorieId: cult.id })),
   ]
 
-  await prisma.question.createMany({ data: allQuestions, skipDuplicates: true })
-
-  const count = await prisma.question.count()
-  console.log(`✅ Seed terminé — ${count} questions créées`)
+  return allQuestions
 }
-
-main()
-  .catch(e => { console.error(e); process.exit(1) })
-  .finally(() => prisma.$disconnect())
