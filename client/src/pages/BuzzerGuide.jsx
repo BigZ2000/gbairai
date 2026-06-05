@@ -60,8 +60,8 @@ export default function BuzzerGuide() {
               text="Tout neuf, il crée son propre réseau Wi-Fi « Gbairai-Buzzer-XXXX » — la LED pulse en ⚪ blanc." />
             <WifiStep n="2" title="Connecte ton téléphone à ce réseau"
               text="Choisis « Gbairai-Buzzer-XXXX » dans les réglages Wi-Fi du téléphone. Un portail de configuration s'ouvre tout seul." />
-            <WifiStep n="3" title="Renseigne ton Wi-Fi + le serveur"
-              text="Sélectionne ton Wi-Fi (avec son mot de passe) puis saisis l'adresse du serveur Gbairai et le port (4000)." />
+            <WifiStep n="3" title="Choisis ton Wi-Fi"
+              text="Sélectionne ton réseau Wi-Fi et saisis son mot de passe. C'est tout — le buzzer connaît déjà le serveur Gbairai (rien d'autre à régler)." />
             <WifiStep n="4" title="Valide"
               text="Le buzzer redémarre, mémorise tout et se reconnecte automatiquement à chaque allumage suivant." />
           </div>
