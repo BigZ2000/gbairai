@@ -18,6 +18,10 @@ set -euo pipefail
 # par les autres comptes locaux de la machine).
 umask 077
 
+# Cron a un PATH minimal (/usr/bin:/bin) : on s'assure que l'AWS CLI soit trouvable,
+# qu'elle vienne de l'installeur v2 (/usr/local/bin) ou de snap (/snap/bin).
+export PATH="/usr/local/bin:/snap/bin:$PATH"
+
 # Racine du projet (= dossier parent de ops/), quel que soit le cwd du cron.
 cd "$(dirname "$0")/.."
 
