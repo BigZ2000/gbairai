@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import { flattenManches } from '../utils/manches.js'
-import { Loader2, Zap, Check, X, Trophy, Hand } from 'lucide-react'
+import QuestionMedia from '../components/QuestionMedia.jsx'
+import { Loader2, Zap, Check, X, Trophy, Hand, AlertTriangle } from 'lucide-react'
 
 // Écran JOUEUR — pensé pour le présentiel « lève les yeux » :
 // l'essentiel est un grand bouton BUZZ. La question est sur l'écran public.
@@ -23,9 +24,13 @@ export default function JoueurJeu() {
   const [voted, setVoted] = useState(null)
   const [classement, setClassement] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [question, setQuestion] = useState(null)   // contenu public (mode auto)
-  const [myAnswer, setMyAnswer] = useState(null)    // réponse choisie (mode auto)
-  const [toast, setToast] = useState(null)          // avis discret (buzzer connecté…)
+  const [question, setQuestion] = useState(null)    // contenu public
+  const [myAnswer, setMyAnswer] = useState(null)    // réponse choisie (auto ou D2)
+  const [mediaState, setMediaState] = useState(null)// D5 : sync média en distanciel
+  const [animateurOffline, setAnimateurOffline] = useState(false) // A3
+  const [isEliminated, setIsEliminated] = useState(false)         // D6
+  const [textAnswer, setTextAnswer] = useState('')  // A4 : saisie libre BUZZER distanciel
+  const [toast, setToast] = useState(null)
 
   const code = partieCode.toUpperCase()
   const myParticipant = participants.find(p => p.userId === user?.id)
@@ -37,11 +42,15 @@ export default function JoueurJeu() {
   function showToast(t) { setToast(t); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 3500) }
   const myScore = myParticipant?.score ?? 0
   const totalQuestions = partie ? flattenManches(partie.manches ?? []).length : 0
-  const isVote = !!partie?.modeVote
-  const isAuto = !!partie?.modeAuto
+  const isVote        = !!partie?.modeVote
+  const isAuto        = !!partie?.modeAuto
+  const isDistanciel  = !!partie?.modeDistanciel
   const iWon = winner && myParticipant && winner.participantId === myParticipant.id
-  // Question à choix (QCM / Vrai-Faux) → réponse sélectionnable en mode auto.
   const hasChoix = question && (question.type === 'QCM' || question.type === 'VRAI_FAUX' || (question.choix?.length > 0))
+  // D2 — En mode animateur, le buzzeur vainqueur sélectionne sa réponse sur QCM/VF.
+  const showQcmAfterBuzz = !isAuto && hasChoix && iWon && !myAnswer && !revealed
+  // D5 — Afficher le média sur le téléphone en mode distanciel.
+  const showMediaOnPhone = isDistanciel && question && ['IMAGE', 'AUDIO', 'VIDEO'].includes(question.type)
 
   const load = useCallback(async () => {
     const res = await apiFetch(`/parties/by-code/${code}`)
@@ -61,7 +70,8 @@ export default function JoueurJeu() {
         case 'question_display':
           setQuestionIndex(msg.index ?? 0); setQuestion(msg.question ?? null)
           setArmed(true); setWinner(null); setRevealed(false); setRevealReponse(null)
-          setVoted(null); setMyAnswer(null); break
+          setVoted(null); setMyAnswer(null); setTextAnswer(''); setMediaState(null)
+          setAnimateurOffline(false); break
         case 'buzzer_winner':
           setWinner(msg); setArmed(false); break
         case 'question_reveal':
@@ -73,8 +83,6 @@ export default function JoueurJeu() {
           // Bonne réponse → on garde le badge gagnant jusqu'à la question
           // suivante ; le réarmement éventuel passe par buzz_reopened.
           if (msg.valide) setArmed(false); break
-        case 'participant_update':
-          if (msg.participants) setParticipants(msg.participants); break
         // Bascule de source transparente (Part 6) — avis discrets, jamais bloquants.
         case 'buzzer_assigned':
           if (msg.participantId === myIdRef.current) showToast('🎮 Buzzer connecté'); break
@@ -83,6 +91,21 @@ export default function JoueurJeu() {
         case 'buzzer_status_update':
           if (msg.mac && msg.mac === myMacRef.current)
             showToast(msg.status === 'OFFLINE' ? '📱 Buzzer déconnecté — continue au téléphone' : '🎮 Buzzer reconnecté')
+          break
+        case 'media_state': // D5
+          setMediaState(msg.hasMedia ? { playing: msg.playing, position: msg.position, seq: msg.seq } : null); break
+        case 'animateur_offline': // A3
+          setAnimateurOffline(true); break
+        case 'player_eliminated': // D6
+          if (msg.participantId === myIdRef.current) setIsEliminated(true)
+          break
+        case 'participant_update':
+          if (msg.participants) {
+            setParticipants(msg.participants)
+            // D6 : mise à jour du statut d'élimination depuis le serveur
+            const me = msg.participants.find(p => p.id === myIdRef.current)
+            if (me?.isEliminated) setIsEliminated(true)
+          }
           break
         case 'game_ended':
           setClassement(msg.classement ?? []); break
@@ -113,6 +136,23 @@ export default function JoueurJeu() {
     if (myAnswer !== null || revealed || !myParticipant) return
     setMyAnswer(value)
     send({ type: 'submit_answer', partieCode: code, participantId: myParticipant.id, answer: value })
+    if (navigator.vibrate) navigator.vibrate(30)
+  }
+
+  // A4 — Mode auto + BUZZER + distanciel : saisie libre, le serveur valide.
+  function submitTextAnswer() {
+    const v = textAnswer.trim()
+    if (!v || myAnswer !== null || revealed || !myParticipant) return
+    setMyAnswer(v)
+    send({ type: 'submit_answer', partieCode: code, participantId: myParticipant.id, answer: v })
+    if (navigator.vibrate) navigator.vibrate(30)
+  }
+
+  // D2 — Buzzeur sélectionne sa réponse QCM/VF après le buzz (mode animateur).
+  function selectAnswer(value) {
+    if (myAnswer !== null || !myParticipant) return
+    setMyAnswer(value)
+    send({ type: 'submit_selected_answer', partieCode: code, participantId: myParticipant.id, answer: value })
     if (navigator.vibrate) navigator.vibrate(30)
   }
 
@@ -180,6 +220,30 @@ export default function JoueurJeu() {
         </div>
       )}
 
+      {/* A3 — Animateur déconnecté */}
+      {animateurOffline && (
+        <div className="px-4 py-2 flex items-center gap-2 text-sm"
+          style={{ background: 'rgba(245,158,11,0.12)', borderBottom: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B' }}>
+          <AlertTriangle size={15} />
+          L'animateur s'est déconnecté — la partie est en pause.
+        </div>
+      )}
+
+      {/* D6 — Joueur éliminé : mode spectateur */}
+      {isEliminated && (
+        <div className="px-4 py-2 flex items-center gap-2 text-sm"
+          style={{ background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.25)', color: '#F87171' }}>
+          Tu as été éliminé · Reste spectateur pour soutenir les autres 👀
+        </div>
+      )}
+
+      {/* D5 — Média visible sur le téléphone en mode distanciel */}
+      {showMediaOnPhone && !revealed && (
+        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <QuestionMedia question={question} compact mediaState={mediaState} />
+        </div>
+      )}
+
       {/* Zone centrale */}
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         {showVote ? (
@@ -201,14 +265,65 @@ export default function JoueurJeu() {
               <p className="text-sm" style={{ color: '#9090A0' }}>Vote enregistré ✓ — on attend les autres…</p>
             )}
           </div>
+        ) : showQcmAfterBuzz ? (
+          // D2 — Buzzeur vainqueur : sélectionne sa réponse (QCM/VF, mode animateur).
+          <div className="w-full max-w-md">
+            <p className="text-center text-sm font-semibold mb-4" style={{ color: '#9090A0' }}>
+              Tu as buzzé 🎉 — choisis ta réponse
+            </p>
+            <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed}
+              revealReponse={revealReponse} onAnswer={selectAnswer} />
+          </div>
         ) : isAuto && hasChoix ? (
           <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed} revealReponse={revealReponse} onAnswer={answer} />
-        ) : isAuto ? (
-          // Mode auto + question ouverte : pas de buzz (aucun juge) → observation.
+        ) : isAuto && isDistanciel && !hasChoix ? (
+          // A4 — Mode auto + BUZZER + distanciel : saisie libre, matching intelligent.
+          <div className="w-full max-w-sm text-center">
+            <p className="text-sm mb-4" style={{ color: '#9090A0' }}>
+              {revealed ? (revealReponse ? `Réponse : ${revealReponse}` : 'Réponse révélée') : 'Tape ta réponse'}
+            </p>
+            {!revealed && (
+              <>
+                <input
+                  className="w-full rounded-2xl px-4 py-4 text-lg font-semibold text-center mb-3"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '2px solid rgba(99,102,241,0.4)', color: '#ECECF0', outline: 'none' }}
+                  value={textAnswer}
+                  onChange={e => setTextAnswer(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && submitTextAnswer()}
+                  placeholder="Tape ta réponse…"
+                  disabled={myAnswer !== null}
+                  autoFocus
+                />
+                <button
+                  onClick={submitTextAnswer}
+                  disabled={!textAnswer.trim() || myAnswer !== null}
+                  className="w-full rounded-2xl py-4 font-bold text-lg"
+                  style={{
+                    background: myAnswer !== null ? 'rgba(99,102,241,0.2)' : '#6366F1',
+                    color: '#fff',
+                    opacity: !textAnswer.trim() || myAnswer !== null ? 0.5 : 1,
+                  }}>
+                  {myAnswer !== null ? 'Réponse envoyée ✓' : 'Envoyer'}
+                </button>
+              </>
+            )}
+            {myAnswer !== null && !revealed && (
+              <p className="text-sm mt-3" style={{ color: '#9090A0' }}>En attente de la révélation…</p>
+            )}
+          </div>
+        ) : isAuto && !isDistanciel ? (
+          // Présentiel auto + question ouverte : observation (pas de saisie).
           <div className="text-center px-6">
             <div className="text-5xl mb-3">👀</div>
             <p className="text-xl font-bold" style={{ color: '#ECECF0' }}>{revealed ? 'Réponse révélée' : 'Regarde l\'écran'}</p>
             <p className="text-sm mt-1" style={{ color: '#9090A0' }}>{revealed ? (revealReponse ?? '') : 'Question d\'observation'}</p>
+          </div>
+        ) : isEliminated ? (
+          // D6 — Spectateur éliminé
+          <div className="text-center px-6">
+            <div className="text-5xl mb-3">👁️</div>
+            <p className="text-xl font-bold" style={{ color: '#9090A0' }}>Mode spectateur</p>
+            <p className="text-sm mt-1" style={{ color: '#5A5A6E' }}>Tu ne peux plus buzzer, mais tu peux encourager !</p>
           </div>
         ) : (
           <BuzzButton armed={armed} winner={winner} iWon={iWon} revealed={revealed} onBuzz={buzz} />

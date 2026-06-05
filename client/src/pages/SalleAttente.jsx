@@ -190,6 +190,7 @@ export default function SalleAttente() {
       timerBuzz: partie.timerBuzz ?? 10,
       timerVote: partie.timerVote ?? 15,
       masquerReponses: partie.masquerReponses ?? false,
+      modeDistanciel: partie.modeDistanciel ?? false,
     })
     setEditOpen(true)
   }
@@ -208,6 +209,7 @@ export default function SalleAttente() {
           timerBuzz: Number(editForm.timerBuzz),
           timerVote: Number(editForm.timerVote),
           masquerReponses: editForm.mode === 'animateur' ? !!editForm.masquerReponses : false,
+          modeDistanciel: !!editForm.modeDistanciel,
         },
       })
       if (res?.ok) {
@@ -583,11 +585,25 @@ export default function SalleAttente() {
             <label className="label">Mode de jeu</label>
             <select value={editForm.mode}
               onChange={e => setEditForm(f => ({ ...f, mode: e.target.value }))}
-              className="input mb-3">
+              className="input mb-2">
               <option value="animateur">Animateur</option>
               <option value="auto">Automatique</option>
-              <option value="vote">Vote collectif</option>
+              <option value="vote" disabled={participants.length < 3}>
+                Vote collectif{participants.length < 3 ? ' (min. 3 joueurs)' : ''}
+              </option>
             </select>
+            {/* D4 — avertissement si vote sélectionné avec peu de joueurs */}
+            {editForm.mode === 'vote' && participants.length < 3 && (
+              <p className="text-2xs mb-2" style={{ color: '#F59E0B' }}>
+                ⚠️ Le vote collectif requiert au moins 3 joueurs.
+              </p>
+            )}
+            {/* D5/A4 — Mode distanciel */}
+            <label className="flex items-center gap-2 mb-3 cursor-pointer select-none text-sm" style={{ color: 'var(--text-muted)' }}>
+              <input type="checkbox" checked={!!editForm.modeDistanciel}
+                onChange={e => setEditForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
+              🌐 Jeu à distance (médias + saisie sur téléphone)
+            </label>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div>

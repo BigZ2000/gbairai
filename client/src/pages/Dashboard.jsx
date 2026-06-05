@@ -31,7 +31,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedPack, setSelectedPack] = useState(null)
   const [launching, setLaunching] = useState(null)
-  const [animateurJoue, setAnimateurJoue] = useState(false) // mode animateur : l'hôte joue aussi ?
+  const [animateurJoue, setAnimateurJoue] = useState(false)
+  const [modeDistanciel, setModeDistanciel] = useState(false) // D5/A4 : jeu en ligne
   const [quota, setQuota] = useState(null)
   const [paywall, setPaywall] = useState(null) // { reason, requiredPlan } | null
 
@@ -128,7 +129,7 @@ export default function Dashboard() {
   async function launchPack(packId, gameMode) {
     setLaunching(packId)
     try {
-      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false } })
+      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false, modeDistanciel } })
       if (!res?.ok) {
         const err = await res?.json().catch(() => ({}))
         setLaunching(null); setSelectedPack(null)
@@ -369,6 +370,19 @@ export default function Dashboard() {
               <span className="text-2xs" style={{ color: 'var(--text-muted)' }}>
                 {animateurJoue ? 'Je joue aussi (compté au score)' : 'Je suis Maître du jeu (hors classement)'}
                 <span className="block" style={{ color: 'var(--text-dim)' }}>Mode Animateur uniquement</span>
+              </span>
+            </button>
+
+            {/* D5/A4 — Mode distanciel */}
+            <button onClick={() => setModeDistanciel(v => !v)}
+              className="flex items-center gap-2 mb-3 text-left">
+              <span className="w-9 h-5 rounded-full relative transition-all shrink-0"
+                style={{ background: modeDistanciel ? '#0EA5E9' : 'rgba(255,255,255,0.12)' }}>
+                <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: modeDistanciel ? '18px' : '2px' }} />
+              </span>
+              <span className="text-2xs" style={{ color: 'var(--text-muted)' }}>
+                {modeDistanciel ? '🌐 Jeu à distance activé' : '🌐 Jeu à distance désactivé'}
+                <span className="block" style={{ color: 'var(--text-dim)' }}>Médias + saisie sur téléphone</span>
               </span>
             </button>
 

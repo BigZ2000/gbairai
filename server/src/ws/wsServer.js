@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import jwt from 'jsonwebtoken'
 import { handleGameMessage, sendSnapshot, sendLedSnapshot } from './gameHandler.js'
 import { onBuzzerConnect, onBuzzerDisconnect, onTelemetry } from '../services/buzzerService.js'
+import { prisma } from '../utils/prisma.js'
 
 // Map<partieCode, Set<WebSocket>>
 const rooms = new Map()
@@ -72,18 +73,34 @@ export function initWsServer(httpServer) {
     })
 
     ws.on('close', async () => {
+      const { partieCode, userId, mac } = ws._gbairai
+
       // Nettoyage salle
-      if (ws._gbairai.partieCode) {
-        rooms.get(ws._gbairai.partieCode)?.delete(ws)
+      if (partieCode) {
+        rooms.get(partieCode)?.delete(ws)
       }
       // Nettoyage user
-      if (ws._gbairai.userId) {
-        userSockets.delete(ws._gbairai.userId)
+      if (userId) {
+        userSockets.delete(userId)
       }
       // Nettoyage buzzer
-      if (ws._gbairai.mac) {
-        buzzerSockets.delete(ws._gbairai.mac)
-        await onBuzzerDisconnect(ws._gbairai.mac)
+      if (mac) {
+        buzzerSockets.delete(mac)
+        await onBuzzerDisconnect(mac)
+      }
+
+      // A3 — si l'animateur quitte une partie EN_COURS, les joueurs sont notifiés
+      // (la partie se met en pause automatiquement — reprise à la reconnexion).
+      if (userId && partieCode) {
+        try {
+          const p = await prisma.partie.findUnique({
+            where: { code: partieCode },
+            select: { animateurId: true, status: true },
+          })
+          if (p?.status === 'EN_COURS' && p.animateurId === userId) {
+            broadcast(partieCode, { type: 'animateur_offline' })
+          }
+        } catch { /* best-effort */ }
       }
     })
   })
