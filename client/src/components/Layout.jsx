@@ -39,21 +39,21 @@ export default function Layout({ children, maxWidth = 'max-w-5xl' }) {
             </div>
           ) : (
           <div className="flex items-center gap-1">
-            <Link to="/historique" className="btn-ghost btn-sm gap-1.5 hidden sm:flex"
+            <Link to="/historique" className="btn-ghost btn-sm gap-1.5 flex"
               title="Historique des parties">
               <History size={13} />
-              <span className="text-sm">Historique</span>
+              <span className="text-sm hidden sm:inline">Historique</span>
             </Link>
-            <Link to="/abonnement" className="btn-ghost btn-sm gap-1.5 hidden sm:flex"
+            <Link to="/abonnement" className="btn-ghost btn-sm gap-1.5 flex"
               title="Abonnements & offres">
               <Crown size={13} />
-              <span className="text-sm">Offres</span>
+              <span className="text-sm hidden sm:inline">Offres</span>
             </Link>
             {user?.isAdmin && (
-              <Link to="/admin" className="btn-ghost btn-sm gap-1.5 hidden sm:flex"
+              <Link to="/admin" className="btn-ghost btn-sm gap-1.5 flex"
                 title="Panneau d'administration">
                 <Shield size={13} />
-                <span className="text-sm">Admin</span>
+                <span className="text-sm hidden sm:inline">Admin</span>
               </Link>
             )}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"

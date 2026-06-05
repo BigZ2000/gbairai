@@ -306,7 +306,7 @@ export default function SalleAttente() {
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-6 gap-4">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--text)' }}>{partie.nom}</h1>
             <div className="flex items-center gap-2 flex-wrap">
@@ -320,26 +320,26 @@ export default function SalleAttente() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {canManage && (
               <a href={`/screen/${code}`} target="_blank" rel="noopener noreferrer"
-                className="btn-secondary btn-lg gap-2" title="Ouvrir l'écran de projection (TV / vidéoprojecteur)">
-                <Tv size={15} />Écran public
+                className="btn-secondary btn-sm gap-2" title="Ouvrir l'écran de projection (TV / vidéoprojecteur)">
+                <Tv size={15} />Écran
               </a>
             )}
             {canManage && (
-              <button onClick={openEdit} className="btn-secondary btn-lg gap-2">
+              <button onClick={openEdit} className="btn-secondary btn-sm gap-2">
                 <Pencil size={15} />Modifier
               </button>
             )}
             {canManage && (
-              <button onClick={() => setCancelConfirm(true)} className="btn-danger btn-lg gap-2">
+              <button onClick={() => setCancelConfirm(true)} className="btn-danger btn-sm gap-2">
                 <Ban size={15} />Annuler
               </button>
             )}
             {canStart && (
               <button onClick={handleStart} disabled={starting || participants.length < 1}
-                className="btn btn-lg gap-2 font-semibold"
+                className="btn btn-sm gap-2 font-semibold flex-1 sm:flex-none"
                 style={{
                   background: participants.length < 1 ? 'rgba(34,197,94,0.2)' : '#22C55E',
                   color: participants.length < 1 ? '#22C55E' : '#000',
