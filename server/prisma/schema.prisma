@@ -147,6 +147,11 @@ model Partie {
   modeVote    Boolean      @default(false)
   // Masquer les réponses à l'animateur jusqu'à la révélation (projection directe).
   masquerReponses Boolean  @default(false)
+  // Jeu à distance (en ligne) : les joueurs voient les médias sur leur téléphone
+  // et les questions BUZZER ont un champ de saisie texte en mode auto (A4/D5).
+  modeDistanciel Boolean   @default(false)
+  // Élimination progressive activée pour cette partie (D6).
+  eliminationActive Boolean @default(false)
   timerBuzz   Int          @default(10)
   timerVote   Int          @default(15)
   packId      String?
@@ -187,10 +192,11 @@ model Participant {
   prenom      String
   buzzerId    String?
   buzzer      Buzzer?  @relation(fields: [buzzerId], references: [id])
-  isAnimateur Boolean  @default(false)
-  score       Int      @default(0)
-  rang        Int?
-  joinedAt    DateTime @default(now())
+  isAnimateur  Boolean  @default(false)
+  isEliminated Boolean  @default(false) // D6 : exclu du buzz, reste spectateur
+  score        Int      @default(0)
+  rang         Int?
+  joinedAt     DateTime @default(now())
 
   votes Vote[]
 
@@ -373,6 +379,13 @@ model Manche {
   difficulte  String   @default("MIXTE")
   nbQuestions Int      @default(10)
   createdAt   DateTime @default(now())
+  // Malus si mauvaise réponse (mode animateur) — D3/D8.
+  malusEnabled     Boolean @default(false)
+  malusPenalite    Int     @default(50)  // % des points de la question retirés
+  // Barème croissant — D9.1 : dernière manche peut valoir 1.5× (configuré via pack).
+  multiplicateurPoints Float @default(1.0)
+  // Élimination active à la fin de CETTE manche (D6).
+  eliminationActive Boolean @default(false)
 
   mancheQuestions MancheQuestion[]
 }
@@ -440,6 +453,13 @@ model Pack {
   nbQuestions       Int             @default(10) // par manche
   tempsParQuestion  Int             @default(30)
   pointsParQuestion Int             @default(100)
+
+  // Configuration gameplay avancée (D3/D6/D8/D9)
+  modeDistanciel      Boolean @default(false) // suggestion mode distanciel
+  malusEnabled        Boolean @default(false) // malus si mauvaise réponse
+  malusPenalite       Int     @default(50)    // % pénalité malus
+  multiplicateurFinale Float  @default(1.0)   // bonus barème dernière manche
+  eliminationActive   Boolean @default(false) // élimination progressive
 
   // Monétisation
   tier  PackTier @default(GRATUIT) // niveau / condition d'accès

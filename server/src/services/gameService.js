@@ -15,6 +15,11 @@ export function flattenManchesServer(manches) {
           // à l'écran public (chronomètre, points par question).
           tempsLimite: m.tempsLimite,
           pointsParQ: m.pointsParQ,
+          // Paramètres gameplay avancés (malus, multiplicateur, élimination).
+          malusEnabled:          m.malusEnabled ?? false,
+          malusPenalite:         m.malusPenalite ?? 50,
+          multiplicateurPoints:  m.multiplicateurPoints ?? 1.0,
+          eliminationActive:     m.eliminationActive ?? false,
         }))
     )
 }

@@ -151,8 +151,28 @@ async function broadcastParticipants(partieCode) {
     type: 'participant_update',
     participants: participants.map(p => ({
       id: p.id, userId: p.userId, prenom: p.prenom, score: p.score, rang: p.rang,
+      isEliminated: p.isEliminated ?? false,
       buzzer: p.buzzer ? { couleur: p.buzzer.couleur, mac: p.buzzer.mac, status: p.buzzer.status, battery: p.buzzer.battery } : null,
     })),
+  })
+}
+
+// D6 — Élimine le joueur en dernière position d'une manche (devient spectateur).
+// Appelé quand on quitte une manche avec eliminationActive = true.
+async function eliminateLastPlayer(partieCode) {
+  const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { id: true } })
+  if (!partie) return
+  const players = await prisma.participant.findMany({
+    where: { partieId: partie.id, isAnimateur: false, isEliminated: false },
+    orderBy: { score: 'asc' },
+  })
+  if (players.length <= 1) return // ne jamais éliminer le dernier joueur
+  const last = players[0]
+  await prisma.participant.update({ where: { id: last.id }, data: { isEliminated: true } })
+  broadcast(partieCode, {
+    type: 'player_eliminated',
+    participantId: last.id,
+    prenom: last.prenom,
   })
 }
 
@@ -161,11 +181,27 @@ async function broadcastParticipants(partieCode) {
 // par le mode auto, le « Suivant » manuel (animateur) et l'enchaînement du vote.
 async function goToNextQuestion(partieCode) {
   const state = getGameState(partieCode)
+
+  // D6 — Détecte le changement de manche AVANT d'incrémenter l'index.
+  const prevQ = state.questions?.[state.currentQuestion ?? -1]
+  const nextIdx = (state.currentQuestion ?? -1) + 1
+  const nextQ = state.questions?.[nextIdx]
+  // La manche vient de se terminer si eliminationActive et qu'on passe à une
+  // nouvelle manche (ou à la fin de la partie).
+  if (prevQ?.eliminationActive) {
+    const prevManche = prevQ.mancheOrdre
+    const nextManche = nextQ?.mancheOrdre ?? null
+    if (nextManche === null || nextManche !== prevManche) {
+      await eliminateLastPlayer(partieCode)
+    }
+  }
+
   state.buzzLocked = false
   state.revealed = false
   state.currentWinnerParticipantId = null
+  state.winnerSelectedAnswer = null
   state.answers = new Map() // réponses (mode auto) remises à zéro à chaque question
-  state.currentQuestion = (state.currentQuestion ?? -1) + 1
+  state.currentQuestion = nextIdx
 
   const questions = await loadQuestions(partieCode, state)
   const q = questions[state.currentQuestion]
@@ -242,6 +278,16 @@ function normalizeAnswer(s) {
   return String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
+// A5 — correspondance intelligente : la réponse est juste si elle est identique
+// à la réponse attendue, ou si l'une contient l'autre (insensible casse/accents).
+// Garde-fou min 3 caractères : évite que "a" (présente dans tout) soit acceptée.
+function answersMatch(playerAnswer, correctAnswer) {
+  const p = normalizeAnswer(playerAnswer)
+  const c = normalizeAnswer(correctAnswer)
+  if (!p || !c || p.length < 3) return false
+  return p === c || p.includes(c) || c.includes(p)
+}
+
 function questionAChoix(q) {
   return q?.type === 'QCM' || q?.type === 'VRAI_FAUX' || (Array.isArray(q?.choix) && q.choix.length > 0)
 }
@@ -256,9 +302,10 @@ function questionAChoix(q) {
 // bonne réponse + 50 % selon la rapidité. `ms` = temps de réponse/buzz.
 export function questionPoints(q, ms) {
   const base = q?.pointsParQ ?? q?.points ?? 100
+  const mult = q?.multiplicateurPoints ?? 1.0  // D9.1: barème croissant par manche
   const limitMs = (q?.tempsLimite ?? 30) * 1000
   const speed = Math.max(0, Math.min(1, 1 - (ms ?? limitMs) / limitMs))
-  return Math.round(base * (0.5 + 0.5 * speed))
+  return Math.round(base * mult * (0.5 + 0.5 * speed))
 }
 
 async function scoreAutoQuestion(partieCode) {
@@ -267,14 +314,23 @@ async function scoreAutoQuestion(partieCode) {
   if (!q) return
   const updates = []
 
-  // MODE AUTO = SÉLECTION uniquement : on ne score QUE les questions à choix
-  // (chacun tape sa réponse). Les questions ouvertes ne sont pas buzzées en auto
-  // (pas de juge) → aucun point attribué « à l'aveugle ».
   if (questionAChoix(q)) {
+    // Questions à choix (QCM/VF) : comparaison exacte sur le texte du choix.
     const correct = normalizeAnswer(q.reponse)
     for (const [pid, a] of state.answers) {
       if (normalizeAnswer(a.answer) === correct) {
         updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
+      }
+    }
+  } else {
+    // A4/A5 — Question BUZZER en mode distanciel : saisie libre, matching intelligent.
+    // (En présentiel, les questions BUZZER ne sont pas scorées automatiquement.)
+    const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { modeDistanciel: true } })
+    if (partie?.modeDistanciel) {
+      for (const [pid, a] of state.answers) {
+        if (answersMatch(a.answer, q.reponse)) {
+          updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
+        }
       }
     }
   }
@@ -395,6 +451,12 @@ async function handleBuzz({ ws, partieCode, participantId, mac, source }, broadc
   const participant = resolvedSource === 'web'
     ? await prisma.participant.findFirst({ where: { id: participantId, partie: { code: pc } } })
     : await prisma.participant.findFirst({ where: { partie: { code: pc }, buzzer: { mac: displayMac } } })
+
+  // D6 — Un joueur éliminé ne peut plus buzzer (il est spectateur).
+  if (participant?.isEliminated) {
+    state.buzzLocked = false // déverrouiller pour les autres
+    return
+  }
   state.currentWinnerParticipantId = participant?.id ?? null
 
   const responseMs = state.questionShownAt ? Date.now() - state.questionShownAt : null
@@ -550,8 +612,6 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
     case 'validate_answer': {
       const { valide } = msg
       const state = getGameState(partieCode)
-      // Barème UNIFIÉ : une bonne réponse vaut les points de la question
-      // (base + bonus de rapidité du buzz), comme en auto/vote — fini le « +1 ».
       const q = state.questions?.[state.currentQuestion]
       const pts = questionPoints(q, state.winnerResponseMs)
       broadcast(partieCode, { type: 'answer_validated', valide, points: valide ? pts : 0 })
@@ -561,30 +621,69 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
           where: { id: participantId },
           data: { score: { increment: pts } },
         })
-        // Met à jour le tableau des scores (écran public + page de jeu).
         await broadcastParticipants(partieCode)
+      } else if (!valide && participantId && q?.malusEnabled) {
+        // D3/D8 — Malus activé sur cette manche : mauvaise réponse = points retirés.
+        const penalty = Math.round(pts * ((q.malusPenalite ?? 50) / 100))
+        if (penalty > 0) {
+          await prisma.participant.update({
+            where: { id: participantId },
+            data: { score: { decrement: penalty } },
+          })
+          await broadcastParticipants(partieCode)
+        }
       }
+
       recordEvent(partieCode, {
         type: 'answer',
         questionIndex: state.currentQuestion ?? 0,
-        questionId: state.questions?.[state.currentQuestion]?.id ?? null,
+        questionId: q?.id ?? null,
         participantId: participantId ?? null,
         valide: !!valide,
       })
 
-      if (valide || state.revealed) {
-        // Bonne réponse (ou réponse déjà révélée) → la question est tranchée,
-        // le buzz reste fermé jusqu'à la question suivante.
+      if (valide) {
+        // A1 — Bonne réponse : révèle automatiquement si pas encore fait → les
+        // joueurs voient toujours la réponse avant de passer à la suivante.
+        state.buzzLocked = true
+        if (!state.revealed && q) {
+          state.revealed = true
+          broadcast(partieCode, {
+            type: 'question_reveal',
+            index: state.currentQuestion,
+            reponse: q.reponse,
+            explication: q.explication ?? null,
+          })
+          await pushLedToBuzzers(partieCode, 'reveal')
+        }
+      } else if (state.revealed) {
         state.buzzLocked = true
       } else {
-        // Mauvaise réponse → on ROUVRE le buzz pour les autres (« vol »), de
-        // façon SYNCHRONISÉE : le serveur déverrouille ET prévient explicitement
-        // les écrans joueurs de se réarmer. Plus de désynchro.
+        // Mauvaise réponse → rouvre le buzz (« vol »).
         state.buzzLocked = false
         state.currentWinnerParticipantId = null
+        state.winnerSelectedAnswer = null
         broadcast(partieCode, { type: 'buzz_reopened' })
-        await pushLedToBuzzers(partieCode, 'armed') // LED buzzers : ré-armés
+        await pushLedToBuzzers(partieCode, 'armed')
       }
+      break
+    }
+
+    // D2 — Le buzzeur sélectionne sa réponse sur son téléphone (QCM/VF en mode
+    // animateur). Le serveur envoie la sélection + si elle est correcte (A2) →
+    // l'animateur valide avec toute l'information (👍 / 👎 reste son choix).
+    case 'submit_selected_answer': {
+      const state = getGameState(partieCode)
+      if (!state.buzzLocked || participantId !== state.currentWinnerParticipantId) return
+      state.winnerSelectedAnswer = msg.answer
+      const q = state.questions?.[state.currentQuestion]
+      const isCorrect = q ? answersMatch(msg.answer, q.reponse) : false
+      broadcast(partieCode, {
+        type: 'winner_answer_selected',
+        participantId,
+        answer: msg.answer,
+        isCorrect,
+      })
       break
     }
 

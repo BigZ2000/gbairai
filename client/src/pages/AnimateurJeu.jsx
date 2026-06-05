@@ -30,6 +30,8 @@ export default function AnimateurJeu() {
   const [myVote, setMyVote] = useState(null)
   const [endConfirm, setEndConfirm] = useState(false)
   const [finalClassement, setFinalClassement] = useState(null)
+  const [animateurOffline, setAnimateurOffline] = useState(false) // A3
+  const [winnerSelectedAnswer, setWinnerSelectedAnswer] = useState(null) // D2
   // Réponses : pour l'animateur uniquement, chargées via l'endpoint autorisé.
   // Les joueurs ne reçoivent la réponse qu'au moment de la révélation (WS).
   const [answers, setAnswers] = useState({})
@@ -105,6 +107,7 @@ export default function AnimateurJeu() {
         setMyVote(null)
         setMediaState(null)
         setVotes({ pour: 0, contre: 0, total: 0 })
+        setWinnerSelectedAnswer(null) // D2
         clearBuzzerStatuts()
       }
       if (msg.type === 'media_state') {
@@ -116,13 +119,21 @@ export default function AnimateurJeu() {
       }
       if (msg.type === 'answer_validated') {
         setWinner(null)
+        setWinnerSelectedAnswer(null)
         resetBuzzers()
       }
       if (msg.type === 'buzz_reopened') {
-        // Mauvaise réponse : le buzz rouvre, on réarme l'affichage régie.
         setWinner(null)
+        setWinnerSelectedAnswer(null)
         resetBuzzers()
       }
+      // D2 — Réponse sélectionnée par le buzzeur (QCM/VF en mode animateur).
+      if (msg.type === 'winner_answer_selected') {
+        setWinnerSelectedAnswer({ answer: msg.answer, isCorrect: msg.isCorrect })
+      }
+      // A3 — Animateur déconnecté : bannière pour les joueurs (ici juste enregistré).
+      if (msg.type === 'animateur_offline') setAnimateurOffline(true)
+      if (msg.type === 'question_display') setAnimateurOffline(false)
       if (msg.type === 'game_ended') {
         setFinalClassement(msg.classement ?? [])
       }
@@ -264,9 +275,9 @@ export default function AnimateurJeu() {
             </button>
           )}
 
-          {/* Next button — manuel uniquement (animateur/vote). En mode auto,
-              c'est le serveur qui enchaîne, donc pas de bouton manuel. */}
-          {isAnimateur && !isModeAuto && (isModeVote || revealed) && (
+          {/* Next button — D1 : disponible uniquement après révélation (la réponse
+              doit toujours être montrée avant de passer à la question suivante). */}
+          {isAnimateur && !isModeAuto && revealed && (
             <button onClick={nextQuestion} className="btn-secondary btn-sm gap-1">
               Suivant <ChevronRight size={13} />
             </button>
@@ -376,14 +387,37 @@ export default function AnimateurJeu() {
             <div className="max-w-md w-full rounded-xl p-6 text-center animate-fadeUp"
               style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
               <p className="text-2xs uppercase tracking-widest font-semibold mb-2" style={{ color: '#4ADE80' }}>PREMIER</p>
-              <p className="text-3xl font-bold" style={{ color: 'var(--text)' }}>{winner.prenom}</p>
+              <p className="text-3xl font-bold mb-3" style={{ color: 'var(--text)' }}>{winner.prenom}</p>
+
+              {/* D2 — Réponse sélectionnée par le buzzeur (QCM/VF) */}
+              {winnerSelectedAnswer && (
+                <div className="rounded-lg px-3 py-2 mb-3 text-sm"
+                  style={{
+                    background: winnerSelectedAnswer.isCorrect ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                    border: `1px solid ${winnerSelectedAnswer.isCorrect ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    color: winnerSelectedAnswer.isCorrect ? '#4ADE80' : '#F87171',
+                  }}>
+                  {winnerSelectedAnswer.isCorrect ? '✅' : '❌'} a dit : <strong>{winnerSelectedAnswer.answer}</strong>
+                </div>
+              )}
+
+              {/* A2 — Bonne réponse visible par l'animateur pour comparaison */}
+              {!isModeAuto && !isModeVote && isAnimateur && !revealed && (
+                <div className="rounded-lg px-3 py-2 mb-3 text-sm text-left"
+                  style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                  <p className="text-2xs uppercase tracking-widest mb-1" style={{ color: '#818CF8' }}>Bonne réponse</p>
+                  <p className="font-bold" style={{ color: 'var(--text)' }}>
+                    {regieAnticipee ? answers[questionIndex]?.reponse : '(masquée — projection directe)'}
+                  </p>
+                </div>
+              )}
 
               {isModeAuto && autoCountdown && (
                 <p className="text-5xl font-black mt-3" style={{ color: '#F59E0B' }}>{autoCountdown}</p>
               )}
 
               {!isModeAuto && !isModeVote && isAnimateur && (
-                <div className="flex gap-2 justify-center mt-5">
+                <div className="flex gap-2 justify-center mt-2">
                   <button onClick={() => validateAnswer(true)} className="btn flex-1 gap-2"
                     style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ADE80' }}>
                     <ThumbsUp size={14} />Bonne

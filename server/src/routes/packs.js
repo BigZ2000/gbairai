@@ -99,26 +99,38 @@ const StartSchema = z.object({
   mode: z.enum(['rapide', 'standard', 'long']).optional(),
   gameMode: z.enum(['animateur', 'auto', 'vote']).optional(),
   nom: z.string().min(1).max(100).optional(),
-  // Mode animateur : l'animateur participe-t-il aussi (compté au score) ?
   animateurJoue: z.boolean().optional(),
+  modeDistanciel: z.boolean().optional(), // A4/D5 : jeu en ligne vs présentiel
 })
 
 function buildDynamicPlan(pack, modeId) {
-  const override = modeId ? MODES[modeId] : null
+  const override   = modeId ? MODES[modeId] : null
   const nbManches  = override?.manches    ?? pack.nbManches
   const parManche  = override?.parManche  ?? pack.nbQuestions
   const temps      = override?.tempsLimite ?? pack.tempsParQuestion
-  return Array.from({ length: nbManches }, (_, i) => ({
-    nom: nbManches === 1 ? pack.nom : `Manche ${i + 1}`,
-    categories: pack.categories ?? [],
-    difficulte: pack.difficulte ?? 'MIXTE',
-    nbQuestions: parManche,
-    pointsParQ: pack.pointsParQuestion,
-    tempsLimite: temps,
-  }))
+  const multFinale = pack.multiplicateurFinale ?? 1.0
+
+  return Array.from({ length: nbManches }, (_, i) => {
+    const isLast = (i === nbManches - 1) && nbManches > 1
+    return {
+      nom: nbManches === 1 ? pack.nom : `Manche ${i + 1}`,
+      categories: pack.categories ?? [],
+      difficulte: pack.difficulte ?? 'MIXTE',
+      nbQuestions: parManche,
+      pointsParQ: pack.pointsParQuestion,
+      tempsLimite: temps,
+      // D9.1 — barème croissant : la dernière manche applique le multiplicateur du pack.
+      multiplicateurPoints: isLast ? multFinale : 1.0,
+      // D3/D8 — malus par défaut du pack.
+      malusEnabled:  pack.malusEnabled  ?? false,
+      malusPenalite: pack.malusPenalite ?? 50,
+      // D6 — élimination après chaque manche sauf la dernière.
+      eliminationActive: (pack.eliminationActive ?? false) && !isLast,
+    }
+  })
 }
 
-async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animateurJoue = false }) {
+async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animateurJoue = false, modeDistanciel = false }) {
   let code
   for (let i = 0; i < 10; i++) {
     code = generateCode()
@@ -134,6 +146,8 @@ async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animate
     data: {
       nom, code, animateurId, creatorId: userId,
       modeAuto: gameMode === 'auto', modeVote: gameMode === 'vote',
+      modeDistanciel,
+      eliminationActive: pack.eliminationActive ?? false,
       packId: pack.id, packNom: `${pack.emoji ?? ''} ${pack.nom}`.trim(),
     },
   })
@@ -166,6 +180,10 @@ async function buildManchesManuel(partieId, pack) {
         partieId, nom: groupes.size === 1 ? pack.nom : `Manche ${numManche}`, ordre,
         theme: 'MELANGE', difficulte: pack.difficulte, nbQuestions: questionIds.length,
         pointsParQ: pack.pointsParQuestion, tempsLimite: pack.tempsParQuestion,
+        malusEnabled: pack.malusEnabled ?? false,
+        malusPenalite: pack.malusPenalite ?? 50,
+        multiplicateurPoints: 1.0, // manuel : pas de multiplicateur auto
+        eliminationActive: false,  // manuel : config explicite si nécessaire
       },
     })
     await prisma.mancheQuestion.createMany({
@@ -184,6 +202,10 @@ async function buildManchesDynamique(partieId, pack, mode) {
       data: {
         partieId, nom: m.nom, ordre, theme: 'MELANGE', difficulte: m.difficulte,
         nbQuestions: m.nbQuestions, pointsParQ: m.pointsParQ, tempsLimite: m.tempsLimite,
+        malusEnabled:         m.malusEnabled ?? false,
+        malusPenalite:        m.malusPenalite ?? 50,
+        multiplicateurPoints: m.multiplicateurPoints ?? 1.0,
+        eliminationActive:    m.eliminationActive ?? false,
       },
     })
     const ids = await pickQuestionsForPack({
@@ -236,9 +258,10 @@ router.post('/:packId/start', requireAuth, async (req, res) => {
   const user = await guardLaunch(req, res, pack)
   if (!user) return
 
-  const { mode, gameMode, nom, animateurJoue } = parsed.data
+  const { mode, gameMode, nom, animateurJoue, modeDistanciel } = parsed.data
   const partie = await createPartieFromPack({
     userId: req.userId, pack, animateurJoue,
+    modeDistanciel: modeDistanciel ?? pack.modeDistanciel ?? false,
     gameMode: gameMode ?? pack.modeRecommande ?? 'animateur',
     nom: nom?.trim() || `${pack.emoji ?? ''} ${pack.nom}`.trim(),
     mode: mode ?? null,

@@ -239,6 +239,7 @@ const EditPartieSchema = z.object({
   timerBuzz: z.number().int().min(3).max(60).optional(),
   timerVote: z.number().int().min(5).max(60).optional(),
   masquerReponses: z.boolean().optional(),
+  modeDistanciel: z.boolean().optional(),
 })
 
 router.patch('/:partieId', requireAuth, async (req, res) => {
@@ -258,12 +259,13 @@ router.patch('/:partieId', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Seule une partie non démarrée peut être modifiée' })
   }
 
-  const { nom, mode, timerBuzz, timerVote, masquerReponses } = parsed.data
+  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel } = parsed.data
   const data = {}
   if (nom !== undefined) data.nom = nom
   if (timerBuzz !== undefined) data.timerBuzz = timerBuzz
   if (timerVote !== undefined) data.timerVote = timerVote
   if (masquerReponses !== undefined) data.masquerReponses = masquerReponses
+  if (modeDistanciel !== undefined) data.modeDistanciel = modeDistanciel
 
   const effectiveMode = mode ?? (partie.modeAuto ? 'auto' : partie.modeVote ? 'vote' : 'animateur')
   if (mode !== undefined) {
