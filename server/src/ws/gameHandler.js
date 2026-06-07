@@ -432,13 +432,17 @@ async function handleBuzz({ ws, partieCode, participantId, mac, source }, broadc
   const partie = await prisma.partie.findUnique({ where: { code: pc } })
   if (!partie || partie.status !== 'EN_COURS') return
 
-  // MODE AUTO = SÉLECTION : le buzz est désactivé (aucun juge pour trancher une
-  // réponse orale). Les joueurs répondent en tapant un choix. → buzz ignoré.
-  if (partie.modeAuto) return
-
   const state = getGameState(pc)
   // Réponse révélée → question close : aucun buzz (ni traité ni affiché).
   if (state.revealed) return
+
+  const q = state.questions?.[state.currentQuestion]
+  // Mécanique pilotée par le TYPE de question (et non plus par le mode) :
+  //  • Question à choix (QCM/VF) → on RÉPOND (sélection simultanée), jamais de buzz.
+  //  • Mode auto + distanciel + BUZZER → on SAISIT le texte, pas de buzz.
+  //  • Sinon (BUZZER présentiel auto, ou tous modes animateur/vote) → buzz autorisé.
+  if (questionAChoix(q)) return
+  if (partie.modeAuto && partie.modeDistanciel) return
 
   broadcast(pc, { type: 'buzzer_pressed_visual', mac: displayMac, partieCode: pc })
 
@@ -477,6 +481,18 @@ async function handleBuzz({ ws, partieCode, participantId, mac, source }, broadc
     responseMs,
   })
   await pushLedToBuzzers(pc, 'winner', { winnerParticipantId: participant?.id })
+
+  // MODE AUTO + BUZZER PRÉSENTIEL = RÉFLEXE : le 1er à buzzer marque immédiatement
+  // (pas de juge), puis révélation + avancement automatiques (rythme serveur).
+  if (partie.modeAuto && !partie.modeDistanciel && participant?.id) {
+    await prisma.participant.update({
+      where: { id: participant.id },
+      data: { score: { increment: questionPoints(q, responseMs) } },
+    }).catch(() => {})
+    await broadcastParticipants(pc)
+    clearAutoTimer(pc)
+    await doReveal(pc) // révèle + programme l'avancement
+  }
 }
 
 // ── Main WS handler ────────────────────────────────────────────────────────
@@ -501,22 +517,37 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
     // lançait jamais le moteur (questions jamais tirées) → bug des modes
     // auto/vote. Il est donc supprimé.
 
-    // Réponse d'un joueur en MODE AUTOMATIQUE (question à choix).
+    // Réponse SIMULTANÉE d'un joueur (sélection QCM/VF, ou saisie texte en
+    // distanciel). Acceptée dans TOUS les modes pour les questions à choix —
+    // c'est ainsi que « tout le monde répond et marque » (mode animateur inclus).
     case 'submit_answer': {
       const partie = await prisma.partie.findUnique({ where: { code: partieCode } })
-      if (!partie || partie.status !== 'EN_COURS' || !partie.modeAuto) return
+      if (!partie || partie.status !== 'EN_COURS') return
       const state = getGameState(partieCode)
-      if (state.revealed) return                       // trop tard, déjà révélé
+      if (state.revealed) return
+      const q = state.questions?.[state.currentQuestion]
+      // Accepte : questions à choix (tous modes) OU saisie texte BUZZER en auto+distanciel.
+      const accepte = questionAChoix(q) || (partie.modeAuto && partie.modeDistanciel)
+      if (!accepte) return
       if (!participantId || state.answers.has(participantId)) return // 1 réponse verrouillée
+
+      // Un joueur éliminé ne répond plus (D6).
+      const me = await prisma.participant.findUnique({ where: { id: participantId }, select: { isEliminated: true } })
+      if (me?.isEliminated) return
 
       const ms = state.questionShownAt ? Date.now() - state.questionShownAt : null
       state.answers.set(participantId, { answer: msg.answer, ms })
 
-      const total = await prisma.participant.count({ where: { partieId: partie.id } })
+      // Total des RÉPONDANTS attendus : joueurs actifs (hors maître, hors éliminés).
+      const total = await prisma.participant.count({
+        where: { partieId: partie.id, isAnimateur: false, isEliminated: false },
+      })
       broadcast(partieCode, { type: 'answers_update', count: state.answers.size, total })
 
-      // Tout le monde a répondu → on révèle sans attendre la fin du minuteur.
-      if (state.answers.size >= total) { clearAutoTimer(partieCode); doReveal(partieCode) }
+      // Auto-révélation uniquement en mode AUTO (l'animateur garde la main sinon).
+      if (partie.modeAuto && state.answers.size >= total && total > 0) {
+        clearAutoTimer(partieCode); doReveal(partieCode)
+      }
       break
     }
 
@@ -737,13 +768,17 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
       break
     }
 
-    // Reveal the answer — sends question_reveal (with reponse)
+    // Révélation manuelle (animateur). Pour les questions à choix, on attribue
+    // d'abord les points à TOUS ceux qui ont bien répondu (réponse simultanée),
+    // puis on révèle. Pour les questions BUZZER, la validation s'est déjà faite
+    // via validate_answer → scoreAutoQuestion ne fait rien (cohérent).
     case 'reveal_question': {
       const state = getGameState(partieCode)
       if (state.revealed) return
+
+      await scoreAutoQuestion(partieCode) // score les sélections QCM/VF (mode animateur)
+
       state.revealed = true
-      // Réponse révélée → on ferme le buzz pour que serveur et écrans joueurs
-      // soient cohérents (plus de buzz possible jusqu'à la question suivante).
       state.buzzLocked = true
 
       const questions = await loadQuestions(partieCode, state)

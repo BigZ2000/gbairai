@@ -148,6 +148,8 @@ async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animate
       modeAuto: gameMode === 'auto', modeVote: gameMode === 'vote',
       modeDistanciel,
       eliminationActive: pack.eliminationActive ?? false,
+      // Masquage des réponses (régie) : défaut du pack, seulement en mode animateur.
+      masquerReponses: gameMode === 'animateur' ? (pack.masquerReponsesDefaut ?? false) : false,
       packId: pack.id, packNom: `${pack.emoji ?? ''} ${pack.nom}`.trim(),
     },
   })

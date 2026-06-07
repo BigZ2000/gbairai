@@ -27,7 +27,11 @@ const DIFFS = [
 ]
 
 function defaultManche(i) {
-  return { id: Date.now() + i, nom: `Manche ${i + 1}`, theme: 'MELANGE', difficulte: 'MIXTE', nbQuestions: 10, pointsParQ: 100, tempsLimite: 30 }
+  return {
+    id: Date.now() + i, nom: `Manche ${i + 1}`, theme: 'MELANGE', difficulte: 'MIXTE',
+    nbQuestions: 10, pointsParQ: 100, tempsLimite: 30,
+    malusEnabled: false, malusPenalite: 50, multiplicateurPoints: 1.0, eliminationActive: false,
+  }
 }
 
 export default function CreatePartie() {
@@ -35,7 +39,7 @@ export default function CreatePartie() {
   const navigate    = useNavigate()
 
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ nom: '', mode: 'animateur', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: false })
+  const [form, setForm] = useState({ nom: '', mode: 'animateur', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: false, modeDistanciel: false, eliminationActive: false })
   const [manches, setManches] = useState([defaultManche(0)])
   const [categories, setCategories] = useState([])
   const [error, setError]   = useState('')
@@ -74,6 +78,8 @@ export default function CreatePartie() {
         timerBuzz: form.timerBuzz,
         timerVote: form.timerVote,
         masquerReponses: form.mode === 'animateur' ? form.masquerReponses : false,
+        modeDistanciel: !!form.modeDistanciel,
+        eliminationActive: !!form.eliminationActive,
       }
       const res = await apiFetch('/parties', { method: 'POST', body })
       if (!res?.ok) {
@@ -94,6 +100,10 @@ export default function CreatePartie() {
             nbQuestions: m.nbQuestions,
             pointsParQ: m.pointsParQ,
             tempsLimite: m.tempsLimite,
+            malusEnabled: !!m.malusEnabled,
+            malusPenalite: Number(m.malusPenalite) || 50,
+            multiplicateurPoints: Number(m.multiplicateurPoints) || 1.0,
+            eliminationActive: !!m.eliminationActive,
           },
         })
       }
@@ -181,6 +191,20 @@ export default function CreatePartie() {
                   )
                 })}
               </div>
+            </div>
+
+            {/* Jeu à distance + élimination (party-level) */}
+            <div className="card p-4 space-y-2">
+              <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                <span>🌐 Jeu à distance (médias + saisie sur téléphone)</span>
+                <input type="checkbox" checked={!!form.modeDistanciel}
+                  onChange={e => setForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
+              </label>
+              <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                <span>🔴 Élimination progressive (active par manche ci-après)</span>
+                <input type="checkbox" checked={!!form.eliminationActive}
+                  onChange={e => setForm(f => ({ ...f, eliminationActive: e.target.checked }))} />
+              </label>
             </div>
 
             {/* Affichage des réponses côté animateur (#1). Permet de choisir si
@@ -321,6 +345,35 @@ export default function CreatePartie() {
                       onChange={e => updateManche(i, 'tempsLimite', Number(e.target.value))}
                       className="input text-center font-bold" />
                   </div>
+                </div>
+
+                {/* Mécaniques avancées (manches inspirées des jeux TV) */}
+                <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border)' }}>
+                  <p className="text-2xs uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Mécaniques (optionnel)</p>
+                  <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                    <span>🟠 Manche à risque (malus si mauvaise réponse)</span>
+                    <input type="checkbox" checked={!!m.malusEnabled}
+                      onChange={e => updateManche(i, 'malusEnabled', e.target.checked)} />
+                  </label>
+                  {m.malusEnabled && (
+                    <div className="flex items-center gap-2 text-sm pl-4" style={{ color: 'var(--text-dim)' }}>
+                      Pénalité
+                      <input type="number" min={0} max={100} value={m.malusPenalite}
+                        onChange={e => updateManche(i, 'malusPenalite', Number(e.target.value))}
+                        className="input text-center w-16 py-1" /> %
+                    </div>
+                  )}
+                  <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                    <span>🟡 Multiplicateur de points (×)</span>
+                    <input type="number" min={0.5} max={5} step={0.5} value={m.multiplicateurPoints}
+                      onChange={e => updateManche(i, 'multiplicateurPoints', Number(e.target.value))}
+                      className="input text-center w-16 py-1" />
+                  </label>
+                  <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                    <span>🔴 Élimination du dernier en fin de manche</span>
+                    <input type="checkbox" checked={!!m.eliminationActive}
+                      onChange={e => updateManche(i, 'eliminationActive', e.target.checked)} />
+                  </label>
                 </div>
               </div>
             ))}

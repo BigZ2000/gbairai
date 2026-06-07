@@ -379,13 +379,12 @@ model Manche {
   difficulte  String   @default("MIXTE")
   nbQuestions Int      @default(10)
   createdAt   DateTime @default(now())
-  // Malus si mauvaise réponse (mode animateur) — D3/D8.
-  malusEnabled     Boolean @default(false)
-  malusPenalite    Int     @default(50)  // % des points de la question retirés
-  // Barème croissant — D9.1 : dernière manche peut valoir 1.5× (configuré via pack).
-  multiplicateurPoints Float @default(1.0)
-  // Élimination active à la fin de CETTE manche (D6).
-  eliminationActive Boolean @default(false)
+  malusEnabled         Boolean @default(false)
+  malusPenalite        Int     @default(50)
+  multiplicateurPoints Float   @default(1.0)
+  eliminationActive    Boolean @default(false)
+  // Type de manche spéciale : STANDARD | EXPRESS | RISQUE | DOUBLE | DUEL | RATTRAPAGE
+  typeManche           String  @default("STANDARD")
 
   mancheQuestions MancheQuestion[]
 }
@@ -455,11 +454,12 @@ model Pack {
   pointsParQuestion Int             @default(100)
 
   // Configuration gameplay avancée (D3/D6/D8/D9)
-  modeDistanciel      Boolean @default(false) // suggestion mode distanciel
-  malusEnabled        Boolean @default(false) // malus si mauvaise réponse
-  malusPenalite       Int     @default(50)    // % pénalité malus
-  multiplicateurFinale Float  @default(1.0)   // bonus barème dernière manche
-  eliminationActive   Boolean @default(false) // élimination progressive
+  modeDistanciel       Boolean @default(false) // suggestion mode distanciel
+  malusEnabled         Boolean @default(false) // malus si mauvaise réponse
+  malusPenalite        Int     @default(50)    // % pénalité malus
+  multiplicateurFinale Float   @default(1.0)   // bonus barème dernière manche
+  eliminationActive    Boolean @default(false) // élimination progressive
+  masquerReponsesDefaut Boolean @default(false) // révéler la réponse après (true) ou en régie avant (false)
 
   // Monétisation
   tier  PackTier @default(GRATUIT) // niveau / condition d'accès
