@@ -109,6 +109,71 @@ export const PACKS = [
     // Structure imposée quel que soit le mode choisi.
     fixed: { manches: 1, parManche: 12, tempsLimite: 10, pointsParQ: 200 },
   },
+
+  // ── 10 packs « jeux TV » intégrant les nouvelles mécaniques ─────────────────
+  {
+    id: 'blitz-express', emoji: '⚡', nom: 'Blitz Express',
+    description: 'Tout le monde répond en même temps, 12 s par question. Rythme éclair.',
+    couleur: '#EAB308', categories: [], difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: ['QCM', 'VRAI_FAUX'],
+    nbManches: 1, nbQuestions: 15, tempsParQuestion: 12,
+  },
+  {
+    id: 'sans-faute', emoji: '🎯', nom: 'Sans Faute',
+    description: 'Manche à risque : une mauvaise réponse te coûte des points. Réfléchis bien !',
+    couleur: '#EF4444', categories: [], difficulte: 'MOYEN',
+    modeRecommande: 'animateur', malusEnabled: true, malusPenalite: 50,
+  },
+  {
+    id: 'double-ou-rien', emoji: '🏆', nom: 'Double ou Rien',
+    description: 'La manche finale vaut le DOUBLE. Tout peut basculer à la fin.',
+    couleur: '#F59E0B', categories: [], difficulte: 'MIXTE',
+    modeRecommande: 'animateur', nbManches: 3, multiplicateurFinale: 2.0,
+  },
+  {
+    id: 'survivor', emoji: '🔥', nom: 'Survivor',
+    description: 'Élimination progressive : le dernier de chaque manche devient spectateur.',
+    couleur: '#DC2626', categories: [], difficulte: 'MOYEN',
+    modeRecommande: 'animateur', nbManches: 3, eliminationActive: true,
+  },
+  {
+    id: 'quiz-distance', emoji: '🌐', nom: 'Quiz à Distance',
+    description: 'Conçu pour jouer en ligne : médias et saisie directement sur le téléphone.',
+    couleur: '#0EA5E9', categories: [], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true,
+  },
+  {
+    id: 'cine-buzz', emoji: '🎬', nom: 'Ciné Buzz',
+    description: 'Questions cinéma au buzzer : le plus rapide marque, en présentiel.',
+    couleur: '#A855F7', categories: ['Cinéma & Séries'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: ['BUZZER'],
+  },
+  {
+    id: 'grand-defi', emoji: '🧠', nom: 'Le Grand Défi',
+    description: '3 manches montantes : à risque, puis finale qui compte double.',
+    couleur: '#6366F1', categories: [], difficulte: 'DIFFICILE',
+    modeRecommande: 'animateur', nbManches: 3, malusEnabled: true, malusPenalite: 30,
+    multiplicateurFinale: 2.0, tier: 'PREMIUM',
+  },
+  {
+    id: 'choc-champions', emoji: '⚔️', nom: 'Choc des Champions',
+    description: 'Élimination à chaque manche + finale qui compte double. Pour les plus forts.',
+    couleur: '#B91C1C', categories: [], difficulte: 'DIFFICILE',
+    modeRecommande: 'animateur', nbManches: 3, eliminationActive: true,
+    multiplicateurFinale: 2.0, tier: 'PREMIUM',
+  },
+  {
+    id: 'marathon-culture', emoji: '📚', nom: 'Marathon Culture',
+    description: '4 manches thématiques pour les longues soirées quiz.',
+    couleur: '#0D9488', categories: ['Culture Générale', 'Histoire', 'Sciences', 'Géographie'],
+    difficulte: 'MIXTE', modeRecommande: 'animateur', nbManches: 4, nbQuestions: 8,
+  },
+  {
+    id: 'blind-test-express', emoji: '🎵', nom: 'Blind Test Express',
+    description: 'Musique en ligne : écoute sur ton téléphone et réponds le plus vite.',
+    couleur: '#EC4899', categories: ['Musique'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true, nbManches: 1, nbQuestions: 12, tempsParQuestion: 20,
+  },
 ]
 
 // Parties signature : presets officiels prêts à jouer (1 clic = on lance).

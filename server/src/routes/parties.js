@@ -59,6 +59,8 @@ const CreatePartieSchema = z.object({
   timerBuzz: z.number().int().min(3).max(60).default(10),
   timerVote: z.number().int().min(5).max(60).default(15),
   masquerReponses: z.boolean().default(false),
+  modeDistanciel: z.boolean().default(false),
+  eliminationActive: z.boolean().default(false),
 })
 
 // ── Routes statiques AVANT /:partieId ───────────────────────────────────────
@@ -67,7 +69,7 @@ router.post('/', requireAuth, async (req, res) => {
   const parsed = CreatePartieSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { nom, mode, timerBuzz, timerVote, masquerReponses } = parsed.data
+  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, eliminationActive } = parsed.data
   let code
   let attempts = 0
   do {
@@ -86,6 +88,8 @@ router.post('/', requireAuth, async (req, res) => {
       modeVote: mode === 'vote',
       // Le masquage des réponses n'a de sens qu'en mode animateur.
       masquerReponses: mode === 'animateur' ? masquerReponses : false,
+      modeDistanciel: !!modeDistanciel,
+      eliminationActive: !!eliminationActive,
       timerBuzz, timerVote,
     },
   })
@@ -567,6 +571,11 @@ const MancheSchema = z.object({
   theme: z.string().max(100).default('MELANGE'),
   difficulte: z.string().max(20).default('MIXTE'),
   nbQuestions: z.number().int().min(1).max(100).default(10),
+  // Mécaniques avancées (manches inspirées des jeux TV).
+  malusEnabled: z.boolean().default(false),
+  malusPenalite: z.number().int().min(0).max(100).default(50),
+  multiplicateurPoints: z.number().min(0.5).max(5).default(1.0),
+  eliminationActive: z.boolean().default(false),
 })
 
 router.post('/:partieId/manches', requireAuth, async (req, res) => {

@@ -32,6 +32,7 @@ export default function AnimateurJeu() {
   const [finalClassement, setFinalClassement] = useState(null)
   const [animateurOffline, setAnimateurOffline] = useState(false) // A3
   const [winnerSelectedAnswer, setWinnerSelectedAnswer] = useState(null) // D2
+  const [answersCount, setAnswersCount] = useState({ count: 0, total: 0 }) // QCM simultané
   // Réponses : pour l'animateur uniquement, chargées via l'endpoint autorisé.
   // Les joueurs ne reçoivent la réponse qu'au moment de la révélation (WS).
   const [answers, setAnswers] = useState({})
@@ -91,6 +92,7 @@ export default function AnimateurJeu() {
           return next
         })
       }
+      if (msg.type === 'answers_update') setAnswersCount({ count: msg.count ?? 0, total: msg.total ?? 0 })
       if (msg.type === 'vote_update') setVotes({ pour: msg.pour, contre: msg.contre, total: msg.total })
       if (msg.type === 'vote_result') {
         // Le serveur a tranché : il révèle, attribue les points et enchaîne tout
@@ -108,6 +110,7 @@ export default function AnimateurJeu() {
         setMediaState(null)
         setVotes({ pour: 0, contre: 0, total: 0 })
         setWinnerSelectedAnswer(null) // D2
+        setAnswersCount({ count: 0, total: 0 })
         clearBuzzerStatuts()
       }
       if (msg.type === 'media_state') {
@@ -378,6 +381,20 @@ export default function AnimateurJeu() {
               </p>
               <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
                 {questions.length === 0 ? 'Attendez que les questions soient tirées.' : 'Toutes les questions ont été posées.'}
+              </p>
+            </div>
+          )}
+
+          {/* QCM/VF simultané : décompte des réponses (mode animateur, pas de buzz) */}
+          {!isModeAuto && !isModeVote && currentQ && !winner && !revealed &&
+            (currentQ.type === 'QCM' || currentQ.type === 'VRAI_FAUX' || currentQ.choix?.length > 0) && (
+            <div className="card p-4 max-w-md w-full text-center animate-fadeUp">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                <span className="text-2xl font-black" style={{ color: '#818CF8' }}>{answersCount.count}</span>
+                <span className="mx-1">/</span>{answersCount.total} joueur{answersCount.total !== 1 ? 's' : ''} ont répondu
+              </p>
+              <p className="text-2xs mt-1" style={{ color: 'var(--text-dim)' }}>
+                Clique « Révéler » pour afficher la réponse et attribuer les points.
               </p>
             </div>
           )}
