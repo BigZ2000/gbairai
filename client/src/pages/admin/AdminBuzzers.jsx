@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import AdminLayout from './AdminLayout.jsx'
+import Pagination, { usePagination } from '../../components/Pagination.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { Loader2, Radio, BatteryLow, Battery, Wifi, UploadCloud, Check } from 'lucide-react'
 
@@ -13,6 +14,7 @@ const STATUT = {
 export default function AdminBuzzers() {
   const { apiFetch } = useAuth()
   const [data, setData] = useState(null)
+  const pg = usePagination(data?.buzzers ?? [], 15)
   const [cfg, setCfg] = useState({ enabled: false, version: '', url: '' })
   const [saving, setSaving] = useState(false)
   const [pushed, setPushed] = useState(null)
@@ -88,7 +90,7 @@ export default function AdminBuzzers() {
             </tr>
           </thead>
           <tbody>
-            {data.buzzers.map(b => {
+            {pg.slice.map(b => {
               const st = STATUT[b.status] ?? STATUT.OFFLINE
               const low = b.battery != null && b.battery <= 15
               const outdated = data.config.enabled && data.config.version && b.firmware !== data.config.version
@@ -124,6 +126,7 @@ export default function AdminBuzzers() {
           </tbody>
         </table>
       </div>
+      <Pagination page={pg.page} pages={pg.pages} total={pg.total} perPage={pg.perPage} onPage={pg.setPage} />
     </AdminLayout>
   )
 }

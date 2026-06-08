@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import AdminLayout from './AdminLayout.jsx'
+import Pagination, { usePagination } from '../../components/Pagination.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { MediaPreview } from '../../components/MediaPicker.jsx'
 import { Upload, Search, Trash2, X, Loader2, Image as ImageIcon, Music, Video, Check } from 'lucide-react'
@@ -21,6 +22,7 @@ export default function AdminMedia() {
   const { apiFetch, apiUpload } = useAuth()
   const fileRef = useRef(null)
   const [items, setItems]     = useState([])
+  const pg = usePagination(items, 20)
   const [total, setTotal]     = useState(0)
   const [type, setType]       = useState('')
   const [q, setQ]             = useState('')
@@ -120,7 +122,7 @@ export default function AdminMedia() {
         <p className="text-center text-sm py-16" style={{ color: 'var(--text-dim)' }}>Aucun média</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {items.map(m => {
+          {pg.slice.map(m => {
             const Icon = TYPE_ICON[m.type]
             return (
               <button key={m.id} onClick={() => setSelected(m)}
@@ -144,6 +146,7 @@ export default function AdminMedia() {
           })}
         </div>
       )}
+      <Pagination page={pg.page} pages={pg.pages} total={pg.total} perPage={pg.perPage} onPage={pg.setPage} />
 
       {/* Détail média */}
       {selected && (

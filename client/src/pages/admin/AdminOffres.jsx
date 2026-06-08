@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import AdminLayout from './AdminLayout.jsx'
+import Pagination, { usePagination } from '../../components/Pagination.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { Plus, Pencil, Trash2, X, Check, Loader2, Eye, EyeOff, Star } from 'lucide-react'
 
@@ -14,6 +15,7 @@ const EMPTY = {
 export default function AdminOffres() {
   const { apiFetch } = useAuth()
   const [offres, setOffres] = useState([])
+  const pg = usePagination(offres, 15)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
 
@@ -53,7 +55,7 @@ export default function AdminOffres() {
             </tr>
           </thead>
           <tbody>
-            {offres.map(o => (
+            {pg.slice.map(o => (
               <tr key={o.id} style={{ borderBottom: '1px solid var(--input-bg)' }} className="hover:bg-white/[0.02]">
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-2">
@@ -87,6 +89,7 @@ export default function AdminOffres() {
           </tbody>
         </table>
       </div>
+      <Pagination page={pg.page} pages={pg.pages} total={pg.total} perPage={pg.perPage} onPage={pg.setPage} />
 
       {editing && <OffreEditor offre={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
     </AdminLayout>

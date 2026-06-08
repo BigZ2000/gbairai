@@ -24,9 +24,11 @@ export default function AdminLayout({ children }) {
   function handleLogout() { logout(); navigate('/login') }
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
-      {/* Sidebar */}
-      <aside className="w-56 flex flex-col shrink-0"
+    // h-screen + overflow-hidden : la page ne scrolle pas globalement → la sidebar
+    // reste FIXE, seul le contenu de droite défile.
+    <div className="h-screen flex overflow-hidden" style={{ background: 'var(--bg)' }}>
+      {/* Sidebar — fixe, plein écran */}
+      <aside className="w-56 flex flex-col shrink-0 h-screen"
         style={{ background: 'var(--surface-2)', borderRight: '1px solid var(--border)' }}>
         <div className="px-5 py-5 flex items-center gap-2.5"
           style={{ borderBottom: '1px solid var(--border)' }}>
@@ -38,7 +40,7 @@ export default function AdminLayout({ children }) {
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {NAV.map(({ to, icon: Icon, label, exact }) => {
             const active = exact ? location.pathname === to : location.pathname.startsWith(to)
             return (

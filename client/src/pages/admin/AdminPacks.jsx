@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import AdminLayout from './AdminLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
+import Pagination, { usePagination } from '../../components/Pagination.jsx'
 import {
   Plus, Trash2, Pencil, X, Check, Loader2, Copy, BarChart3, Search,
   Star, Archive, Eye, EyeOff, Package, Rocket, Image as ImageIcon,
@@ -38,6 +39,7 @@ const EMPTY_PACK = {
 export default function AdminPacks() {
   const { apiFetch } = useAuth()
   const [packs, setPacks] = useState([])
+  const pg = usePagination(packs, 12)
   const [loading, setLoading] = useState(true)
   const [filterStatut, setFilterStatut] = useState('')
   const [search, setSearch] = useState('')
@@ -124,7 +126,7 @@ export default function AdminPacks() {
             </tr>
           </thead>
           <tbody>
-            {packs.map(p => {
+            {pg.slice.map(p => {
               const st = STATUT_STYLE[p.statut] ?? STATUT_STYLE.INACTIF
               return (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--input-bg)' }}
@@ -194,6 +196,7 @@ export default function AdminPacks() {
           </tbody>
         </table>
       </div>
+      <Pagination page={pg.page} pages={pg.pages} total={pg.total} perPage={pg.perPage} onPage={pg.setPage} />
 
       {editing && <PackEditor pack={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
       {statsFor && <StatsModal pack={statsFor} onClose={() => setStatsFor(null)} />}
