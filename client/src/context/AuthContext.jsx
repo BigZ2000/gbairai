@@ -93,6 +93,39 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
+  async function registerPhone(telephone, password, prenom, username) {
+    const token = localStorage.getItem('access')
+    const res = await fetch('/api/auth/register-phone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ telephone, password, prenom, username }),
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(typeof err.error === 'string' ? err.error : "Erreur d'inscription")
+    }
+    const data = await res.json()
+    localStorage.setItem('access', data.access)
+    localStorage.setItem('refresh', data.refresh)
+    setUser(data.user)
+    return data.user
+  }
+
+  // Connexion par email OU téléphone.
+  async function loginWith({ email, telephone, password }) {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, telephone, password }),
+    })
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? 'Erreur de connexion') }
+    const data = await res.json()
+    localStorage.setItem('access', data.access)
+    localStorage.setItem('refresh', data.refresh)
+    setUser(data.user)
+    return data.user
+  }
+
   // Called after Google OAuth redirect — receives tokens from URL params
   function loginWithTokens(access, refresh) {
     localStorage.setItem('access', access)
@@ -138,7 +171,7 @@ export function AuthProvider({ children }) {
   }, [user?.theme])
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, register, loginWithTokens, logout, refreshUser, apiFetch, apiUpload }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, loginWith, register, registerPhone, loginWithTokens, logout, refreshUser, apiFetch, apiUpload }}>
       {children}
     </AuthContext.Provider>
   )

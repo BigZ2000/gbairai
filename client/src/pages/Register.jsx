@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { Mail, Lock, User, AtSign, Loader2, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { Mail, Lock, User, AtSign, Loader2, AlertCircle, CheckCircle2, XCircle, Smartphone } from 'lucide-react'
 import { googleAuthAvailable } from '../utils/env.js'
 
 function useDebounce(value, delay) {
@@ -14,10 +14,11 @@ function useDebounce(value, delay) {
 }
 
 export default function Register() {
-  const { register } = useAuth()
+  const { register, registerPhone } = useAuth()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({ email: '', password: '', prenom: '', username: '' })
+  const [method, setMethod] = useState('email') // 'email' | 'phone'
+  const [form, setForm] = useState({ email: '', telephone: '', password: '', prenom: '', username: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -47,9 +48,14 @@ export default function Register() {
     setError('')
     setLoading(true)
     try {
-      await register(form.email, form.password, form.prenom, form.username.trim().toLowerCase())
-      // Inscription par email → on invite directement à vérifier l'adresse.
-      navigate('/verifier-email', { replace: true })
+      const uname = form.username.trim().toLowerCase()
+      if (method === 'phone') {
+        await registerPhone(form.telephone, form.password, form.prenom, uname)
+        navigate('/verifier-telephone', { replace: true })
+      } else {
+        await register(form.email, form.password, form.prenom, uname)
+        navigate('/verifier-email', { replace: true })
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -143,18 +149,44 @@ export default function Register() {
               <p className="text-2xs mt-1" style={{ color: 'var(--text-dim)' }}>Lettres, chiffres, _ et - · Min. 3 caractères</p>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="label">Email</label>
-              <div className="relative">
-                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
-                <input type="email" required autoComplete="email"
-                  value={form.email} onChange={set('email')}
-                  placeholder="vous@exemple.com"
-                  className="input pl-9"
-                />
-              </div>
+            {/* Bascule Email / Téléphone */}
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-lg" style={{ background: 'var(--hover-overlay)' }}>
+              {[['email', 'Email', Mail], ['phone', 'Téléphone', Smartphone]].map(([m, label, Icon]) => (
+                <button key={m} type="button" onClick={() => { setMethod(m); setError('') }}
+                  className="flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-medium transition-all"
+                  style={{
+                    background: method === m ? 'var(--surface)' : 'transparent',
+                    color: method === m ? 'var(--text)' : 'var(--text-dim)',
+                    boxShadow: method === m ? 'var(--shadow)' : 'none',
+                  }}>
+                  <Icon size={14} />{label}
+                </button>
+              ))}
             </div>
+
+            {/* Email OU Téléphone */}
+            {method === 'email' ? (
+              <div>
+                <label className="label">Email</label>
+                <div className="relative">
+                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+                  <input type="email" required autoComplete="email"
+                    value={form.email} onChange={set('email')}
+                    placeholder="vous@exemple.com" className="input pl-9" />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="label">Numéro de téléphone</label>
+                <div className="relative">
+                  <Smartphone size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+                  <input type="tel" required inputMode="tel" autoComplete="tel"
+                    value={form.telephone} onChange={set('telephone')}
+                    placeholder="07 01 02 03 04" className="input pl-9" />
+                </div>
+                <p className="text-2xs mt-1" style={{ color: 'var(--text-dim)' }}>Un code te sera envoyé par SMS pour vérifier.</p>
+              </div>
+            )}
 
             {/* Password */}
             <div>

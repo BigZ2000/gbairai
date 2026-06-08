@@ -20,7 +20,7 @@ const router = Router()
 async function loadUser(req, res, next) {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
-    select: { id: true, email: true, prenom: true, plan: true, planExpireAt: true, isAdmin: true, emailVerified: true },
+    select: { id: true, email: true, prenom: true, plan: true, planExpireAt: true, isAdmin: true, emailVerified: true, phoneVerified: true },
   })
   if (!user) return res.status(401).json({ error: 'Non authentifié' })
   req.fullUser = user
@@ -31,8 +31,10 @@ async function loadUser(req, res, next) {
 // seulement si le réglage admin l'exige.
 async function requireVerified(req, res, next) {
   const settings = await getSettings()
-  if (settings.emailBlockUnverifiedActions && req.fullUser && !req.fullUser.emailVerified && !req.fullUser.isAdmin) {
-    return res.status(403).json({ error: 'Vérifie ton adresse email avant de t\'abonner.', code: 'EMAIL_NOT_VERIFIED' })
+  const u = req.fullUser
+  const verified = u && (u.emailVerified || u.phoneVerified)
+  if (settings.emailBlockUnverifiedActions && u && !verified && !u.isAdmin) {
+    return res.status(403).json({ error: 'Vérifie ton email ou ton téléphone avant de t\'abonner.', code: 'NOT_VERIFIED' })
   }
   next()
 }

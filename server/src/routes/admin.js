@@ -281,6 +281,7 @@ router.patch('/settings', async (req, res) => {
   const body = req.body ?? {}
   const patch = {}
   if (typeof body.emailVerifyOnRegister === 'boolean') patch.emailVerifyOnRegister = body.emailVerifyOnRegister
+  if (typeof body.phoneVerifyOnRegister === 'boolean') patch.phoneVerifyOnRegister = body.phoneVerifyOnRegister
   if (typeof body.emailBlockUnverifiedActions === 'boolean') patch.emailBlockUnverifiedActions = body.emailBlockUnverifiedActions
   if (Array.isArray(body.emailRequireVerifiedLoginPlans)) {
     const allowed = ['PRO', 'ENTREPRISE', 'ECOLE']

@@ -9,9 +9,12 @@ export const DEFAULT_SETTINGS = {
   // Vérification email à l'inscription : envoie le mail + emailVerified=false.
   // false → les comptes sont auto-vérifiés (aucun mail).
   emailVerifyOnRegister: true,
-  // Bloque les actions sensibles (abonnement / achat) tant que l'email n'est pas vérifié.
+  // Vérification téléphone (OTP SMS) à l'inscription par numéro.
+  phoneVerifyOnRegister: true,
+  // Bloque les actions sensibles (abonnement / achat) tant qu'aucun contact
+  // (email OU téléphone) n'est vérifié.
   emailBlockUnverifiedActions: true,
-  // Plans dont la connexion EXIGE un email vérifié (ex. comptes sensibles).
+  // Plans dont la connexion EXIGE un contact vérifié (email OU téléphone).
   // Tableau parmi : 'PRO','ENTREPRISE','ECOLE'. Vide = aucun.
   emailRequireVerifiedLoginPlans: [],
 }
