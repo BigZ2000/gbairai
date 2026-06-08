@@ -25,6 +25,12 @@
 
 	handle {
 		root * /srv
+		# Assets hashés (Vite) → immuables, cache long. index.html + routes SPA →
+		# jamais en cache : chaque déploiement est pris en compte sans vider le cache.
+		@assets path /assets/*
+		@notassets not path /assets/*
+		header @assets    Cache-Control "public, max-age=31536000, immutable"
+		header @notassets Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}
