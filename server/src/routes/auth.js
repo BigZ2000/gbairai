@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { sendVerificationEmail } from '../config/mailer.js'
+import { sendVerificationSms, normalizePhone } from '../config/sms.js'
 import { getSettings } from '../config/settings.js'
 
 const router = Router()
@@ -41,8 +42,17 @@ const RegisterSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, 'Lettres, chiffres, _ et - uniquement'),
 })
 
+const RegisterPhoneSchema = z.object({
+  telephone: z.string().min(6).max(20),
+  password: z.string().min(6),
+  prenom: z.string().min(1).max(50),
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/, 'Lettres, chiffres, _ et - uniquement'),
+})
+
+// Connexion par email OU téléphone (un seul des deux requis).
 const LoginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().optional(),
+  telephone: z.string().min(6).max(20).optional(),
   password: z.string(),
 })
 
@@ -66,7 +76,18 @@ export async function storeRefreshToken(userId, token, req) {
 const USER_SELECT = {
   id: true, email: true, prenom: true, nom: true, username: true, telephone: true,
   avatarUrl: true, theme: true, langue: true, plan: true, planExpireAt: true,
-  createdAt: true, isAdmin: true, isGuest: true, emailVerified: true,
+  createdAt: true, isAdmin: true, isGuest: true, emailVerified: true, phoneVerified: true,
+}
+
+// Un compte est « vérifié » si son email OU son téléphone est confirmé.
+function isVerified(u) { return !!(u?.emailVerified || u?.phoneVerified) }
+
+// Génère un OTP SMS à 6 chiffres + expiration (15 min).
+function makePhoneOtp() {
+  return {
+    phoneCode: String(Math.floor(100000 + Math.random() * 900000)),
+    phoneCodeExpiry: new Date(Date.now() + 15 * 60 * 1000),
+  }
 }
 
 const GuestSchema = z.object({ prenom: z.string().min(1).max(30) })
@@ -205,28 +226,117 @@ router.post('/resend-verification', requireAuth, async (req, res) => {
   res.json({ ok: true })
 })
 
+// ── INSCRIPTION PAR TÉLÉPHONE (OTP SMS) ───────────────────────────────────────
+router.post('/register-phone', async (req, res) => {
+  const parsed = RegisterPhoneSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
+  const { telephone, password, prenom, username } = parsed.data
+
+  const phone = normalizePhone(telephone)
+  if (!phone) return res.status(400).json({ error: 'Numéro de téléphone invalide.' })
+  const normalizedUsername = username.toLowerCase()
+
+  const [existingPhone, existingUsername] = await Promise.all([
+    prisma.user.findUnique({ where: { telephone: phone } }),
+    prisma.user.findUnique({ where: { username: normalizedUsername } }),
+  ])
+  if (existingPhone) return res.status(409).json({ error: 'Numéro déjà utilisé' })
+  if (existingUsername) return res.status(409).json({ error: 'Ce pseudo est déjà pris' })
+
+  const settings = await getSettings()
+  const verifyOnRegister = settings.phoneVerifyOnRegister !== false
+  const hashed = await bcrypt.hash(password, 10)
+  const otp = verifyOnRegister ? makePhoneOtp() : null
+  // Email synthétique (le compte se connecte par téléphone) — jamais utilisé pour login.
+  const synthEmail = `${phone.replace('+', '')}@phone.gbairai`
+
+  // Conversion invité en place si un jeton invité est fourni.
+  let guestId = null
+  const authz = req.headers.authorization
+  if (authz?.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(authz.slice(7), process.env.JWT_SECRET)
+      const u = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, isGuest: true } })
+      if (u?.isGuest) guestId = u.id
+    } catch { /* ignore */ }
+  }
+
+  const data = {
+    telephone: phone, password: hashed, prenom, username: normalizedUsername,
+    phoneVerified: !verifyOnRegister, ...(otp ?? {}),
+  }
+  const user = guestId
+    ? await prisma.user.update({ where: { id: guestId }, data: { ...data, isGuest: false }, select: USER_SELECT })
+    : await prisma.user.create({ data: { ...data, email: synthEmail }, select: USER_SELECT })
+
+  if (otp) {
+    sendVerificationSms({ to: phone, code: otp.phoneCode }).catch(e => console.error('[sms] envoi OTP échoué:', e?.message))
+  }
+
+  const { access, refresh } = signTokens(user.id)
+  await storeRefreshToken(user.id, refresh, req)
+  res.status(guestId ? 200 : 201).json({ user, access, refresh })
+})
+
+// POST /auth/verify-phone — confirmation par OTP (utilisateur connecté).
+router.post('/verify-phone', requireAuth, async (req, res) => {
+  const code = String(req.body?.code ?? '').trim()
+  const u = await prisma.user.findUnique({ where: { id: req.userId } })
+  if (!u) return res.status(404).json({ error: 'Compte introuvable' })
+  if (u.phoneVerified) return res.json({ ok: true, alreadyVerified: true })
+  if (!u.phoneCode || u.phoneCode !== code) return res.status(400).json({ error: 'Code incorrect' })
+  if (u.phoneCodeExpiry && u.phoneCodeExpiry < new Date()) return res.status(400).json({ error: 'Code expiré — renvoie un nouveau code' })
+  await prisma.user.update({ where: { id: u.id }, data: { phoneVerified: true, phoneCode: null, phoneCodeExpiry: null } })
+  res.json({ ok: true })
+})
+
+// POST /auth/resend-phone — renvoyer l'OTP (utilisateur connecté).
+router.post('/resend-phone', requireAuth, async (req, res) => {
+  const u = await prisma.user.findUnique({ where: { id: req.userId } })
+  if (!u) return res.status(404).json({ error: 'Compte introuvable' })
+  if (u.phoneVerified) return res.json({ ok: true, alreadyVerified: true })
+  if (!u.telephone) return res.status(400).json({ error: 'Aucun numéro associé' })
+  const otp = makePhoneOtp()
+  await prisma.user.update({ where: { id: u.id }, data: otp })
+  await sendVerificationSms({ to: u.telephone, code: otp.phoneCode }).catch(e => console.error('[sms] renvoi OTP échoué:', e?.message))
+  res.json({ ok: true })
+})
+
 router.post('/login', async (req, res) => {
   const parsed = LoginSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { email, password } = parsed.data
-  const user = await prisma.user.findUnique({ where: { email } })
+  const { email, telephone, password } = parsed.data
+  if (!email && !telephone) return res.status(400).json({ error: 'Email ou téléphone requis' })
+
+  // Résolution par email OU téléphone (normalisé).
+  const phone = telephone ? normalizePhone(telephone) : null
+  const user = email
+    ? await prisma.user.findUnique({ where: { email } })
+    : (phone ? await prisma.user.findUnique({ where: { telephone: phone } }) : null)
+
   if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ error: 'Email ou mot de passe incorrect' })
+    return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
   }
   if (user.isActive === false) {
     return res.status(403).json({ error: 'Compte désactivé. Contactez un administrateur.' })
   }
 
-  // Certains plans (réglage admin) exigent un email vérifié pour se connecter.
+  // Certains plans (réglage admin) exigent un contact vérifié (email OU tél) pour se connecter.
   const settings = await getSettings()
   const requirePlans = Array.isArray(settings.emailRequireVerifiedLoginPlans) ? settings.emailRequireVerifiedLoginPlans : []
-  if (!user.emailVerified && !user.isAdmin && requirePlans.includes(user.plan)) {
-    // On (re)génère un code et on l'envoie pour débloquer.
-    const verif = makeVerification()
-    await prisma.user.update({ where: { id: user.id }, data: verif })
-    sendVerificationEmail({ to: user.email, prenom: user.prenom, code: verif.verifyCode, token: verif.verifyToken }).catch(() => {})
-    return res.status(403).json({ error: 'Vérifie ton email pour te connecter (un nouveau code vient d\'être envoyé).', code: 'EMAIL_NOT_VERIFIED' })
+  if (!isVerified(user) && !user.isAdmin && requirePlans.includes(user.plan)) {
+    // On (re)génère un code sur le canal disponible et on l'envoie pour débloquer.
+    if (user.telephone) {
+      const otp = makePhoneOtp()
+      await prisma.user.update({ where: { id: user.id }, data: otp })
+      sendVerificationSms({ to: user.telephone, code: otp.phoneCode }).catch(() => {})
+    } else {
+      const verif = makeVerification()
+      await prisma.user.update({ where: { id: user.id }, data: verif })
+      sendVerificationEmail({ to: user.email, prenom: user.prenom, code: verif.verifyCode, token: verif.verifyToken }).catch(() => {})
+    }
+    return res.status(403).json({ error: 'Vérifie ton compte pour te connecter (un nouveau code vient d\'être envoyé).', code: 'NOT_VERIFIED' })
   }
 
   const { access, refresh } = signTokens(user.id)

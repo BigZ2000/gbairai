@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import AdminLayout from './AdminLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { Loader2, Mail, ShieldCheck, LogIn, Check } from 'lucide-react'
+import { Loader2, Mail, ShieldCheck, LogIn, Check, Smartphone } from 'lucide-react'
 
 const LOGIN_PLANS = ['PRO', 'ENTREPRISE', 'ECOLE']
 
@@ -41,15 +41,21 @@ export default function AdminSettings() {
       </div>
 
       <div className="max-w-2xl space-y-4">
-        {/* Vérification à l'inscription */}
+        {/* Vérification email à l'inscription */}
         <Row icon={Mail} color="#6366F1" title="Vérifier l'email à l'inscription"
-          desc="Envoie un code/lien de confirmation. Désactivé → les comptes sont validés automatiquement (aucun mail).">
+          desc="Envoie un code/lien de confirmation. Désactivé → les comptes par email sont validés automatiquement (aucun mail).">
           <Toggle on={s.emailVerifyOnRegister} onClick={() => save({ emailVerifyOnRegister: !s.emailVerifyOnRegister })} disabled={saving} />
         </Row>
 
+        {/* Vérification téléphone (SMS) à l'inscription */}
+        <Row icon={Smartphone} color="#22C55E" title="Vérifier le téléphone à l'inscription (SMS)"
+          desc="Envoie un code OTP par SMS. Désactivé → les comptes par numéro sont validés automatiquement (aucun SMS).">
+          <Toggle on={s.phoneVerifyOnRegister} onClick={() => save({ phoneVerifyOnRegister: !s.phoneVerifyOnRegister })} disabled={saving} />
+        </Row>
+
         {/* Blocage des actions sensibles */}
-        <Row icon={ShieldCheck} color="#22C55E" title="Bloquer les paiements tant que non vérifié"
-          desc="Abonnement et achat de pack restent inaccessibles jusqu'à la vérification de l'email.">
+        <Row icon={ShieldCheck} color="#0EA5E9" title="Bloquer les paiements tant que non vérifié"
+          desc="Abonnement et achat de pack restent inaccessibles tant qu'aucun contact (email OU téléphone) n'est vérifié.">
           <Toggle on={s.emailBlockUnverifiedActions} onClick={() => save({ emailBlockUnverifiedActions: !s.emailBlockUnverifiedActions })} disabled={saving} />
         </Row>
 
@@ -60,9 +66,9 @@ export default function AdminSettings() {
               <LogIn size={16} style={{ color: '#F59E0B' }} />
             </div>
             <div>
-              <h3 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Email vérifié obligatoire à la connexion</h3>
+              <h3 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Contact vérifié obligatoire à la connexion</h3>
               <p className="text-2xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
-                Pour les types de comptes sélectionnés, la connexion exige un email vérifié (un code est renvoyé sinon).
+                Pour les types de comptes sélectionnés, la connexion exige un email ou un téléphone vérifié (un code est renvoyé sinon).
               </p>
             </div>
           </div>
@@ -85,8 +91,8 @@ export default function AdminSettings() {
         </div>
 
         <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
-          💡 Pour tester sans envoyer de vrais mails, mets <code style={{ color: 'var(--text-muted)' }}>MAIL_ENABLED=false</code> côté serveur :
-          le contenu du mail est alors logué dans la console.
+          💡 Pour tester sans envoi réel : <code style={{ color: 'var(--text-muted)' }}>MAIL_ENABLED=false</code> (email) ou
+          <code style={{ color: 'var(--text-muted)' }}> SMS_ENABLED=false</code> (SMS) côté serveur → le code est alors **logué dans la console**.
         </p>
       </div>
     </AdminLayout>

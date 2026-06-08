@@ -47,7 +47,7 @@ export default function Abonnements() {
     setSubscribing(null)
     if (res?.status === 403) {                                     // email non vérifié
       const e = await res.json().catch(() => ({}))
-      if (e.code === 'EMAIL_NOT_VERIFIED') { navigate('/verifier-email'); return }
+      if (e.code === 'EMAIL_NOT_VERIFIED' || e.code === 'NOT_VERIFIED') { navigate(verifyPath); return }
     }
     if (!res?.ok) return
     const data = await res.json()
@@ -55,7 +55,10 @@ export default function Abonnements() {
   }
 
   const isGuest = !!user?.isGuest
-  const needsVerify = user && !user.isGuest && user.emailVerified === false
+  const isPhoneUser = (user?.email ?? '').endsWith('@phone.gbairai')
+  const verified = isPhoneUser ? user?.phoneVerified : user?.emailVerified
+  const needsVerify = user && !user.isGuest && verified === false
+  const verifyPath = isPhoneUser ? '/verifier-telephone' : '/verifier-email'
 
   const isPro = current === 'PRO'
   const isOrg = current === 'ENTREPRISE' || current === 'ECOLE'
@@ -83,7 +86,7 @@ export default function Abonnements() {
         <div className="card p-4 mb-6 flex items-center gap-3" style={{ border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.06)' }}>
           <MailWarning size={18} style={{ color: '#F59E0B' }} className="shrink-0" />
           <p className="text-sm flex-1" style={{ color: 'var(--text-muted)' }}>Vérifie ton adresse email pour pouvoir t'abonner.</p>
-          <button onClick={() => navigate('/verifier-email')} className="btn-secondary btn-sm shrink-0">Vérifier</button>
+          <button onClick={() => navigate(verifyPath)} className="btn-secondary btn-sm shrink-0">Vérifier</button>
         </div>
       )}
 

@@ -82,20 +82,28 @@ export default function Layout({ children, maxWidth = 'max-w-5xl' }) {
         </div>
       </header>
 
-      {/* Bandeau de vérification d'email (compte non-invité non vérifié). */}
-      {user && !user.isGuest && user.emailVerified === false && (
-        <div className={`${maxWidth} mx-auto px-5`}>
-          <Link to="/verifier-email"
-            className="mt-4 flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm"
-            style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B' }}>
-            <MailWarning size={16} className="shrink-0" />
-            <span className="flex-1" style={{ color: 'var(--text-muted)' }}>
-              Confirme ton adresse email pour débloquer toutes les fonctionnalités.
-            </span>
-            <span className="font-semibold shrink-0" style={{ color: '#F59E0B' }}>Vérifier →</span>
-          </Link>
-        </div>
-      )}
+      {/* Bandeau de vérification (email OU téléphone) — compte non-invité non vérifié. */}
+      {(() => {
+        if (!user || user.isGuest) return null
+        const isPhoneUser = (user.email ?? '').endsWith('@phone.gbairai')
+        const verified = isPhoneUser ? user.phoneVerified : user.emailVerified
+        if (verified !== false) return null
+        const to = isPhoneUser ? '/verifier-telephone' : '/verifier-email'
+        const label = isPhoneUser ? 'ton numéro de téléphone' : 'ton adresse email'
+        return (
+          <div className={`${maxWidth} mx-auto px-5`}>
+            <Link to={to}
+              className="mt-4 flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm"
+              style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B' }}>
+              <MailWarning size={16} className="shrink-0" />
+              <span className="flex-1" style={{ color: 'var(--text-muted)' }}>
+                Confirme {label} pour débloquer toutes les fonctionnalités.
+              </span>
+              <span className="font-semibold shrink-0" style={{ color: '#F59E0B' }}>Vérifier →</span>
+            </Link>
+          </div>
+        )
+      })()}
 
       <main className={`${maxWidth} mx-auto px-5 py-8 animate-fadeUp`}>
         {children}

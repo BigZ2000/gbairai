@@ -18,6 +18,7 @@ import RegisterGoogle from './pages/RegisterGoogle.jsx'
 import RejoindrePartie from './pages/RejoindrePartie.jsx'
 import BuzzerGuide from './pages/BuzzerGuide.jsx'
 import VerifierEmail from './pages/VerifierEmail.jsx'
+import VerifierTelephone from './pages/VerifierTelephone.jsx'
 import Landing from './pages/Landing.jsx'
 import GuestHome from './pages/GuestHome.jsx'
 import RequireAccount from './components/RequireAccount.jsx'
@@ -65,6 +66,7 @@ export default function App() {
           {/* Vérification d'email — publique (le lien du mail peut être ouvert
               sur un appareil non connecté ; le jeton suffit). */}
           <Route path="/verifier-email" element={<VerifierEmail />} />
+          <Route path="/verifier-telephone" element={<VerifierTelephone />} />
 
           <Route element={<ProtectedRoute />}>
             {/* Écran « maison » de l'invité (participant éphémère). */}

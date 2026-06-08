@@ -86,7 +86,10 @@ model User {
   prenom       String    @default("")
   nom          String?
   username     String?   @unique
-  telephone    String?
+  telephone    String?   @unique
+  phoneVerified Boolean  @default(false)
+  phoneCode    String?
+  phoneCodeExpiry DateTime?
   avatarUrl    String?
   theme        String    @default("dark")
   langue       String    @default("fr")
