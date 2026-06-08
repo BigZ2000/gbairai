@@ -6,6 +6,8 @@ import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { cleanupGuests } from '../../scripts/cleanupGuests.js'
 import { getSettings, updateSettings } from '../config/settings.js'
+import { sendEmail, mailReady } from '../config/mailer.js'
+import { sendSms, smsReady, normalizePhone } from '../config/sms.js'
 
 const router = Router()
 
@@ -274,6 +276,28 @@ router.post('/cleanup-guests', async (req, res) => {
 // GET /admin/settings — réglages applicatifs courants.
 router.get('/settings', async (_req, res) => {
   res.json(await getSettings())
+})
+
+// POST /admin/test-send — envoi de test (email ou SMS) pour vérifier la config.
+// body: { channel: 'email'|'sms', to, subject?, body? }
+router.post('/test-send', async (req, res) => {
+  const { channel, to, subject, body } = req.body ?? {}
+  if (!to || !String(to).trim()) return res.status(400).json({ error: 'Destinataire requis' })
+  const message = (body && String(body).trim()) || 'Test Gbairai : si tu reçois ce message, la configuration fonctionne ✅'
+
+  try {
+    if (channel === 'sms') {
+      const phone = normalizePhone(to)
+      if (!phone) return res.status(400).json({ error: 'Numéro invalide' })
+      const r = await sendSms(phone, message)
+      return res.json({ ok: true, channel: 'sms', to: phone, simulated: !!r?.simulated, ready: smsReady() })
+    } else {
+      const r = await sendEmail({ to: String(to).trim(), subject: (subject && String(subject).trim()) || 'Test Gbairai', text: message, html: `<p>${message}</p>` })
+      return res.json({ ok: true, channel: 'email', to: String(to).trim(), simulated: !!r?.simulated, ready: mailReady() })
+    }
+  } catch (e) {
+    return res.status(502).json({ error: e?.message ?? 'Échec de l\'envoi' })
+  }
 })
 
 // PATCH /admin/settings — met à jour les réglages.

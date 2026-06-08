@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import AdminLayout from './AdminLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { Loader2, Mail, ShieldCheck, LogIn, Check, Smartphone } from 'lucide-react'
+import { Loader2, Mail, ShieldCheck, LogIn, Check, Smartphone, Send } from 'lucide-react'
 
 const LOGIN_PLANS = ['PRO', 'ENTREPRISE', 'ECOLE']
 
@@ -92,10 +92,79 @@ export default function AdminSettings() {
 
         <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
           💡 Pour tester sans envoi réel : <code style={{ color: 'var(--text-muted)' }}>MAIL_ENABLED=false</code> (email) ou
-          <code style={{ color: 'var(--text-muted)' }}> SMS_ENABLED=false</code> (SMS) côté serveur → le code est alors **logué dans la console**.
+          <code style={{ color: 'var(--text-muted)' }}> SMS_ENABLED=false</code> (SMS) côté serveur → le contenu est alors **logué dans la console**.
         </p>
+
+        <TestSender apiFetch={apiFetch} />
       </div>
     </AdminLayout>
+  )
+}
+
+// ── Banc de test d'envoi (email / SMS) ────────────────────────────────────────
+function TestSender({ apiFetch }) {
+  const [channel, setChannel] = useState('email')
+  const [to, setTo] = useState('')
+  const [subject, setSubject] = useState('Test Gbairai')
+  const [body, setBody] = useState('Test Gbairai : si tu reçois ce message, la configuration fonctionne ✅')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null) // { ok, msg }
+
+  async function send() {
+    if (!to.trim()) return
+    setSending(true); setResult(null)
+    const r = await apiFetch('/admin/test-send', { method: 'POST', body: { channel, to: to.trim(), subject, body } })
+    setSending(false)
+    const d = await r?.json().catch(() => ({}))
+    if (r?.ok) {
+      setResult({ ok: true, msg: d.simulated
+        ? `Mode simulé (${channel === 'sms' ? 'SMS_ENABLED' : 'MAIL_ENABLED'}=false) — contenu logué côté serveur, pas d'envoi réel.`
+        : `Envoyé à ${d.to} ✅` })
+    } else {
+      setResult({ ok: false, msg: d?.error ?? 'Échec de l\'envoi' })
+    }
+  }
+
+  return (
+    <div className="card p-5 mt-2">
+      <div className="flex items-center gap-2 mb-4">
+        <Send size={15} style={{ color: '#A855F7' }} />
+        <h3 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Tester un envoi</h3>
+      </div>
+
+      {/* Canal */}
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-lg mb-3" style={{ background: 'var(--hover-overlay)' }}>
+        {[['email', 'Email', Mail], ['sms', 'SMS', Smartphone]].map(([m, label, Icon]) => (
+          <button key={m} onClick={() => { setChannel(m); setResult(null) }}
+            className="flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-medium transition-all"
+            style={{ background: channel === m ? 'var(--surface)' : 'transparent', color: channel === m ? 'var(--text)' : 'var(--text-dim)', boxShadow: channel === m ? 'var(--shadow)' : 'none' }}>
+            <Icon size={14} />{label}
+          </button>
+        ))}
+      </div>
+
+      <label className="label">{channel === 'sms' ? 'Numéro de téléphone' : 'Adresse email'}</label>
+      <input value={to} onChange={e => setTo(e.target.value)} className="input mb-3"
+        placeholder={channel === 'sms' ? '07 01 02 03 04' : 'destinataire@exemple.com'} />
+
+      {channel === 'email' && (
+        <>
+          <label className="label">Objet</label>
+          <input value={subject} onChange={e => setSubject(e.target.value)} className="input mb-3" />
+        </>
+      )}
+
+      <label className="label">Message</label>
+      <textarea value={body} onChange={e => setBody(e.target.value)} rows={3} className="input mb-3" />
+
+      <button onClick={send} disabled={sending || !to.trim()} className="btn-primary btn-sm gap-1.5">
+        {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}Envoyer le test
+      </button>
+
+      {result && (
+        <p className="text-sm mt-3" style={{ color: result.ok ? '#4ADE80' : '#F87171' }}>{result.msg}</p>
+      )}
+    </div>
   )
 }
 
