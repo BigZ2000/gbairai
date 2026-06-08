@@ -14,6 +14,13 @@ enum Plan {
   ECOLE
 }
 
+// Réglages applicatifs pilotés par l'admin (clé/valeur, valeur en texte/JSON).
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // Niveau d'un pack — pilote les conditions d'accès / la monétisation.
 enum PackTier {
   GRATUIT

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { LayoutDashboard, HelpCircle, Tag, Upload, Users, BarChart2, LogOut, ChevronRight, Image, Package, TrendingUp, CreditCard, Radio } from 'lucide-react'
+import { LayoutDashboard, HelpCircle, Tag, Upload, Users, BarChart2, LogOut, ChevronRight, Image, Package, TrendingUp, CreditCard, Radio, Settings } from 'lucide-react'
 
 const NAV = [
   { to: '/admin',            icon: BarChart2,     label: 'Statistiques', exact: true },
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/admin/media',      icon: Image,         label: 'Médiathèque' },
   { to: '/admin/import',     icon: Upload,        label: 'Import CSV' },
   { to: '/admin/users',      icon: Users,         label: 'Utilisateurs' },
+  { to: '/admin/reglages',   icon: Settings,      label: 'Réglages' },
 ]
 
 export default function AdminLayout({ children }) {
