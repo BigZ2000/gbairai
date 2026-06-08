@@ -5,6 +5,7 @@ import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { cleanupGuests } from '../../scripts/cleanupGuests.js'
+import { getSettings, updateSettings } from '../config/settings.js'
 
 const router = Router()
 
@@ -268,6 +269,24 @@ router.post('/cleanup-guests', async (req, res) => {
   const days = Math.max(0, Number(req.body?.days ?? 7))
   const r = await cleanupGuests(days)
   res.json(r)
+})
+
+// GET /admin/settings — réglages applicatifs courants.
+router.get('/settings', async (_req, res) => {
+  res.json(await getSettings())
+})
+
+// PATCH /admin/settings — met à jour les réglages.
+router.patch('/settings', async (req, res) => {
+  const body = req.body ?? {}
+  const patch = {}
+  if (typeof body.emailVerifyOnRegister === 'boolean') patch.emailVerifyOnRegister = body.emailVerifyOnRegister
+  if (typeof body.emailBlockUnverifiedActions === 'boolean') patch.emailBlockUnverifiedActions = body.emailBlockUnverifiedActions
+  if (Array.isArray(body.emailRequireVerifiedLoginPlans)) {
+    const allowed = ['PRO', 'ENTREPRISE', 'ECOLE']
+    patch.emailRequireVerifiedLoginPlans = body.emailRequireVerifiedLoginPlans.filter(p => allowed.includes(p))
+  }
+  res.json(await updateSettings(patch))
 })
 
 export default router

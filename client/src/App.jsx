@@ -28,6 +28,7 @@ import AdminCategories from './pages/admin/AdminCategories.jsx'
 import AdminImport from './pages/admin/AdminImport.jsx'
 import AdminMedia from './pages/admin/AdminMedia.jsx'
 import AdminUsers from './pages/admin/AdminUsers.jsx'
+import AdminSettings from './pages/admin/AdminSettings.jsx'
 import AdminPacks from './pages/admin/AdminPacks.jsx'
 import AdminAnalytics from './pages/admin/AdminAnalytics.jsx'
 import AdminOffres from './pages/admin/AdminOffres.jsx'
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="/admin/media"      element={<AdminRoute><AdminMedia /></AdminRoute>} />
           <Route path="/admin/import"     element={<AdminRoute><AdminImport /></AdminRoute>} />
           <Route path="/admin/users"      element={<AdminRoute><AdminUsers /></AdminRoute>} />
+          <Route path="/admin/reglages"   element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

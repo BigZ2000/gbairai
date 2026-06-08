@@ -8,9 +8,9 @@ import {
 } from 'lucide-react'
 
 const MODES = [
-  { value: 'animateur', icon: Mic2,   label: 'Avec animateur', desc: 'Vous validez chaque réponse manuellement.' },
-  { value: 'auto',      icon: Timer,   label: 'Automatique',    desc: 'La partie avance seule grâce au timer.' },
-  { value: 'vote',      icon: Users,   label: 'Vote collectif', desc: 'Les joueurs votent ensemble pour valider.' },
+  { value: 'auto',      icon: Timer,   label: 'Automatique',    desc: 'La partie avance toute seule. Le plus simple, idéal pour démarrer vite.', recommande: true },
+  { value: 'animateur', icon: Mic2,   label: 'Avec animateur', desc: 'Vous présentez et validez chaque réponse manuellement.' },
+  { value: 'vote',      icon: Users,   label: 'Vote collectif', desc: 'Les joueurs votent ensemble pour valider (min. 3 joueurs).' },
 ]
 
 const THEMES_DEFAUT = [
@@ -39,7 +39,9 @@ export default function CreatePartie() {
   const navigate    = useNavigate()
 
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ nom: '', mode: 'animateur', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: false, modeDistanciel: false, eliminationActive: false })
+  // Défauts « plug & play » : mode AUTO (le plus utilisé) + réponses masquées
+  // jusqu'à la révélation (recommandé pour toutes les parties auto).
+  const [form, setForm] = useState({ nom: '', mode: 'auto', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: true, modeDistanciel: false, eliminationActive: false })
   const [manches, setManches] = useState([defaultManche(0)])
   const [categories, setCategories] = useState([])
   const [error, setError]   = useState('')
@@ -184,6 +186,10 @@ export default function CreatePartie() {
                         <div className="flex items-center gap-2 mb-0.5">
                           <Icon size={14} style={{ color: sel ? '#818CF8' : 'var(--text-dim)' }} />
                           <p className="text-sm font-semibold" style={{ color: sel ? 'var(--text)' : 'var(--text-muted)' }}>{m.label}</p>
+                          {m.recommande && (
+                            <span className="text-2xs font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ background: 'rgba(34,197,94,0.15)', color: '#4ADE80' }}>Recommandé</span>
+                          )}
                         </div>
                         <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{m.desc}</p>
                       </div>
@@ -278,10 +284,15 @@ export default function CreatePartie() {
               </div>
             </div>
 
+            {/* Création rapide : 1 manche aux réglages par défaut → on lance direct. */}
+            <button onClick={handleCreate} disabled={!form.nom.trim() || loading}
+              className="btn-primary w-full btn-xl gap-2">
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <>Créer la partie <ChevronRight size={16} /></>}
+            </button>
             <button onClick={() => { if (form.nom.trim()) setStep(2) }}
               disabled={!form.nom.trim()}
-              className="btn-primary w-full btn-xl gap-2">
-              Configurer les manches <ChevronRight size={16} />
+              className="btn-ghost btn-sm w-full">
+              Personnaliser les manches (avancé)
             </button>
           </div>
         )}

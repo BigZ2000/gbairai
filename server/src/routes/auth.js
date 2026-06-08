@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { sendVerificationEmail } from '../config/mailer.js'
+import { getSettings } from '../config/settings.js'
 
 const router = Router()
 
@@ -119,14 +120,18 @@ router.post('/register', async (req, res) => {
   if (existingEmail) return res.status(409).json({ error: 'Email déjà utilisé' })
   if (existingUsername) return res.status(409).json({ error: 'Ce pseudo est déjà pris' })
 
+  const settings = await getSettings()
+  const verifyOnRegister = settings.emailVerifyOnRegister !== false
+
   // Pré-contrôle : le domaine de l'email doit être résolvable (MX/A) — bloque les
   // domaines inexistants avant même d'envoyer (réduit les fautes de frappe).
-  if (!(await emailDomainResolvable(email))) {
+  // (Seulement si la vérification est activée.)
+  if (verifyOnRegister && !(await emailDomainResolvable(email))) {
     return res.status(400).json({ error: "Cette adresse email semble invalide (domaine introuvable)." })
   }
 
   const hashed = await bcrypt.hash(password, 10)
-  const verif = makeVerification()
+  const verif = verifyOnRegister ? makeVerification() : null
 
   // CONVERSION INVITÉ → COMPTE (en place) : si la requête porte le jeton d'un
   // compte invité, on transforme CE compte (même id) au lieu d'en créer un
@@ -143,15 +148,18 @@ router.post('/register', async (req, res) => {
 
   const data = {
     email, password: hashed, prenom, username: normalizedUsername,
-    emailVerified: false, ...verif,
+    emailVerified: !verifyOnRegister, // auto-vérifié si la vérif est désactivée
+    ...(verif ?? {}),
   }
   const user = guestId
     ? await prisma.user.update({ where: { id: guestId }, data: { ...data, isGuest: false }, select: USER_SELECT })
     : await prisma.user.create({ data, select: USER_SELECT })
 
-  // Envoi du mail de vérification (best-effort : n'empêche pas l'inscription).
-  sendVerificationEmail({ to: email, prenom, code: verif.verifyCode, token: verif.verifyToken })
-    .catch(e => console.error('[mail] envoi vérif échoué:', e?.message))
+  // Envoi du mail de vérification (best-effort) si activé.
+  if (verif) {
+    sendVerificationEmail({ to: email, prenom, code: verif.verifyCode, token: verif.verifyToken })
+      .catch(e => console.error('[mail] envoi vérif échoué:', e?.message))
+  }
 
   const { access, refresh } = signTokens(user.id)
   await storeRefreshToken(user.id, refresh, req)
@@ -208,6 +216,17 @@ router.post('/login', async (req, res) => {
   }
   if (user.isActive === false) {
     return res.status(403).json({ error: 'Compte désactivé. Contactez un administrateur.' })
+  }
+
+  // Certains plans (réglage admin) exigent un email vérifié pour se connecter.
+  const settings = await getSettings()
+  const requirePlans = Array.isArray(settings.emailRequireVerifiedLoginPlans) ? settings.emailRequireVerifiedLoginPlans : []
+  if (!user.emailVerified && !user.isAdmin && requirePlans.includes(user.plan)) {
+    // On (re)génère un code et on l'envoie pour débloquer.
+    const verif = makeVerification()
+    await prisma.user.update({ where: { id: user.id }, data: verif })
+    sendVerificationEmail({ to: user.email, prenom: user.prenom, code: verif.verifyCode, token: verif.verifyToken }).catch(() => {})
+    return res.status(403).json({ error: 'Vérifie ton email pour te connecter (un nouveau code vient d\'être envoyé).', code: 'EMAIL_NOT_VERIFIED' })
   }
 
   const { access, refresh } = signTokens(user.id)

@@ -6,6 +6,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
+import { getSettings } from '../config/settings.js'
 import { PLANS } from '../config/plans.js'
 import { cinetpayConfig } from '../config/cinetpay.js'
 import { getQuotaState } from '../services/quotaService.js'
@@ -26,9 +27,11 @@ async function loadUser(req, res, next) {
   next()
 }
 
-// Bloque les actions sensibles (paiement) tant que l'email n'est pas vérifié.
-function requireVerified(req, res, next) {
-  if (req.fullUser && !req.fullUser.emailVerified && !req.fullUser.isAdmin) {
+// Bloque les actions sensibles (paiement) tant que l'email n'est pas vérifié —
+// seulement si le réglage admin l'exige.
+async function requireVerified(req, res, next) {
+  const settings = await getSettings()
+  if (settings.emailBlockUnverifiedActions && req.fullUser && !req.fullUser.emailVerified && !req.fullUser.isAdmin) {
     return res.status(403).json({ error: 'Vérifie ton adresse email avant de t\'abonner.', code: 'EMAIL_NOT_VERIFIED' })
   }
   next()
