@@ -33,13 +33,15 @@ function transport() {
 export function mailReady() { return enabled && !!process.env.SMTP_USER && !!process.env.SMTP_PASS }
 
 // Envoi générique. Si le mail est désactivé → log console (dev) et succès simulé.
-async function send({ to, subject, html, text }) {
+export async function sendEmail({ to, subject, html, text }) {
   if (!mailReady()) {
     console.log(`[mail:dev] → ${to} | ${subject}\n${text ?? ''}`)
     return { simulated: true }
   }
-  return transport().sendMail({ from: FROM, to, subject, html, text })
+  await transport().sendMail({ from: FROM, to, subject, html, text })
+  return { simulated: false }
 }
+const send = sendEmail
 
 // ── Email de vérification (code + lien) ───────────────────────────────────────
 export async function sendVerificationEmail({ to, prenom, code, token }) {

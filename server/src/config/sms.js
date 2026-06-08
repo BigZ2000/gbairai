@@ -49,7 +49,8 @@ export async function sendSms(to, body) {
     const txt = await r.text().catch(() => '')
     throw new Error(`Twilio ${r.status}: ${txt.slice(0, 200)}`)
   }
-  return r.json()
+  const data = await r.json().catch(() => ({}))
+  return { simulated: false, sid: data.sid }
 }
 
 // SMS de vérification (OTP).
