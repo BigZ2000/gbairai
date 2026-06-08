@@ -91,6 +91,11 @@ model User {
   // Compte invité : créé sans mot de passe pour rejoindre une partie en 1 clic.
   isGuest       Boolean   @default(false)
   lastSeenAt   DateTime?
+  // Vérification d'email (inscription par email ; Google = vérifié d'office).
+  emailVerified Boolean   @default(false)
+  verifyCode    String?   // code à 6 chiffres
+  verifyToken   String?   @unique // jeton du lien de confirmation
+  verifyExpiry  DateTime? // expiration du code/lien
   createdAt    DateTime  @default(now())
 
   isAdmin         Boolean        @default(false)

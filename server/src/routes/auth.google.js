@@ -82,9 +82,9 @@ router.get('/callback', async (req, res) => {
     })
 
     if (user) {
-      // Existing user — link googleId if needed, then log in directly
-      if (!user.googleId) {
-        await prisma.user.update({ where: { id: user.id }, data: { googleId } })
+      // Existing user — link googleId if needed + email vérifié (Google le garantit).
+      if (!user.googleId || !user.emailVerified) {
+        await prisma.user.update({ where: { id: user.id }, data: { googleId, emailVerified: true } })
       }
       const { access, refresh } = signTokens(user.id)
       await storeRefreshToken(user.id, refresh)
@@ -141,6 +141,7 @@ router.post('/complete', async (req, res) => {
       prenom: prenom.trim(),
       username: normalizedUsername,
       password: '',
+      emailVerified: true, // Google a déjà vérifié l'adresse
     },
   })
 

@@ -57,7 +57,7 @@ export default function GuestHome() {
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <Link to="/register" className="btn-primary flex-1 gap-2"><Sparkles size={14} />Créer mon compte</Link>
-              <Link to="/register" className="btn-secondary flex-1 gap-2"><Crown size={14} />Voir les offres</Link>
+              <Link to="/abonnement" className="btn-secondary flex-1 gap-2"><Crown size={14} />Voir les offres</Link>
             </div>
           </div>
         </div>

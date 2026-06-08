@@ -177,7 +177,7 @@ export default function JoueurJeu() {
               <p className="text-sm mb-3" style={{ color: '#9090A0' }}>Garde ton score et ton historique 👇</p>
               <div className="flex flex-col gap-2">
                 <button onClick={() => navigate('/register')} className="btn-primary w-full">Créer mon compte</button>
-                <button onClick={() => navigate('/register')} className="btn-secondary w-full">Voir les offres</button>
+                <button onClick={() => navigate('/abonnement')} className="btn-secondary w-full">Voir les offres</button>
                 <button onClick={() => navigate('/invite')} className="btn-ghost w-full">Rejoindre une autre partie</button>
               </div>
             </div>

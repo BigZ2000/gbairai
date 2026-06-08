@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
+import { cleanupGuests } from '../../scripts/cleanupGuests.js'
 
 const router = Router()
 
@@ -260,6 +261,13 @@ router.delete('/users/:id', async (req, res) => {
   await prisma.partie.updateMany({ where: { animateurId: req.params.id }, data: { animateurId: null } })
   await prisma.user.delete({ where: { id: req.params.id } })
   res.json({ ok: true })
+})
+
+// POST /admin/cleanup-guests — purge manuelle des invités inactifs (body: { days }).
+router.post('/cleanup-guests', async (req, res) => {
+  const days = Math.max(0, Number(req.body?.days ?? 7))
+  const r = await cleanupGuests(days)
+  res.json(r)
 })
 
 export default router
