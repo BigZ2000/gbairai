@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { Mail, Lock, Loader2, AlertCircle, ArrowRight, Gamepad2 } from 'lucide-react'
+import { Mail, Lock, Loader2, AlertCircle, ArrowRight, Gamepad2, Smartphone } from 'lucide-react'
 import { googleAuthAvailable } from '../utils/env.js'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 
@@ -14,11 +14,12 @@ const GOOGLE_ERRORS = {
 }
 
 export default function Login() {
-  const { login } = useAuth()
+  const { loginWith } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
 
-  const [email, setEmail] = useState('')
+  const [method, setMethod] = useState('email')   // 'email' | 'phone'
+  const [identifier, setIdentifier] = useState('') // email ou numéro
   const [password, setPassword] = useState('')
   const [error, setError] = useState(GOOGLE_ERRORS[params.get('error')] ?? '')
   const [loading, setLoading] = useState(false)
@@ -36,7 +37,10 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
+      const creds = method === 'phone'
+        ? { telephone: identifier.trim(), password }
+        : { email: identifier.trim(), password }
+      await loginWith(creds)
       navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(err.message)
@@ -97,14 +101,29 @@ export default function Login() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Bascule Email / Téléphone */}
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-lg" style={{ background: 'var(--hover-overlay)' }}>
+              {[['email', 'Email', Mail], ['phone', 'Téléphone', Smartphone]].map(([m, label, Icon]) => (
+                <button key={m} type="button" onClick={() => { setMethod(m); setIdentifier(''); setError('') }}
+                  className="flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-medium transition-all"
+                  style={{ background: method === m ? 'var(--surface)' : 'transparent', color: method === m ? 'var(--text)' : 'var(--text-dim)', boxShadow: method === m ? 'var(--shadow)' : 'none' }}>
+                  <Icon size={14} />{label}
+                </button>
+              ))}
+            </div>
+
             <div>
-              <label className="label">Email</label>
+              <label className="label">{method === 'phone' ? 'Numéro de téléphone' : 'Email'}</label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+                {method === 'phone'
+                  ? <Smartphone size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+                  : <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />}
                 <input
-                  type="email" required autoComplete="email"
-                  value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="vous@exemple.com"
+                  type={method === 'phone' ? 'tel' : 'email'} required
+                  inputMode={method === 'phone' ? 'tel' : 'email'}
+                  autoComplete={method === 'phone' ? 'tel' : 'email'}
+                  value={identifier} onChange={e => setIdentifier(e.target.value)}
+                  placeholder={method === 'phone' ? '07 01 02 03 04' : 'vous@exemple.com'}
                   className="input pl-9"
                 />
               </div>

@@ -58,7 +58,9 @@ const LoginSchema = z.object({
 
 export function signTokens(userId) {
   const access = jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: '15m' })
-  const refresh = jwt.sign({ sub: userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' })
+  // `jti` aléatoire → chaque refresh token est unique même si deux sont émis dans
+  // la même seconde pour le même user (sinon collision sur l'index unique `token`).
+  const refresh = jwt.sign({ sub: userId, jti: crypto.randomUUID() }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' })
   return { access, refresh }
 }
 
