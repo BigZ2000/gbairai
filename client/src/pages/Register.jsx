@@ -48,7 +48,8 @@ export default function Register() {
     setLoading(true)
     try {
       await register(form.email, form.password, form.prenom, form.username.trim().toLowerCase())
-      navigate('/dashboard', { replace: true })
+      // Inscription par email → on invite directement à vérifier l'adresse.
+      navigate('/verifier-email', { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {

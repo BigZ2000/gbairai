@@ -54,6 +54,13 @@ services:
       CINETPAY_MODE: ${CINETPAY_MODE:-PRODUCTION}
       CINETPAY_NOTIFY_URL: https://${API_DOMAIN}/api/billing/webhook
       CINETPAY_RETURN_URL: https://${APP_DOMAIN}/abonnement/confirmation
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-smtp.ionos.fr}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Gbairai <gbairai.contact@robotechci.com>}
+      APP_URL: https://${APP_DOMAIN}
     volumes:
       - uploads_data:/app/uploads
     expose:

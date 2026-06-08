@@ -17,6 +17,7 @@ import AuthCallback from './pages/AuthCallback.jsx'
 import RegisterGoogle from './pages/RegisterGoogle.jsx'
 import RejoindrePartie from './pages/RejoindrePartie.jsx'
 import BuzzerGuide from './pages/BuzzerGuide.jsx'
+import VerifierEmail from './pages/VerifierEmail.jsx'
 import Landing from './pages/Landing.jsx'
 import GuestHome from './pages/GuestHome.jsx'
 import RequireAccount from './components/RequireAccount.jsx'
@@ -60,6 +61,9 @@ export default function App() {
           <Route path="/rejoindre/:code" element={<RejoindrePartie />} />
           {/* Guide buzzers — public (cible du QR imprimé sous le boîtier). */}
           <Route path="/buzzer" element={<BuzzerGuide />} />
+          {/* Vérification d'email — publique (le lien du mail peut être ouvert
+              sur un appareil non connecté ; le jeton suffit). */}
+          <Route path="/verifier-email" element={<VerifierEmail />} />
 
           <Route element={<ProtectedRoute />}>
             {/* Écran « maison » de l'invité (participant éphémère). */}
@@ -77,7 +81,8 @@ export default function App() {
             <Route path="/dashboard" element={<RequireAccount><Dashboard /></RequireAccount>} />
             <Route path="/parties/new" element={<RequireAccount><CreatePartie /></RequireAccount>} />
             <Route path="/compte" element={<RequireAccount><MonCompte /></RequireAccount>} />
-            <Route path="/abonnement" element={<RequireAccount><Abonnements /></RequireAccount>} />
+            {/* Offres : consultables aussi par les invités (lecture seule + CTA création). */}
+            <Route path="/abonnement" element={<Abonnements />} />
             <Route path="/abonnement/checkout" element={<RequireAccount><Checkout /></RequireAccount>} />
             <Route path="/abonnement/confirmation" element={<RequireAccount><Confirmation /></RequireAccount>} />
             <Route path="/paiements" element={<RequireAccount><Paiements /></RequireAccount>} />

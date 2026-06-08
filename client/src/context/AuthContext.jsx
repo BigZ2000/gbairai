@@ -109,6 +109,17 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  // Recharge le profil (ex. après vérification d'email) pour rafraîchir emailVerified.
+  async function refreshUser() {
+    const access = getAccess()
+    if (!access) return null
+    const r = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${access}` } })
+    if (!r.ok) return null
+    const u = await r.json()
+    setUser(u)
+    return u
+  }
+
   useEffect(() => {
     const access = getAccess()
     if (!access) { setLoading(false); return }
@@ -127,7 +138,7 @@ export function AuthProvider({ children }) {
   }, [user?.theme])
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, register, loginWithTokens, logout, apiFetch, apiUpload }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, register, loginWithTokens, logout, refreshUser, apiFetch, apiUpload }}>
       {children}
     </AuthContext.Provider>
   )

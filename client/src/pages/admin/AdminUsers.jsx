@@ -3,7 +3,7 @@ import AdminLayout from './AdminLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import {
   Search, Shield, ChevronLeft, ChevronRight, Loader2, UserPlus, X, Check,
-  Trophy, Gamepad2, KeyRound, Trash2, Ban, CheckCircle2, Crown, Mail, AtSign, Phone, Calendar,
+  Trophy, Gamepad2, KeyRound, Trash2, Ban, CheckCircle2, Crown, Mail, AtSign, Phone, Calendar, UserMinus,
 } from 'lucide-react'
 
 const PLANS = ['FREE', 'PRO', 'ENTREPRISE', 'ECOLE']
@@ -35,7 +35,17 @@ export default function AdminUsers() {
   const [toast, setToast] = useState(null)
   const limit = 50
 
+  const [purging, setPurging] = useState(false)
   function showToast(msg, type = 'success') { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+
+  async function purgeGuests() {
+    if (!confirm('Supprimer les comptes invités inactifs depuis plus de 7 jours ?')) return
+    setPurging(true)
+    const res = await apiFetch('/admin/cleanup-guests', { method: 'POST', body: { days: 7 } })
+    setPurging(false)
+    if (res?.ok) { const d = await res.json(); showToast(`${d.deleted ?? 0} invité(s) supprimé(s)`); load() }
+    else showToast('Purge impossible', 'error')
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -63,9 +73,14 @@ export default function AdminUsers() {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Utilisateurs</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>{total} utilisateur{total !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setCreating(true)} className="btn-primary btn-sm gap-1.5">
-          <UserPlus size={14} />Nouvel utilisateur
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={purgeGuests} disabled={purging} className="btn-secondary btn-sm gap-1.5" title="Supprimer les invités inactifs > 7 jours">
+            {purging ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} />}Purger les invités
+          </button>
+          <button onClick={() => setCreating(true)} className="btn-primary btn-sm gap-1.5">
+            <UserPlus size={14} />Nouvel utilisateur
+          </button>
+        </div>
       </div>
 
       <div className="relative mb-4 max-w-sm">

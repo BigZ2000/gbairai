@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
-import { Check, Loader2, Crown, Building2, Sparkles, ArrowLeft, ChevronRight } from 'lucide-react'
+import { Check, Loader2, Crown, Building2, Sparkles, ArrowLeft, ChevronRight, MailWarning } from 'lucide-react'
 
 export function fmtFCFA(n) {
   return (n ?? 0).toLocaleString('fr-FR') + ' FCFA'
@@ -40,27 +40,52 @@ export default function Abonnements() {
   const orgOffres = offres.filter(o => o.categorie === 'ORGANISATION').sort((a, b) => a.sieges - b.sieges)
 
   async function subscribe(offre) {
+    if (user?.isGuest) { navigate('/register'); return }           // invité → créer un compte
     if (!offre) return
     setSubscribing(offre.id)
     const res = await apiFetch('/billing/subscribe', { method: 'POST', body: { offreId: offre.id } })
     setSubscribing(null)
+    if (res?.status === 403) {                                     // email non vérifié
+      const e = await res.json().catch(() => ({}))
+      if (e.code === 'EMAIL_NOT_VERIFIED') { navigate('/verifier-email'); return }
+    }
     if (!res?.ok) return
     const data = await res.json()
     navigate('/abonnement/checkout', { state: { reference: data.reference, offre, montant: data.montant } })
   }
+
+  const isGuest = !!user?.isGuest
+  const needsVerify = user && !user.isGuest && user.emailVerified === false
 
   const isPro = current === 'PRO'
   const isOrg = current === 'ENTREPRISE' || current === 'ECOLE'
 
   return (
     <Layout maxWidth="max-w-4xl">
-      <button onClick={() => navigate('/dashboard')} className="btn-ghost btn-sm gap-1.5 mb-4">
+      <button onClick={() => navigate(isGuest ? '/invite' : '/dashboard')} className="btn-ghost btn-sm gap-1.5 mb-4">
         <ArrowLeft size={14} />Retour
       </button>
-      <div className="text-center mb-8">
+      <div className="text-center mb-6">
         <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Choisis ton offre</h1>
         <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Simple, sans engagement. Change ou arrête quand tu veux.</p>
       </div>
+
+      {/* Invité : consultation libre, mais il faut un compte pour s'abonner. */}
+      {isGuest && (
+        <div className="card p-4 mb-6 flex items-center gap-3" style={{ border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.06)' }}>
+          <Sparkles size={18} style={{ color: '#818CF8' }} className="shrink-0" />
+          <p className="text-sm flex-1" style={{ color: 'var(--text-muted)' }}>Tu es en mode invité — <strong style={{ color: 'var(--text)' }}>crée un compte</strong> pour t'abonner.</p>
+          <button onClick={() => navigate('/register')} className="btn-primary btn-sm shrink-0">Créer un compte</button>
+        </div>
+      )}
+      {/* Compte non vérifié : invite à confirmer l'email avant de payer. */}
+      {needsVerify && (
+        <div className="card p-4 mb-6 flex items-center gap-3" style={{ border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.06)' }}>
+          <MailWarning size={18} style={{ color: '#F59E0B' }} className="shrink-0" />
+          <p className="text-sm flex-1" style={{ color: 'var(--text-muted)' }}>Vérifie ton adresse email pour pouvoir t'abonner.</p>
+          <button onClick={() => navigate('/verifier-email')} className="btn-secondary btn-sm shrink-0">Vérifier</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

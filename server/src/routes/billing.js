@@ -19,10 +19,18 @@ const router = Router()
 async function loadUser(req, res, next) {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
-    select: { id: true, email: true, prenom: true, plan: true, planExpireAt: true, isAdmin: true },
+    select: { id: true, email: true, prenom: true, plan: true, planExpireAt: true, isAdmin: true, emailVerified: true },
   })
   if (!user) return res.status(401).json({ error: 'Non authentifié' })
   req.fullUser = user
+  next()
+}
+
+// Bloque les actions sensibles (paiement) tant que l'email n'est pas vérifié.
+function requireVerified(req, res, next) {
+  if (req.fullUser && !req.fullUser.emailVerified && !req.fullUser.isAdmin) {
+    return res.status(403).json({ error: 'Vérifie ton adresse email avant de t\'abonner.', code: 'EMAIL_NOT_VERIFIED' })
+  }
   next()
 }
 
@@ -69,7 +77,7 @@ router.get('/history', requireAuth, async (req, res) => {
 })
 
 // POST /api/billing/subscribe — souscrire à une offre (initie un paiement).
-router.post('/subscribe', requireAuth, loadUser, async (req, res) => {
+router.post('/subscribe', requireAuth, loadUser, requireVerified, async (req, res) => {
   const parsed = z.object({ offreId: z.string() }).safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Offre invalide' })
 
@@ -88,7 +96,7 @@ router.post('/subscribe', requireAuth, loadUser, async (req, res) => {
 })
 
 // POST /api/billing/packs/:id/buy — achat unitaire d'un pack payant.
-router.post('/packs/:id/buy', requireAuth, loadUser, async (req, res) => {
+router.post('/packs/:id/buy', requireAuth, loadUser, requireVerified, async (req, res) => {
   const pack = await prisma.pack.findUnique({ where: { id: req.params.id } })
   if (!pack) return res.status(404).json({ error: 'Pack introuvable' })
   if ((pack.prix ?? 0) <= 0) return res.status(400).json({ error: 'Ce pack n\'est pas en vente à l\'unité' })
