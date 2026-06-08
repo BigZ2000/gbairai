@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import AdminLayout from './AdminLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { Loader2, TrendingUp, Users, Wallet, Repeat, Package } from 'lucide-react'
+import { Loader2, TrendingUp, Users, Wallet, Repeat, Package, UserPlus } from 'lucide-react'
+import { LineChart, Donut, BarChart } from '../../components/Charts.jsx'
 
 function fmtFCFA(n) { return (n ?? 0).toLocaleString('fr-FR') + ' FCFA' }
+function fmtK(n) { return (n ?? 0) >= 1000 ? Math.round(n / 1000) + 'k' : String(n ?? 0) }
 const PLAN_COLORS = { FREE: 'var(--text-muted)', PRO: '#6366F1', ENTREPRISE: '#0EA5E9', ECOLE: '#22C55E' }
 
 export default function AdminAnalytics() {
@@ -31,23 +33,40 @@ export default function AdminAnalytics() {
         <Kpi icon={TrendingUp} label="Abonnements actifs" value={data.abonnementsActifs} color="#0EA5E9" />
       </div>
 
+      {/* Courbes : revenus + inscriptions (6 mois) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Wallet size={15} style={{ color: '#22C55E' }} />
+            <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Revenus (6 mois)</h2>
+            <span className="text-2xs ml-auto" style={{ color: 'var(--text-dim)' }}>{fmtFCFA(data.revenus)} cumulés</span>
+          </div>
+          <LineChart data={data.revenusParMois ?? []} color="#22C55E" format={fmtK} />
+        </div>
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <UserPlus size={15} style={{ color: '#6366F1' }} />
+            <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Inscriptions (6 mois)</h2>
+          </div>
+          <LineChart data={data.inscriptionsParMois ?? []} color="#818CF8" />
+        </div>
+      </div>
+
+      {/* Bar chart : revenus mensuels en barres (complément visuel de la courbe) */}
+      <div className="card p-5 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Wallet size={15} style={{ color: '#0EA5E9' }} />
+          <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Revenus mensuels (barres)</h2>
+        </div>
+        <BarChart data={data.revenusParMois ?? []} color="#0EA5E9" height={200} format={fmtK} />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Répartition des abonnés */}
+        {/* Répartition des abonnés (donut) */}
         <div className="card p-5">
           <h2 className="font-semibold mb-4" style={{ color: 'var(--text)' }}>Répartition par plan</h2>
-          <div className="space-y-3">
-            {Object.entries(data.abonnes).sort((a, b) => b[1] - a[1]).map(([plan, n]) => (
-              <div key={plan}>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span style={{ color: 'var(--text)' }}>{plan}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>{n} ({Math.round((n / totalAbonnes) * 100)}%)</span>
-                </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--hover-overlay)' }}>
-                  <div className="h-full rounded-full" style={{ width: `${(n / totalAbonnes) * 100}%`, background: PLAN_COLORS[plan] ?? '#6366F1' }} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <Donut data={Object.entries(data.abonnes).sort((a, b) => b[1] - a[1])
+            .map(([plan, n]) => ({ label: plan, value: n, color: PLAN_COLORS[plan] ?? '#6366F1' }))} />
           <div className="mt-5 pt-4 grid grid-cols-2 gap-3" style={{ borderTop: '1px solid var(--border)' }}>
             <MiniStat label="Revenus abonnements" value={fmtFCFA(data.revenusAbonnements)} />
             <MiniStat label="Revenus packs" value={fmtFCFA(data.revenusPacks)} />

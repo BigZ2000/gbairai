@@ -15,28 +15,85 @@ const ADMIN_USER_SELECT = {
   plan: true, isAdmin: true, isActive: true, createdAt: true, lastSeenAt: true,
 }
 
-// GET /admin/stats
+// Buckets [{ label:'JJ/MM', value }] par jour sur les N derniers jours.
+function bucketParJour(dates, jours = 14) {
+  const out = []
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  for (let i = jours - 1; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i)
+    const next = new Date(d); next.setDate(next.getDate() + 1)
+    const label = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+    out.push({ label, value: 0, s: d.getTime(), e: next.getTime() })
+  }
+  for (const dt of dates) {
+    const t = new Date(dt).getTime()
+    const b = out.find(o => t >= o.s && t < o.e)
+    if (b) b.value++
+  }
+  return out.map(({ label, value }) => ({ label, value }))
+}
+
+// Buckets par mois sur les N derniers mois → [{ label:'MM/AA', value }] (somme).
+function bucketParMois(items, mois = 6, valueOf = () => 1) {
+  const out = []
+  const base = new Date(); base.setDate(1); base.setHours(0, 0, 0, 0)
+  for (let i = mois - 1; i >= 0; i--) {
+    const d = new Date(base); d.setMonth(d.getMonth() - i)
+    const next = new Date(d); next.setMonth(next.getMonth() + 1)
+    const label = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`
+    out.push({ label, value: 0, s: d.getTime(), e: next.getTime() })
+  }
+  for (const it of items) {
+    const t = new Date(it.date).getTime()
+    const b = out.find(o => t >= o.s && t < o.e)
+    if (b) b.value += valueOf(it)
+  }
+  return out.map(({ label, value }) => ({ label, value }))
+}
+
+// GET /admin/stats — dashboard d'activité.
 router.get('/stats', async (_req, res) => {
-  const [users, questions, parties, categories] = await Promise.all([
+  const since = new Date(); since.setDate(since.getDate() - 14)
+  const [users, questions, parties, categories,
+         usersRecents, partiesRecentes, parCategorie, parType, parDifficulte] = await Promise.all([
     prisma.user.count(),
     prisma.question.count(),
     prisma.partie.count(),
     prisma.categorie.count(),
+    prisma.user.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } }),
+    prisma.partie.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } }),
+    prisma.question.groupBy({ by: ['categorieId'], _count: { _all: true } }),
+    prisma.question.groupBy({ by: ['type'], _count: { _all: true } }),
+    prisma.question.groupBy({ by: ['difficulte'], _count: { _all: true } }),
   ])
-  res.json({ users, questions, parties, categories })
+
+  const cats = await prisma.categorie.findMany({ select: { id: true, nom: true } })
+  const catMap = Object.fromEntries(cats.map(c => [c.id, c.nom]))
+
+  res.json({
+    users, questions, parties, categories,
+    inscriptionsParJour: bucketParJour(usersRecents.map(u => u.createdAt)),
+    partiesParJour: bucketParJour(partiesRecentes.map(p => p.createdAt)),
+    questionsParCategorie: parCategorie
+      .map(g => ({ label: catMap[g.categorieId] ?? '—', value: g._count._all }))
+      .sort((a, b) => b.value - a.value),
+    questionsParType: parType.map(g => ({ label: g.type, value: g._count._all })).sort((a, b) => b.value - a.value),
+    questionsParDifficulte: parDifficulte.map(g => ({ label: g.difficulte, value: g._count._all })),
+  })
 })
 
 // GET /admin/analytics — analytiques business (abonnés, revenus, conversion…).
 router.get('/analytics', async (_req, res) => {
-  const [parPlan, totalUsers, paiements, ventesPack, abonnementsActifs] = await Promise.all([
+  const [parPlan, totalUsers, paiements, ventesPack, abonnementsActifs, usersDates] = await Promise.all([
     prisma.user.groupBy({ by: ['plan'], _count: { _all: true } }),
     prisma.user.count(),
-    prisma.paiement.findMany({ where: { statut: 'SUCCESS' }, select: { montant: true, plan: true, packId: true } }),
+    prisma.paiement.findMany({ where: { statut: 'SUCCESS' }, select: { montant: true, plan: true, packId: true, createdAt: true } }),
     prisma.paiement.groupBy({
       by: ['packId'], where: { statut: 'SUCCESS', packId: { not: null } },
       _count: { _all: true }, _sum: { montant: true },
     }),
     prisma.subscription.count({ where: { statut: 'ACTIVE' } }),
+    prisma.user.findMany({ select: { createdAt: true } }),
   ])
 
   const abonnes = Object.fromEntries(parPlan.map(p => [p.plan, p._count._all]))
@@ -63,6 +120,9 @@ router.get('/analytics', async (_req, res) => {
     revenus, revenusAbonnements, revenusPacks, devise: 'XOF',
     nbPaiements: paiements.length,
     topPacks,
+    // Séries temporelles (6 derniers mois).
+    revenusParMois: bucketParMois(paiements.map(p => ({ date: p.createdAt, montant: p.montant })), 6, it => it.montant ?? 0),
+    inscriptionsParMois: bucketParMois(usersDates.map(u => ({ date: u.createdAt })), 6),
   })
 })
 

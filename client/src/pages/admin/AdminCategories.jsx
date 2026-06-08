@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import AdminLayout from './AdminLayout.jsx'
+import Pagination, { usePagination } from '../../components/Pagination.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { Plus, Trash2, Pencil, X, Check, Loader2 } from 'lucide-react'
 
 export default function AdminCategories() {
   const { apiFetch } = useAuth()
   const [categories, setCategories] = useState([])
+  const pg = usePagination(categories, 12)
   const [editing, setEditing] = useState(null)
   const [saving, setSaving]   = useState(false)
   // Gestion des rubriques (dans la modale d'édition)
@@ -106,7 +108,7 @@ export default function AdminCategories() {
             </tr>
           </thead>
           <tbody>
-            {categories.map(c => (
+            {pg.slice.map(c => (
               <tr key={c.id} style={{ borderBottom: '1px solid var(--input-bg)' }}
                 className="transition-colors hover:bg-white/[0.02]">
                 <td className="px-4 py-3 text-xl w-12">{c.emoji}</td>
@@ -134,6 +136,7 @@ export default function AdminCategories() {
           </tbody>
         </table>
       </div>
+      <Pagination page={pg.page} pages={pg.pages} total={pg.total} perPage={pg.perPage} onPage={pg.setPage} />
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
