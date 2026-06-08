@@ -27,6 +27,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY src ./src
+COPY scripts ./scripts
 # Dossier médias : monté en volume en prod (persistance hors conteneur)
 RUN mkdir -p uploads/thumbs
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
