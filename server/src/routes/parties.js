@@ -509,6 +509,17 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
   // Draw random questions for each manche
   await drawAndStoreQuestions(partieId)
 
+  // P2 — Garde-fou « vivier vide » : si aucune question n'a pu être tirée (thème/
+  // difficulté trop restrictifs, bibliothèque vide), on refuse au lieu de lancer
+  // une partie qui se terminerait instantanément. La partie reste EN_ATTENTE.
+  const qCount = await prisma.mancheQuestion.count({ where: { manche: { partieId } } })
+  if (qCount === 0) {
+    return res.status(400).json({
+      error: 'Aucune question disponible pour ces critères. Change le thème ou la difficulté de tes manches.',
+      code: 'AUCUNE_QUESTION',
+    })
+  }
+
   const updated = await prisma.partie.update({
     where: { id: partieId },
     data: { status: 'EN_COURS', startedAt: new Date() },

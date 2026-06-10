@@ -266,6 +266,22 @@ export default function JoueurJeu() {
 
       {/* Zone centrale */}
       <div className="flex-1 flex flex-col items-center justify-center p-6">
+        {/* P2 — Enjeux de la manche rendus visibles (sinon scores « magiques »). */}
+        {!revealed && question && ((question.multiplicateurPoints && question.multiplicateurPoints !== 1) || question.malusEnabled) && (
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
+            {question.multiplicateurPoints && question.multiplicateurPoints !== 1 && (
+              <span className="text-2xs font-bold px-2.5 py-1 rounded-full" style={{ background: 'rgba(234,179,8,0.15)', color: '#EAB308' }}>
+                ×{question.multiplicateurPoints} points
+              </span>
+            )}
+            {question.malusEnabled && (
+              <span className="text-2xs font-bold px-2.5 py-1 rounded-full" style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171' }}>
+                ⚠️ Manche à risque −{question.malusPenalite ?? 50}%
+              </span>
+            )}
+          </div>
+        )}
+
         {/* P0 — L'énoncé est TOUJOURS visible sur le téléphone (téléphone-seul,
             présentiel sans écran, saisie texte distanciel…). Exceptions : le pavé
             QCM/VF l'affiche déjà lui-même, et on le masque après la révélation. */}
