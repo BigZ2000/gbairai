@@ -6,6 +6,29 @@
 // Les noms de catégories ci-dessous sont résolus de façon insensible à la casse
 // par le générateur (gameService). Si une catégorie manque ou ne contient pas
 // assez de questions, le générateur complète avec d'autres questions publiques.
+//
+// ⚙️ ALIGNEMENT GAMEPLAY (voir docs/AUDIT_PACKS.md) :
+// La bibliothèque est composée à ~76 % de questions BUZZER « ouvertes » (sans
+// choix). En mode AUTO + présentiel, une question ouverte n'est PAS vérifiable :
+// le 1er qui buzze marque (réflexe). Pour qu'un pack soit réellement « plug &
+// play » et VÉRIFIÉ sans animateur, on le restreint aux types « à choix »
+// (sélection simultanée, comparaison exacte) via `typesAutorises`, OU on le passe
+// en `modeDistanciel` (réponse ouverte saisie + correspondance intelligente).
+//
+// Règles appliquées ci-dessous :
+//   • Pack thématique « grand public »  → mode auto + types à choix (CHOIX_TYPES)
+//   • Pack média (musique/ciné)         → mode auto + types à choix + média (…_AV)
+//   • Pack « réponse ouverte »          → mode auto + distanciel (saisie vérifiée)
+//   • Pack « buzzer réflexe »           → mode animateur (un humain juge le buzz)
+//   • Pack « malus » (manche à risque)  → mode animateur (le malus ne s'applique
+//                                          qu'à une réponse jugée par l'animateur)
+
+// Types de questions « à choix » : sélection simultanée, vérifiée automatiquement
+// par le moteur (comparaison exacte). IMAGE est inclus (pas d'autoplay, fiable).
+export const CHOIX_TYPES = ['QCM', 'VRAI_FAUX', 'IMAGE']
+// Variante média riche (musique / cinéma) : ajoute AUDIO et VIDEO (qui possèdent
+// aussi 4 choix dans la bibliothèque → vérifiables en auto).
+export const CHOIX_TYPES_AV = ['QCM', 'VRAI_FAUX', 'IMAGE', 'AUDIO', 'VIDEO']
 
 // Modes : structure générique appliquée à n'importe quel pack.
 // Chaque mode définit le nombre de manches et de questions par manche.
@@ -25,6 +48,7 @@ export const PACKS = [
     couleur: '#F77F00',
     categories: ['Actualité Ivoirienne'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'football',
@@ -34,6 +58,7 @@ export const PACKS = [
     couleur: '#22C55E',
     categories: ['Sport'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'maquis',
@@ -43,6 +68,7 @@ export const PACKS = [
     couleur: '#A855F7',
     categories: ['Musique'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES_AV,
   },
   {
     id: 'cinema',
@@ -52,6 +78,7 @@ export const PACKS = [
     couleur: '#EF4444',
     categories: ['Cinéma & Séries'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES_AV,
   },
   {
     id: 'culture-g',
@@ -61,6 +88,7 @@ export const PACKS = [
     couleur: '#6366F1',
     categories: ['Culture Générale'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'gbe-quartier',
@@ -70,6 +98,7 @@ export const PACKS = [
     couleur: '#F59E0B',
     categories: ['Actualité Ivoirienne', 'Musique', 'Gastronomie'],
     difficulte: 'FACILE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'afrique-monde',
@@ -79,6 +108,7 @@ export const PACKS = [
     couleur: '#14B8A6',
     categories: ['Géographie', 'Histoire'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'science-tech',
@@ -88,6 +118,7 @@ export const PACKS = [
     couleur: '#3B82F6',
     categories: ['Sciences', 'Technologie'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'gastronomie',
@@ -97,6 +128,7 @@ export const PACKS = [
     couleur: '#EC4899',
     categories: ['Gastronomie'],
     difficulte: 'MIXTE',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'mort-subite',
@@ -108,6 +140,7 @@ export const PACKS = [
     difficulte: 'DIFFICILE',
     // Structure imposée quel que soit le mode choisi.
     fixed: { manches: 1, parManche: 12, tempsLimite: 10, pointsParQ: 200 },
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
 
   // ── 10 packs « jeux TV » intégrant les nouvelles mécaniques ─────────────────
@@ -119,64 +152,77 @@ export const PACKS = [
     nbManches: 1, nbQuestions: 15, tempsParQuestion: 12,
   },
   {
+    // Malus : ne s'applique qu'à une réponse JUGÉE par l'animateur → mode animateur
+    // + questions ouvertes (BUZZER) pour que chaque réponse passe par la validation.
     id: 'sans-faute', emoji: '🎯', nom: 'Sans Faute',
     description: 'Manche à risque : une mauvaise réponse te coûte des points. Réfléchis bien !',
     couleur: '#EF4444', categories: [], difficulte: 'MOYEN',
-    modeRecommande: 'animateur', malusEnabled: true, malusPenalite: 50,
+    modeRecommande: 'animateur', typesAutorises: ['BUZZER'], malusEnabled: true, malusPenalite: 50,
   },
   {
+    // Multiplicateur de dernière manche : fonctionne en AUTO (barème). → plug & play.
     id: 'double-ou-rien', emoji: '🏆', nom: 'Double ou Rien',
     description: 'La manche finale vaut le DOUBLE. Tout peut basculer à la fin.',
     couleur: '#F59E0B', categories: [], difficulte: 'MIXTE',
-    modeRecommande: 'animateur', nbManches: 3, multiplicateurFinale: 2.0,
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES, nbManches: 3, multiplicateurFinale: 2.0,
   },
   {
+    // Élimination progressive : gérée par le moteur dans TOUS les modes → AUTO ok.
     id: 'survivor', emoji: '🔥', nom: 'Survivor',
     description: 'Élimination progressive : le dernier de chaque manche devient spectateur.',
     couleur: '#DC2626', categories: [], difficulte: 'MOYEN',
-    modeRecommande: 'animateur', nbManches: 3, eliminationActive: true,
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES, nbManches: 3, eliminationActive: true,
   },
   {
+    // Réponses OUVERTES vérifiées par saisie (distanciel) → tous types autorisés.
     id: 'quiz-distance', emoji: '🌐', nom: 'Quiz à Distance',
     description: 'Conçu pour jouer en ligne : médias et saisie directement sur le téléphone.',
     couleur: '#0EA5E9', categories: [], difficulte: 'MIXTE',
     modeRecommande: 'auto', modeDistanciel: true,
   },
   {
+    // Buzzer RÉFLEXE : la réponse orale n'est pas vérifiable par la machine →
+    // un animateur juge le buzz (présentiel). C'est le format « buzzer » assumé.
     id: 'cine-buzz', emoji: '🎬', nom: 'Ciné Buzz',
-    description: 'Questions cinéma au buzzer : le plus rapide marque, en présentiel.',
+    description: 'Questions cinéma au buzzer : le plus rapide répond, l\'animateur valide.',
     couleur: '#A855F7', categories: ['Cinéma & Séries'], difficulte: 'MIXTE',
-    modeRecommande: 'auto', typesAutorises: ['BUZZER'],
+    modeRecommande: 'animateur', typesAutorises: ['BUZZER'],
   },
   {
+    // Malus → animateur + questions ouvertes ; finale ×2 (PREMIUM).
     id: 'grand-defi', emoji: '🧠', nom: 'Le Grand Défi',
     description: '3 manches montantes : à risque, puis finale qui compte double.',
     couleur: '#6366F1', categories: [], difficulte: 'DIFFICILE',
-    modeRecommande: 'animateur', nbManches: 3, malusEnabled: true, malusPenalite: 30,
+    modeRecommande: 'animateur', typesAutorises: ['BUZZER'], nbManches: 3, malusEnabled: true, malusPenalite: 30,
     multiplicateurFinale: 2.0, tier: 'PREMIUM',
   },
   {
+    // Élimination + finale ×2 : toutes deux compatibles AUTO → plug & play (PREMIUM).
     id: 'choc-champions', emoji: '⚔️', nom: 'Choc des Champions',
     description: 'Élimination à chaque manche + finale qui compte double. Pour les plus forts.',
     couleur: '#B91C1C', categories: [], difficulte: 'DIFFICILE',
-    modeRecommande: 'animateur', nbManches: 3, eliminationActive: true,
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES, nbManches: 3, eliminationActive: true,
     multiplicateurFinale: 2.0, tier: 'PREMIUM',
   },
   {
     id: 'marathon-culture', emoji: '📚', nom: 'Marathon Culture',
     description: '4 manches thématiques pour les longues soirées quiz.',
     couleur: '#0D9488', categories: ['Culture Générale', 'Histoire', 'Sciences', 'Géographie'],
-    difficulte: 'MIXTE', modeRecommande: 'animateur', nbManches: 4, nbQuestions: 8,
+    difficulte: 'MIXTE', modeRecommande: 'auto', typesAutorises: CHOIX_TYPES, nbManches: 4, nbQuestions: 8,
   },
   {
+    // Blind test musical en ligne : AUDIO (à choix) + distanciel (écoute sur tél.).
     id: 'blind-test-express', emoji: '🎵', nom: 'Blind Test Express',
     description: 'Musique en ligne : écoute sur ton téléphone et réponds le plus vite.',
     couleur: '#EC4899', categories: ['Musique'], difficulte: 'MIXTE',
-    modeRecommande: 'auto', modeDistanciel: true, nbManches: 1, nbQuestions: 12, tempsParQuestion: 20,
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: ['AUDIO'],
+    nbManches: 1, nbQuestions: 12, tempsParQuestion: 20,
   },
 ]
 
 // Parties signature : presets officiels prêts à jouer (1 clic = on lance).
+// Toutes en mode auto + types à choix → vérifiées, plug & play (présentiel,
+// distanciel, téléphone seul, solo).
 export const SIGNATURES = [
   {
     id: 'special-can',
@@ -187,6 +233,7 @@ export const SIGNATURES = [
     categories: ['Sport'],
     difficulte: 'MOYEN',
     mode: 'standard',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'abidjan',
@@ -197,6 +244,7 @@ export const SIGNATURES = [
     categories: ['Actualité Ivoirienne', 'Géographie'],
     difficulte: 'MOYEN',
     mode: 'rapide',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'generation-90',
@@ -207,6 +255,7 @@ export const SIGNATURES = [
     categories: ['Musique', 'Cinéma & Séries'],
     difficulte: 'MOYEN',
     mode: 'standard',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES_AV,
   },
   {
     id: 'ci-challenge',
@@ -217,6 +266,7 @@ export const SIGNATURES = [
     categories: ['Actualité Ivoirienne', 'Histoire', 'Géographie', 'Gastronomie'],
     difficulte: 'DIFFICILE',
     mode: 'long',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
   {
     id: 'arafat',
@@ -227,6 +277,7 @@ export const SIGNATURES = [
     categories: ['Musique'],
     difficulte: 'MOYEN',
     mode: 'rapide',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES_AV,
   },
   {
     id: 'coupe-decale',
@@ -237,6 +288,7 @@ export const SIGNATURES = [
     categories: ['Musique'],
     difficulte: 'MOYEN',
     mode: 'standard',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES_AV,
   },
   {
     id: 'champion',
@@ -247,6 +299,7 @@ export const SIGNATURES = [
     categories: [],
     difficulte: 'MIXTE',
     mode: 'long',
+    modeRecommande: 'auto', typesAutorises: CHOIX_TYPES,
   },
 ]
 
