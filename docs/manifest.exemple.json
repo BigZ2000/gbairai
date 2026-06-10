@@ -1,0 +1,61 @@
+{
+  "_doc": "Template d'import RICHE (Admin → Import → Pack visuel). Mettre ce fichier nommé EXACTEMENT 'manifest.json' à la racine d'un ZIP, avec les images dans un dossier 'media/'. Les fichiers sont référencés par leur NOM (basename). Voir docs/AUDIT_DRAPEAUX.md.",
+  "pack": {
+    "slug": "drapeaux-monde",
+    "nom": "Drapeaux du Monde",
+    "emoji": "🏳️",
+    "couleur": "#6366F1",
+    "description": "Reconnais les drapeaux des 254 pays.",
+    "modeRecommande": "auto",
+    "typesAutorises": [],
+    "filtreTags": ["drapeaux"],
+    "modeDistanciel": true,
+    "nbManches": 1,
+    "nbQuestions": 10,
+    "tempsParQuestion": 20,
+    "difficulte": "MIXTE",
+    "tier": "GRATUIT"
+  },
+  "questions": [
+    {
+      "_type": "Type 1 — IMAGE (drapeau) → choix TEXTE",
+      "format": "QCM",
+      "media": { "kind": "IMAGE", "file": "civ.png" },
+      "enonce": "Quel est ce pays ?",
+      "choices": [
+        { "text": "Côte d'Ivoire", "correct": true },
+        { "text": "Ghana" },
+        { "text": "Sénégal" },
+        { "text": "Mali" }
+      ],
+      "meta": { "subjectKey": "CIV", "categorie": "Géographie",
+                "tags": ["drapeaux", "afrique", "cedeao", "uemoa", "francophonie"] },
+      "difficulte": "FACILE", "points": 100
+    },
+    {
+      "_type": "Type 2 — TEXTE → choix IMAGES (drapeaux)",
+      "format": "QCM",
+      "enonce": "Quel est le drapeau du Japon ?",
+      "choices": [
+        { "mediaFile": "jpn.png", "correct": true },
+        { "mediaFile": "chn.png" },
+        { "mediaFile": "kor.png" },
+        { "mediaFile": "tha.png" }
+      ],
+      "meta": { "subjectKey": "JPN", "categorie": "Géographie",
+                "tags": ["drapeaux", "asie", "g20"] },
+      "difficulte": "MOYEN", "points": 100
+    },
+    {
+      "_type": "Type 4 — VRAI/FAUX sur image",
+      "format": "VRAI_FAUX",
+      "media": { "kind": "IMAGE", "file": "nga.png" },
+      "enonce": "Ce drapeau est celui du Ghana.",
+      "reponse": "Faux",
+      "choices": [ { "text": "Vrai" }, { "text": "Faux", "correct": true } ],
+      "meta": { "subjectKey": "NGA", "categorie": "Géographie",
+                "tags": ["drapeaux", "afrique", "cedeao"] },
+      "difficulte": "MOYEN", "points": 100
+    }
+  ]
+}

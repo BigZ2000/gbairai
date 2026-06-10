@@ -369,6 +369,9 @@ model Question {
   explication String?
   source      String?
   tags        String[]
+  // Clé d'unicité MÉTIER (ex. code ISO du pays "CIV"). Empêche qu'un même sujet
+  // apparaisse sous plusieurs formes dans une même partie (anti-doublon).
+  subjectKey  String?
   difficulte  Difficulte   @default(MOYEN)
   publique    Boolean      @default(false)
   categorieId String?
@@ -465,6 +468,9 @@ model Pack {
   difficulte        String          @default("MIXTE") // FACILE|MOYEN|DIFFICILE|MIXTE
   duree             PackDuree       @default(STANDARD)
   categories        String[]        // catégories sources (mode dynamique)
+  // Tags de FILTRAGE des questions (ex. ["drapeaux","cedeao"]). Permet des packs
+  // transverses aux catégories (CEDEAO, UEMOA, Francophonie, G20…). Vide = ignoré.
+  filtreTags        String[]        @default([])
   typesAutorises    String[]        // types de questions autorisés (vide = tous)
   modeRecommande    String          @default("animateur") // animateur|auto|vote
   contentMode       PackContentMode @default(DYNAMIQUE)

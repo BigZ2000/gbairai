@@ -179,4 +179,129 @@ router.post('/questions', requireAuth, requireAdmin, (req, res) => {
   })
 })
 
+// ──────────────────────────────────────────────────────────────────────────────
+// POST /import/pack — multipart: zip (manifest.json + media/…)
+// Import RICHE : questions à choix-images, métadonnées (subjectKey, tags) et,
+// optionnellement, (ré)création du pack. Idéal pour les packs visuels (drapeaux,
+// logos, monuments…). Voir docs/AUDIT_DRAPEAUX.md §7 pour le format du manifest.
+// ──────────────────────────────────────────────────────────────────────────────
+const FORMAT_TO_TYPE = { OUVERT: 'BUZZER', BUZZER: 'BUZZER', QCM: 'QCM', VRAI_FAUX: 'VRAI_FAUX' }
+
+router.post('/pack', requireAuth, requireAdmin, (req, res) => {
+  upload(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message })
+    const zipFile = req.files?.zip?.[0]
+    if (!zipFile) return res.status(400).json({ error: 'Fichier ZIP requis (champ "zip") contenant manifest.json + media/' })
+
+    const summary = { pack: null, questionsCreated: 0, questionsSkipped: 0, mediaIngested: 0, mediaDeduplicated: 0, errors: [] }
+    const zipPath = path.join(UPLOAD_DIR, zipFile.filename)
+
+    let manifest = null
+    const byName = new Map() // basename(min) → media
+
+    try {
+      const zip = new AdmZip(zipPath)
+      // 1) manifest.json
+      const manEntry = zip.getEntries().find(e => !e.isDirectory && path.basename(e.entryName).toLowerCase() === 'manifest.json')
+      if (!manEntry) { fs.promises.unlink(zipPath).catch(() => {}); return res.status(400).json({ error: 'manifest.json introuvable dans le ZIP' }) }
+      manifest = JSON.parse(manEntry.getData().toString('utf8'))
+
+      // 2) Ingestion des médias du ZIP
+      for (const entry of zip.getEntries()) {
+        if (entry.isDirectory) continue
+        const name = path.basename(entry.entryName)
+        const mime = mimeFor(name)
+        if (!mime) continue // ignore manifest.json & co.
+        const out = path.join(UPLOAD_DIR, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${path.extname(name)}`)
+        fs.writeFileSync(out, entry.getData())
+        try {
+          const { media, deduplicated } = await ingestFile(out, { originalName: name, mimeType: mime, userId: req.userId })
+          byName.set(name.toLowerCase(), media)
+          deduplicated ? summary.mediaDeduplicated++ : summary.mediaIngested++
+        } catch (e) { summary.errors.push({ scope: 'media', file: name, error: e.message }) }
+      }
+    } catch (e) {
+      fs.promises.unlink(zipPath).catch(() => {})
+      return res.status(400).json({ error: 'ZIP/manifest illisible : ' + e.message })
+    }
+    fs.promises.unlink(zipPath).catch(() => {})
+
+    const urlOf = (file) => file ? (byName.get(path.basename(file).toLowerCase())?.url ?? null) : null
+
+    // Résolution de catégories (création si absente).
+    const catCache = new Map()
+    const resolveCategorie = async (nom) => {
+      if (!nom) return null
+      const key = nom.toLowerCase()
+      if (catCache.has(key)) return catCache.get(key)
+      let c = await prisma.categorie.findFirst({ where: { nom: { equals: nom, mode: 'insensitive' } } })
+      if (!c) c = await prisma.categorie.create({ data: { nom, publique: true } })
+      catCache.set(key, c.id); return c.id
+    }
+
+    // 3) Pack (optionnel) — upsert par slug.
+    if (manifest.pack?.slug) {
+      const p = manifest.pack
+      try {
+        const data = {
+          slug: p.slug, nom: p.nom ?? p.slug, description: p.description ?? '',
+          emoji: p.emoji ?? null, couleur: p.couleur ?? '#6366F1',
+          categorie: p.categorie ?? (p.categories?.[0] ?? null), categories: p.categories ?? [],
+          tags: p.tags ?? [], filtreTags: p.filtreTags ?? [],
+          difficulte: p.difficulte ?? 'MIXTE', typesAutorises: p.typesAutorises ?? [],
+          modeRecommande: p.modeRecommande ?? 'auto', contentMode: 'DYNAMIQUE',
+          modeDistanciel: !!p.modeDistanciel,
+          nbManches: p.nbManches ?? 1, nbQuestions: p.nbQuestions ?? 10,
+          tempsParQuestion: p.tempsParQuestion ?? 25, pointsParQuestion: p.pointsParQuestion ?? 100,
+          tier: p.tier ?? 'GRATUIT', statut: 'ACTIF',
+        }
+        await prisma.pack.upsert({ where: { slug: p.slug }, update: data, create: data })
+        summary.pack = p.slug
+      } catch (e) { summary.errors.push({ scope: 'pack', error: e.message }) }
+    }
+
+    // 4) Questions
+    for (let i = 0; i < (manifest.questions ?? []).length; i++) {
+      const q = manifest.questions[i]
+      try {
+        const type = FORMAT_TO_TYPE[(q.format ?? '').toUpperCase()] ?? (Array.isArray(q.choices) && q.choices.length ? 'QCM' : 'BUZZER')
+        // Choix riches : résout les fichiers image en URLs ingérées.
+        const choices = Array.isArray(q.choices) && q.choices.length
+          ? q.choices.map(c => ({ text: c.text ?? null, mediaUrl: c.mediaFile ? urlOf(c.mediaFile) : (c.mediaUrl ?? null), correct: !!c.correct }))
+          : null
+        const kind = (q.media?.kind ?? '').toUpperCase()
+        const mUrl = q.media?.file ? urlOf(q.media.file) : null
+        const reponse = q.reponse ?? choices?.find(c => c.correct)?.text ?? ''
+        const subjectKey = q.meta?.subjectKey ?? null
+        const enonce = q.enonce ?? ''
+
+        // Idempotence : même sujet + même énoncé déjà présent → on saute.
+        if (enonce && await prisma.question.findFirst({ where: { enonce, subjectKey } })) { summary.questionsSkipped++; continue }
+
+        await prisma.question.create({
+          data: {
+            enonce, type, reponse,
+            choices: choices ?? undefined,
+            choix: [],
+            explication: q.explication ?? null,
+            difficulte: (q.difficulte ?? 'MOYEN').toUpperCase(),
+            points: Number(q.points) || 100, tempsLimite: Number(q.tempsLimite) || 25,
+            publique: true,
+            categorieId: await resolveCategorie(q.meta?.categorie ?? manifest.pack?.categorie ?? manifest.pack?.categories?.[0]),
+            subjectKey,
+            tags: Array.isArray(q.meta?.tags) ? q.meta.tags : [],
+            mediaUrl: kind === 'IMAGE' ? mUrl : null,
+            audioUrl: kind === 'AUDIO' ? mUrl : null,
+            videoUrl: kind === 'VIDEO' ? mUrl : null,
+            createdById: req.userId,
+          },
+        })
+        summary.questionsCreated++
+      } catch (e) { summary.errors.push({ scope: 'question', index: i, error: e.message }) }
+    }
+
+    res.json(summary)
+  })
+})
+
 export default router

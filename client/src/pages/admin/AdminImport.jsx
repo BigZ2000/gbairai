@@ -16,12 +16,32 @@ export default function AdminImport() {
   const csvRef   = useRef(null)
   const mediaRef = useRef(null)
   const zipRef   = useRef(null)
+  const packRef  = useRef(null)
   const [csvFile, setCsvFile]     = useState(null)
   const [mediaFiles, setMediaFiles] = useState([])
   const [zipFile, setZipFile]     = useState(null)
+  const [packZip, setPackZip]     = useState(null)
   const [loading, setLoading]     = useState(false)
   const [result, setResult]       = useState(null)
   const [error, setError]         = useState('')
+
+  // Import RICHE (pack visuel) : ZIP { manifest.json + media/ } → choix-images,
+  // métadonnées (subjectKey, tags) et création/maj du pack.
+  async function runPackImport() {
+    if (!packZip) { setError('Sélectionnez un ZIP (manifest.json + media/).'); return }
+    setError(''); setResult(null); setLoading(true)
+    const fd = new FormData()
+    fd.append('zip', packZip)
+    const res = await apiUpload('/import/pack', fd)
+    if (res?.ok) {
+      setResult(await res.json())
+      setPackZip(null); if (packRef.current) packRef.current.value = ''
+    } else {
+      const e = await res?.json().catch(() => null)
+      setError(e?.error || 'Échec de l\'import du pack')
+    }
+    setLoading(false)
+  }
 
   async function runImport() {
     if (!csvFile) { setError('Sélectionnez d\'abord un fichier CSV.'); return }
@@ -109,6 +129,31 @@ export default function AdminImport() {
         {loading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
         {loading ? 'Import en cours…' : 'Lancer l\'import'}
       </button>
+
+      {/* Import RICHE : pack visuel (drapeaux, logos…) via ZIP + manifest.json */}
+      <div className="card p-5 mt-6" style={{ border: '1px dashed var(--border-strong)' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <FolderArchive size={18} style={{ color: '#A855F7' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Pack visuel — ZIP + manifest.json</p>
+        </div>
+        <p className="text-2xs mb-3" style={{ color: 'var(--text-dim)' }}>
+          Choix-images, métadonnées (<code>subjectKey</code>, <code>tags</code>) et (re)création du pack.
+          Le ZIP contient <code>manifest.json</code> + un dossier <code>media/</code>. Voir <code>docs/AUDIT_DRAPEAUX.md</code>.
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="card p-3 cursor-pointer flex-1" onClick={() => packRef.current?.click()}
+            style={{ background: 'var(--hover-overlay)' }}>
+            <p className="text-xs truncate" style={{ color: packZip ? '#4ADE80' : 'var(--text-dim)' }}>
+              {packZip ? packZip.name : 'Sélectionner un .zip (manifest + media)'}
+            </p>
+            <input ref={packRef} type="file" accept=".zip" className="hidden"
+              onChange={e => { setPackZip(e.target.files?.[0] ?? null); setError('') }} />
+          </div>
+          <button onClick={runPackImport} disabled={loading || !packZip} className="btn-primary btn-sm gap-2 shrink-0">
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}Importer le pack
+          </button>
+        </div>
+      </div>
 
       {error && (
         <div className="flex items-center gap-2 rounded-lg px-4 py-3 mt-4 text-sm"
