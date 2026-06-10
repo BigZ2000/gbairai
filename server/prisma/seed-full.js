@@ -15,6 +15,7 @@ import bcrypt from 'bcryptjs'
 import { getQuestionsActualite } from './seeds/questions_actualite.seed.js'
 import { getQuestionsAudio } from './seeds/questions_audio.seed.js'
 import { getQuestionsVideo } from './seeds/questions_video.seed.js'
+import { getQuestionsQcm } from './seeds/questions_qcm.seed.js'
 import { getQuestions1000 } from './seed1000.js'
 
 const prisma = new PrismaClient()
@@ -86,6 +87,7 @@ async function main() {
     ...getQuestionsActualite(catMap),
     ...getQuestionsAudio(catMap),
     ...getQuestionsVideo(catMap),
+    ...getQuestionsQcm(catMap),
     ...getQuestions1000(catMap),
   ]
 
