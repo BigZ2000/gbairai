@@ -28,6 +28,9 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY src ./src
 COPY scripts ./scripts
+# Jeu de démo média (image/audio/vidéo) → permet `node prisma/seedMediaDemo.js`
+# dans le conteneur pour débloquer/démontrer les questions média.
+COPY catalog/demo-media ./catalog/demo-media
 # Dossier médias : monté en volume en prod (persistance hors conteneur)
 RUN mkdir -p uploads/thumbs
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
