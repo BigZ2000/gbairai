@@ -24,6 +24,12 @@ export const QuestionSchema = z.object({
   reponse: z.string().min(1).max(500),
   indice: z.string().max(500).optional().nullable(),
   choix: z.array(z.string().max(200)).max(6).default([]),
+  // Choix RICHES (texte et/ou image). null = effacer. Prime sur choix/reponse.
+  choices: z.array(z.object({
+    text: z.string().max(200).optional().nullable(),
+    mediaUrl: z.string().max(2000).optional().nullable(),
+    correct: z.boolean().optional(),
+  })).max(8).optional().nullable(),
   points: z.number().int().min(1).max(10000).default(100),
   tempsLimite: z.number().int().min(5).max(300).default(30),
   mediaUrl,

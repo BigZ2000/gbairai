@@ -61,6 +61,10 @@ export default function AdminQuestions() {
   async function handleSave() {
     if (!editing) return
     setSaving(true)
+    // Choix riches : normalisés ; null si aucun (la question utilise alors choix/reponse).
+    const rich = Array.isArray(editing.choices) && editing.choices.length
+      ? editing.choices.map(c => ({ text: c.text?.trim() || null, mediaUrl: c.mediaUrl || null, correct: !!c.correct }))
+      : null
     const body = {
       ...editing,
       points:     Number(editing.points) || 100,
@@ -73,6 +77,9 @@ export default function AdminQuestions() {
       videoUrl:    editing.videoUrl    || null,
       audioUrl:    editing.audioUrl    || null,
       choix: editing.choix ?? [],
+      choices: rich,
+      // `reponse` est requis : à défaut, on prend le texte du bon choix-image.
+      reponse: (editing.reponse?.trim()) || rich?.find(c => c.correct)?.text || (rich ? 'voir image' : editing.reponse),
     }
 
     const url    = editing.id ? `/questions/${editing.id}` : '/questions'
@@ -104,6 +111,20 @@ export default function AdminQuestions() {
 
   function removeChoix(i) {
     setEditing(e => ({ ...e, choix: e.choix.filter((_, idx) => idx !== i) }))
+  }
+
+  // ── Choix RICHES (texte et/ou image) ───────────────────────────────────────
+  function addRichChoice() {
+    setEditing(e => ({ ...e, choices: [...(e.choices ?? []), { text: '', mediaUrl: '', correct: (e.choices?.length ?? 0) === 0 }] }))
+  }
+  function updateRichChoice(i, patch) {
+    setEditing(e => ({ ...e, choices: (e.choices ?? []).map((c, idx) => idx === i ? { ...c, ...patch } : c) }))
+  }
+  function removeRichChoice(i) {
+    setEditing(e => ({ ...e, choices: (e.choices ?? []).filter((_, idx) => idx !== i) }))
+  }
+  function setCorrectChoice(i) {
+    setEditing(e => ({ ...e, choices: (e.choices ?? []).map((c, idx) => ({ ...c, correct: idx === i })) }))
   }
 
   const pages = Math.ceil(total / limit)
@@ -265,6 +286,31 @@ export default function AdminQuestions() {
                   </div>
                 </div>
               )}
+
+              {/* Choix RICHES (texte et/ou image) — drapeaux, logos, monuments… */}
+              <div className="col-span-2">
+                <label className="label">Choix images / mixtes (optionnel)</label>
+                <div className="space-y-2">
+                  {(editing.choices ?? []).map((c, i) => (
+                    <div key={i} className="flex items-start gap-2 p-2 rounded" style={{ background: 'var(--hover-overlay)' }}>
+                      <label className="flex items-center gap-1 text-2xs mt-2 shrink-0" style={{ color: c.correct ? '#4ADE80' : 'var(--text-dim)' }} title="Bonne réponse">
+                        <input type="radio" name="richcorrect" checked={!!c.correct} onChange={() => setCorrectChoice(i)} />
+                        OK
+                      </label>
+                      <input className="input text-sm flex-1" placeholder="Texte (optionnel)"
+                        value={c.text ?? ''} onChange={e => updateRichChoice(i, { text: e.target.value })} />
+                      <div className="w-44 shrink-0">
+                        <MediaPicker type="IMAGE" value={c.mediaUrl || ''} onChange={(url) => updateRichChoice(i, { mediaUrl: url })} />
+                      </div>
+                      <button type="button" onClick={() => removeRichChoice(i)} className="btn-ghost btn-sm mt-1" style={{ color: '#F87171' }}><X size={14} /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addRichChoice} className="btn-secondary btn-sm">+ Ajouter un choix (image/texte)</button>
+                </div>
+                <p className="text-2xs mt-1" style={{ color: 'var(--text-dim)' }}>
+                  Coche la bonne réponse (OK). Un choix peut être une image, un texte, ou les deux. Laisse vide pour une question classique.
+                </p>
+              </div>
 
               <div>
                 <label className="label">Difficulté</label>
