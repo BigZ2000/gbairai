@@ -109,7 +109,7 @@ export default function EcranPrincipal() {
       if (msg.type === 'question_reveal') {
         setRevealed(true)
         setDeadline(null) // la révélation arrête le chronomètre
-        setRevealData({ reponse: msg.reponse, explication: msg.explication })
+        setRevealData({ reponse: msg.reponse, explication: msg.explication, correctIndex: msg.correctIndex ?? -1 })
       }
       if (msg.type === 'vote_update') setVotes({ pour: msg.pour, contre: msg.contre, total: msg.total })
       if (msg.type === 'participant_update') setParticipants(msg.participants ?? [])
@@ -336,7 +336,31 @@ export default function EcranPrincipal() {
                 {q.enonce}
               </p>
 
-              {/* QCM choices */}
+              {/* Choix RICHES (texte et/ou image — drapeaux, logos…) */}
+              {q.choices?.length > 0 && (
+                <div className="grid grid-cols-2 gap-4 mt-8">
+                  {q.choices.map((c, i) => {
+                    const isCorrect = revealed && revealData?.correctIndex === i
+                    return (
+                      <div key={i}
+                        className="flex flex-col items-center justify-center gap-3 rounded-xl px-4 py-4 transition-all duration-500"
+                        style={{
+                          background: isCorrect ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.10)',
+                          border: `2px solid ${isCorrect ? 'rgba(34,197,94,0.6)' : 'rgba(99,102,241,0.3)'}`,
+                          transform: isCorrect ? 'scale(1.03)' : 'none',
+                        }}>
+                        {c?.mediaUrl && (
+                          <img src={c.mediaUrl} alt="" className="rounded-lg object-contain"
+                            style={{ maxHeight: 160, maxWidth: '100%', background: 'rgba(0,0,0,0.2)' }} />
+                        )}
+                        {c?.text && <span className="text-2xl font-semibold" style={{ color: 'var(--text)' }}>{c.text}</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* QCM choices (texte) */}
               {q.type === 'QCM' && q.choix?.length > 0 && (
                 <div className="grid grid-cols-2 gap-4 mt-8">
                   {q.choix.map((c, i) => {

@@ -354,6 +354,11 @@ model Question {
   reponse     String
   indice      String?
   choix       String[]
+  // Choix RICHES (texte et/ou image), génériques (drapeaux, logos, monuments…).
+  // Forme : [{ "text"?: string, "mediaUrl"?: string, "correct"?: boolean }].
+  // Quand présent, prime sur `choix`/`reponse` : la bonne réponse = l'index marqué
+  // `correct`. Le flag `correct` n'est JAMAIS envoyé au client avant la révélation.
+  choices     Json?
   points      Int          @default(100)
   tempsLimite Int          @default(30)
   mediaUrl    String?

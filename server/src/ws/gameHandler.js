@@ -82,7 +82,7 @@ export function questionDisplayMessage(partieCode) {
   if (!q) {
     return { type: 'question_display', index: idx, question: null, tempsLimite: null, remainingMs: null, serverNow: Date.now() }
   }
-  const { reponse, explication, ...qPublic } = q
+  const qPublic = publicQuestion(q)
   const tl = q.tempsLimite ?? null
   const shownAt = state.questionShownAt ?? Date.now()
   return {
@@ -237,7 +237,7 @@ export async function sendSnapshot(ws, partieCode) {
   if (q) {
     sendOne(questionDisplayMessage(partieCode))
     if (state.revealed) {
-      sendOne({ type: 'question_reveal', index: idx, reponse: q.reponse, explication: q.explication ?? null })
+      sendOne({ type: 'question_reveal', index: idx, reponse: q.reponse, explication: q.explication ?? null, correctIndex: correctChoiceIndex(q) })
     }
   }
   sendOne(mediaStateMessage(partieCode))
@@ -316,7 +316,37 @@ function answersMatch(playerAnswer, correctAnswer) {
 }
 
 function questionAChoix(q) {
-  return q?.type === 'QCM' || q?.type === 'VRAI_FAUX' || (Array.isArray(q?.choix) && q.choix.length > 0)
+  return q?.type === 'QCM' || q?.type === 'VRAI_FAUX'
+    || (Array.isArray(q?.choix) && q.choix.length > 0)
+    || hasRichChoices(q)
+}
+
+// ── Choix RICHES (texte et/ou image) ─────────────────────────────────────────
+// Présents → priment sur `choix`/`reponse`. La bonne réponse = l'index `correct`.
+function hasRichChoices(q) { return Array.isArray(q?.choices) && q.choices.length > 0 }
+
+function correctChoiceIndex(q) {
+  return hasRichChoices(q) ? q.choices.findIndex(c => c?.correct) : -1
+}
+
+// Réponse juste ? choix riches → comparaison d'index ; sinon → texte exact.
+function isChoiceCorrect(q, answer) {
+  if (hasRichChoices(q)) {
+    const idx = Number(answer)
+    return Number.isInteger(idx) && !!q.choices[idx]?.correct
+  }
+  return normalizeAnswer(answer) === normalizeAnswer(q.reponse)
+}
+
+// Version PUBLIQUE d'une question : retire `reponse`/`explication` et le flag
+// `correct` des choix riches (anti-triche). Le média reste tel quel (découplé du
+// type → un drapeau s'affiche même sur une question VRAI_FAUX/QCM).
+function publicQuestion(q) {
+  const { reponse, explication, choices, ...rest } = q
+  if (Array.isArray(choices) && choices.length) {
+    rest.choices = choices.map(c => ({ text: c?.text ?? null, mediaUrl: c?.mediaUrl ?? null }))
+  }
+  return rest
 }
 
 // ── Comptabilisation des points en MODE AUTOMATIQUE ──────────────────────────
@@ -342,10 +372,9 @@ async function scoreAutoQuestion(partieCode) {
   const updates = []
 
   if (questionAChoix(q)) {
-    // Questions à choix (QCM/VF) : comparaison exacte sur le texte du choix.
-    const correct = normalizeAnswer(q.reponse)
+    // Questions à choix (QCM/VF/choix-images) : choix riches → index ; sinon texte.
     for (const [pid, a] of state.answers) {
-      if (normalizeAnswer(a.answer) === correct) {
+      if (isChoiceCorrect(q, a.answer)) {
         updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
       }
     }
@@ -391,6 +420,7 @@ async function doReveal(partieCode) {
     index: state.currentQuestion,
     reponse: q.reponse,
     explication: q.explication ?? null,
+    correctIndex: correctChoiceIndex(q),
   })
   await pushLedToBuzzers(partieCode, 'reveal')
   recordEvent(partieCode, {
@@ -817,6 +847,7 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
         index: state.currentQuestion,
         reponse: q.reponse,
         explication: q.explication ?? null,
+        correctIndex: correctChoiceIndex(q),
       })
       await pushLedToBuzzers(partieCode, 'reveal')
       break

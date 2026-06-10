@@ -31,24 +31,9 @@ const SYNC_TOLERANCE = 0.6
 export default function QuestionMedia({ question: q, autoplay = false, compact = false, mediaState = null }) {
   if (!q) return null
 
-  if (q.type === 'IMAGE' && q.mediaUrl) {
-    return (
-      <div className={compact ? 'mt-3 flex justify-center' : 'mt-6 flex justify-center'}>
-        <img
-          src={q.mediaUrl}
-          alt="Question"
-          className="rounded-2xl object-contain shadow-2xl"
-          style={{ maxHeight: compact ? 220 : '55vh', maxWidth: '100%', background: 'rgba(0,0,0,0.25)' }}
-        />
-      </div>
-    )
-  }
-
-  if (q.type === 'AUDIO' && q.audioUrl) {
-    return <AudioQuestion url={q.audioUrl} autoplay={autoplay} compact={compact} mediaState={mediaState} />
-  }
-
-  if (q.type === 'VIDEO' && q.videoUrl) {
+  // Média DÉCOUPLÉ du type : on affiche selon l'URL présente (un drapeau s'affiche
+  // donc aussi sur une question QCM / VRAI_FAUX / BUZZER, pas seulement IMAGE).
+  if (q.videoUrl) {
     return (
       <VideoQuestion
         url={q.videoUrl}
@@ -58,6 +43,23 @@ export default function QuestionMedia({ question: q, autoplay = false, compact =
         compact={compact}
         mediaState={mediaState}
       />
+    )
+  }
+
+  if (q.audioUrl) {
+    return <AudioQuestion url={q.audioUrl} autoplay={autoplay} compact={compact} mediaState={mediaState} />
+  }
+
+  if (q.mediaUrl) {
+    return (
+      <div className={compact ? 'mt-3 flex justify-center' : 'mt-6 flex justify-center'}>
+        <img
+          src={q.mediaUrl}
+          alt="Question"
+          className="rounded-2xl object-contain shadow-2xl"
+          style={{ maxHeight: compact ? 220 : '55vh', maxWidth: '100%', background: 'rgba(0,0,0,0.25)' }}
+        />
+      </div>
     )
   }
 

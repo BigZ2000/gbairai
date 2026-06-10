@@ -33,7 +33,11 @@ const partieFull = {
 // terminée. Pour une partie TERMINEE (historique), on laisse passer.
 function stripAnswer(question) {
   if (!question) return question
-  const { reponse, explication, ...safe } = question
+  const { reponse, explication, choices, ...safe } = question
+  // Choix riches : on retire le flag `correct` (jamais exposé avant la révélation).
+  if (Array.isArray(choices) && choices.length) {
+    safe.choices = choices.map(c => ({ text: c?.text ?? null, mediaUrl: c?.mediaUrl ?? null }))
+  }
   return safe
 }
 

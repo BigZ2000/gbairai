@@ -21,6 +21,7 @@ export default function JoueurJeu() {
   const [winner, setWinner] = useState(null)
   const [revealed, setRevealed] = useState(false)
   const [revealReponse, setRevealReponse] = useState(null)
+  const [revealCorrectIndex, setRevealCorrectIndex] = useState(-1) // choix-images
   const [voted, setVoted] = useState(null)
   const [classement, setClassement] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -48,14 +49,15 @@ export default function JoueurJeu() {
   const isDistanciel  = !!partie?.modeDistanciel
   const isHost        = !!partie && partie.creatorId === user?.id // créateur (projection/Fin)
   const iWon = winner && myParticipant && winner.participantId === myParticipant.id
-  const hasChoix = question && (question.type === 'QCM' || question.type === 'VRAI_FAUX' || (question.choix?.length > 0))
-  // Questions à choix (QCM/VF) → réponse SIMULTANÉE de tous (auto ET animateur),
-  // sauf en mode vote (qui reste buzz + vote collectif).
+  const hasChoix = question && (question.type === 'QCM' || question.type === 'VRAI_FAUX'
+    || (question.choix?.length > 0) || (question.choices?.length > 0))
+  // Questions à choix (QCM/VF/choix-images) → réponse SIMULTANÉE de tous (auto ET
+  // animateur), sauf en mode vote (qui reste buzz + vote collectif).
   const showSelect    = hasChoix && !isVote && !isEliminated
   // BUZZER + auto + distanciel → saisie texte (matching intelligent).
   const showTextInput = isAuto && isDistanciel && !hasChoix && !isEliminated
-  // D5 — Afficher le média sur le téléphone en mode distanciel.
-  const showMediaOnPhone = isDistanciel && question && ['IMAGE', 'AUDIO', 'VIDEO'].includes(question.type)
+  // D5 — Afficher le média sur le téléphone en distanciel (selon l'URL, pas le type).
+  const showMediaOnPhone = isDistanciel && question && (question.mediaUrl || question.audioUrl || question.videoUrl)
 
   const load = useCallback(async () => {
     const res = await apiFetch(`/parties/by-code/${code}`)
@@ -75,12 +77,14 @@ export default function JoueurJeu() {
         case 'question_display':
           setQuestionIndex(msg.index ?? 0); setQuestion(msg.question ?? null)
           setArmed(true); setWinner(null); setRevealed(false); setRevealReponse(null)
+          setRevealCorrectIndex(-1)
           setVoted(null); setMyAnswer(null); setTextAnswer(''); setMediaState(null)
           setAnimateurOffline(false); break
         case 'buzzer_winner':
           setWinner(msg); setArmed(false); break
         case 'question_reveal':
-          setRevealed(true); setArmed(false); setWinner(null); setRevealReponse(msg.reponse ?? null); break
+          setRevealed(true); setArmed(false); setWinner(null)
+          setRevealReponse(msg.reponse ?? null); setRevealCorrectIndex(msg.correctIndex ?? -1); break
         case 'buzz_reopened':
           // Mauvaise réponse : le buzz rouvre pour tout le monde (« vol »).
           setWinner(null); setArmed(true); break
@@ -312,7 +316,7 @@ export default function JoueurJeu() {
         ) : showSelect ? (
           // QCM / Vrai-Faux : tout le monde répond (auto ET animateur). Le serveur
           // marque chaque bonne réponse à la révélation.
-          <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed} revealReponse={revealReponse} onAnswer={answer} />
+          <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed} revealReponse={revealReponse} revealCorrectIndex={revealCorrectIndex} onAnswer={answer} />
         ) : showTextInput ? (
           // A4 — Mode auto + BUZZER + distanciel : saisie libre, matching intelligent.
           <div className="w-full max-w-sm text-center">
@@ -380,39 +384,52 @@ export default function JoueurJeu() {
   )
 }
 
-// Sélection de réponse (mode auto, QCM / Vrai-Faux). Le serveur valide et marque.
-function AnswerPad({ question, myAnswer, revealed, revealReponse, onAnswer }) {
+// Sélection de réponse (QCM / Vrai-Faux / CHOIX-IMAGES). Le serveur valide et marque.
+// - Choix riches (question.choices) → on soumet l'INDEX ; bon choix = revealCorrectIndex.
+// - Sinon → choix texte : on soumet la VALEUR texte ; bon choix = revealReponse.
+function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectIndex, onAnswer }) {
   const norm = s => String(s ?? '').trim().toLowerCase()
-  // La bonne réponse est stockée comme le TEXTE du choix (pas une lettre) →
-  // on soumet la valeur textuelle pour que le serveur valide correctement.
-  const options = question.type === 'VRAI_FAUX'
-    ? [{ value: 'Vrai', label: '✅ Vrai' }, { value: 'Faux', label: '❌ Faux' }]
-    : (question.choix ?? []).map((c, i) => ({ value: c, label: `${['A', 'B', 'C', 'D', 'E', 'F'][i]}. ${c}` }))
+  const rich = Array.isArray(question.choices) && question.choices.length > 0
+
+  const options = rich
+    ? question.choices.map((c, i) => ({ value: i, text: c?.text ?? null, mediaUrl: c?.mediaUrl ?? null }))
+    : question.type === 'VRAI_FAUX'
+      ? [{ value: 'Vrai', text: '✅ Vrai' }, { value: 'Faux', text: '❌ Faux' }]
+      : (question.choix ?? []).map((c, i) => ({ value: c, text: `${['A', 'B', 'C', 'D', 'E', 'F'][i]}. ${c}` }))
+
+  const hasImages = rich && options.some(o => o.mediaUrl)
+  const cols = hasImages || rich || question.type === 'VRAI_FAUX' ? 'grid-cols-2' : 'grid-cols-1'
+  const isOptCorrect = (opt) => revealed && (rich ? revealCorrectIndex === opt.value : norm(revealReponse) === norm(opt.value))
+  const myCorrect = rich ? myAnswer === revealCorrectIndex : norm(revealReponse) === norm(myAnswer)
 
   return (
     <div className="w-full max-w-md">
       <p className="text-center text-base font-semibold mb-5" style={{ color: '#ECECF0' }}>{question.enonce}</p>
-      <div className={`grid ${question.type === 'VRAI_FAUX' ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+      <div className={`grid ${cols} gap-3`}>
         {options.map(opt => {
           const chosen = myAnswer === opt.value
-          const isCorrect = revealed && norm(revealReponse) === norm(opt.value)
+          const isCorrect = isOptCorrect(opt)
           const isWrongChosen = revealed && chosen && !isCorrect
           let bg = 'rgba(255,255,255,0.04)', border = 'rgba(255,255,255,0.1)', color = '#ECECF0'
           if (isCorrect) { bg = 'rgba(34,197,94,0.18)'; border = 'rgba(34,197,94,0.6)'; color = '#22C55E' }
           else if (isWrongChosen) { bg = 'rgba(248,113,113,0.15)'; border = 'rgba(248,113,113,0.5)'; color = '#F87171' }
           else if (chosen) { bg = 'rgba(99,102,241,0.22)'; border = 'rgba(99,102,241,0.6)'; color = '#A5B4FC' }
           return (
-            <button key={opt.value} disabled={myAnswer !== null || revealed} onClick={() => onAnswer(opt.value)}
-              className="rounded-2xl py-5 px-4 text-left text-lg font-semibold transition-all active:scale-[0.98]"
-              style={{ background: bg, border: `2px solid ${border}`, color }}>
-              {opt.label}
+            <button key={String(opt.value)} disabled={myAnswer !== null || revealed} onClick={() => onAnswer(opt.value)}
+              className="rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center font-semibold transition-all active:scale-[0.98]"
+              style={{ background: bg, border: `2px solid ${border}`, color, minHeight: opt.mediaUrl ? 0 : 64 }}>
+              {opt.mediaUrl && (
+                <img src={opt.mediaUrl} alt="" className="rounded-lg object-contain"
+                  style={{ maxHeight: 90, maxWidth: '100%', background: 'rgba(0,0,0,0.2)' }} />
+              )}
+              {opt.text && <span className={opt.mediaUrl ? 'text-sm' : 'text-lg'}>{opt.text}</span>}
             </button>
           )
         })}
       </div>
       <p className="text-center text-sm mt-5" style={{ color: '#9090A0' }}>
         {revealed
-          ? (norm(revealReponse) === norm(myAnswer) ? 'Bonne réponse ! 🎉' : myAnswer ? 'Raté cette fois…' : 'Pas de réponse')
+          ? (myAnswer !== null ? (myCorrect ? 'Bonne réponse ! 🎉' : 'Raté cette fois…') : 'Pas de réponse')
           : myAnswer !== null ? 'Réponse envoyée ✓ — on attend la suite…' : 'Choisis ta réponse !'}
       </p>
     </div>
