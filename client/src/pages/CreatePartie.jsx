@@ -4,12 +4,13 @@ import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
 import {
   ChevronLeft, ChevronRight, Mic2, Timer, Users, Plus, Trash2,
-  Loader2, AlertCircle, Check, Layers,
+  Loader2, AlertCircle, Check, Layers, User,
 } from 'lucide-react'
 
 const MODES = [
-  { value: 'auto',      icon: Timer,   label: 'Automatique',    desc: 'La partie avance toute seule. Le plus simple, idéal pour démarrer vite.', recommande: true },
-  { value: 'animateur', icon: Mic2,   label: 'Avec animateur', desc: 'Vous présentez et validez chaque réponse manuellement.' },
+  { value: 'solo',      icon: User,    label: 'Solo',           desc: "Joue seul pour t'entraîner. Tout s'affiche sur ton écran, réponses vérifiées automatiquement." },
+  { value: 'auto',      icon: Timer,   label: 'Automatique',    desc: 'La partie avance toute seule au minuteur. Idéal en groupe pour démarrer vite. (Buzzer en présentiel = jeu de réflexe : le 1er qui buzze marque.)', recommande: true },
+  { value: 'animateur', icon: Mic2,    label: 'Avec animateur', desc: 'Vous présentez et validez chaque réponse. Vous animez — vous n\'apparaissez pas au classement.' },
   { value: 'vote',      icon: Users,   label: 'Vote collectif', desc: 'Les joueurs votent ensemble pour valider (min. 3 joueurs).' },
 ]
 
@@ -73,15 +74,16 @@ export default function CreatePartie() {
     setError('')
     setLoading(true)
     try {
-      // 1. Create the partie
+      // 1. Create the partie.
+      // « Solo » est un préréglage : mode auto + distanciel (énoncé/médias sur
+      // l'écran du joueur, réponses ouvertes vérifiées par correspondance).
+      const isSolo = form.mode === 'solo'
       const body = {
         nom: form.nom.trim(),
-        mode: form.mode,
-        timerBuzz: form.timerBuzz,
-        timerVote: form.timerVote,
+        mode: isSolo ? 'auto' : form.mode,
         masquerReponses: form.mode === 'animateur' ? form.masquerReponses : false,
-        modeDistanciel: !!form.modeDistanciel,
-        eliminationActive: !!form.eliminationActive,
+        modeDistanciel: isSolo ? true : !!form.modeDistanciel,
+        eliminationActive: isSolo ? false : !!form.eliminationActive,
       }
       const res = await apiFetch('/parties', { method: 'POST', body })
       if (!res?.ok) {
@@ -199,19 +201,22 @@ export default function CreatePartie() {
               </div>
             </div>
 
-            {/* Jeu à distance + élimination (party-level) */}
-            <div className="card p-4 space-y-2">
-              <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                <span>🌐 Jeu à distance (médias + saisie sur téléphone)</span>
-                <input type="checkbox" checked={!!form.modeDistanciel}
-                  onChange={e => setForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
-              </label>
-              <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                <span>🔴 Élimination progressive (active par manche ci-après)</span>
-                <input type="checkbox" checked={!!form.eliminationActive}
-                  onChange={e => setForm(f => ({ ...f, eliminationActive: e.target.checked }))} />
-              </label>
-            </div>
+            {/* Jeu à distance + élimination (party-level). En Solo, ces options
+                sont implicites (distanciel forcé, pas d'élimination) → masquées. */}
+            {form.mode !== 'solo' && (
+              <div className="card p-4 space-y-2">
+                <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                  <span>🌐 Jeu à distance (médias + saisie sur téléphone)</span>
+                  <input type="checkbox" checked={!!form.modeDistanciel}
+                    onChange={e => setForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
+                </label>
+                <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                  <span>🔴 Élimination progressive (active par manche ci-après)</span>
+                  <input type="checkbox" checked={!!form.eliminationActive}
+                    onChange={e => setForm(f => ({ ...f, eliminationActive: e.target.checked }))} />
+                </label>
+              </div>
+            )}
 
             {/* Affichage des réponses côté animateur (#1). Permet de choisir si
                 l'animateur dispose d'un écran de régie privé (réponses visibles
@@ -249,29 +254,9 @@ export default function CreatePartie() {
               </div>
             )}
 
-            {form.mode !== 'animateur' && (
-              <div className="card p-5">
-                <p className="label mb-3">Durées</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {form.mode === 'auto' && (
-                    <div>
-                      <label className="label">Timer après buzz (s)</label>
-                      <input type="number" min={3} max={60} value={form.timerBuzz}
-                        onChange={e => setForm(f => ({ ...f, timerBuzz: Number(e.target.value) }))}
-                        className="input text-center text-lg font-bold" />
-                    </div>
-                  )}
-                  {form.mode === 'vote' && (
-                    <div>
-                      <label className="label">Timer vote (s)</label>
-                      <input type="number" min={5} max={60} value={form.timerVote}
-                        onChange={e => setForm(f => ({ ...f, timerVote: Number(e.target.value) }))}
-                        className="input text-center text-lg font-bold" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Le rythme réel est gouverné par le « Temps (s) » de chaque manche
+                (étape avancée). Les anciens réglages timerBuzz/timerVote n'étaient
+                pas utilisés par le moteur → retirés pour éviter toute confusion. */}
 
             <div className="card p-5">
               <label className="label">Nombre de manches</label>

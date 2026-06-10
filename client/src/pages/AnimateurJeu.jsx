@@ -255,6 +255,9 @@ export default function AnimateurJeu() {
               Q{questionIndex + 1}{questions.length > 0 ? `/${questions.length}` : ''}
               {isModeAuto && ' · Auto'}{isModeVote && ' · Vote'}
             </p>
+            {isAnimateur && (
+              <p className="text-2xs mt-0.5" style={{ color: '#F59E0B' }}>🎤 Vous animez — hors classement</p>
+            )}
           </div>
         </div>
 
