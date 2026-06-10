@@ -278,14 +278,41 @@ function normalizeAnswer(s) {
   return String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
-// A5 — correspondance intelligente : la réponse est juste si elle est identique
-// à la réponse attendue, ou si l'une contient l'autre (insensible casse/accents).
+// Distance d'édition (Levenshtein) — tolère les fautes de frappe.
+function editDistance(a, b) {
+  const m = a.length, n = b.length
+  if (!m) return n
+  if (!n) return m
+  let prev = Array.from({ length: n + 1 }, (_, j) => j)
+  for (let i = 1; i <= m; i++) {
+    const cur = [i]
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+    }
+    prev = cur
+  }
+  return prev[n]
+}
+
+// A5 — correspondance intelligente : la réponse est juste si elle est…
+//  • identique (insensible casse/accents), OU
+//  • proche à une faute de frappe près (distance d'édition selon la longueur), OU
+//  • une forme courte/longue cohérente (inclusion contrôlée : ≥5 car. et ≥50 %).
 // Garde-fou min 3 caractères : évite que "a" (présente dans tout) soit acceptée.
+// Plus strict que l'inclusion brute d'avant (évitait "mali" ⊂ "malien").
 function answersMatch(playerAnswer, correctAnswer) {
   const p = normalizeAnswer(playerAnswer)
   const c = normalizeAnswer(correctAnswer)
   if (!p || !c || p.length < 3) return false
-  return p === c || p.includes(c) || c.includes(p)
+  if (p === c) return true
+  // Tolérance fautes de frappe : ~1 faute toutes les 5 lettres (min 1).
+  const tol = Math.max(1, Math.floor(Math.min(p.length, c.length) / 5))
+  if (editDistance(p, c) <= tol) return true
+  // Inclusion contrôlée (ex. "cote d'ivoire" dans une forme plus longue).
+  const [short, long] = p.length <= c.length ? [p, c] : [c, p]
+  if (short.length >= 5 && long.includes(short) && short.length / long.length >= 0.5) return true
+  return false
 }
 
 function questionAChoix(q) {

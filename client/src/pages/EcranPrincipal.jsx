@@ -317,6 +317,21 @@ export default function EcranPrincipal() {
               <p className="text-base uppercase tracking-widest font-semibold mb-6" style={{ color: 'var(--text-dim)' }}>
                 Question {questionIndex + 1}
               </p>
+              {/* P2 — Enjeux de la manche (multiplicateur / malus) visibles par la salle. */}
+              {((q.multiplicateurPoints && q.multiplicateurPoints !== 1) || q.malusEnabled) && (
+                <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
+                  {q.multiplicateurPoints && q.multiplicateurPoints !== 1 && (
+                    <span className="text-lg font-bold px-4 py-1.5 rounded-full" style={{ background: 'rgba(234,179,8,0.15)', color: '#EAB308' }}>
+                      ×{q.multiplicateurPoints} points
+                    </span>
+                  )}
+                  {q.malusEnabled && (
+                    <span className="text-lg font-bold px-4 py-1.5 rounded-full" style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171' }}>
+                      ⚠️ Manche à risque −{q.malusPenalite ?? 50}%
+                    </span>
+                  )}
+                </div>
+              )}
               <p className="text-5xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
                 {q.enonce}
               </p>
