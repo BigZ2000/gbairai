@@ -21,5 +21,14 @@ else
   npx prisma db push --skip-generate
 fi
 
+# Re-seed des PACKS (idempotent : upsert par slug). Propage à chaque déploiement
+# les réglages du catalogue (mode/types/mécaniques) sans créer de doublon, ni
+# toucher aux questions ni aux comptes. Désactivable via SEED_PACKS=false.
+: "${SEED_PACKS:=true}"
+if [ "${SEED_PACKS}" = "true" ]; then
+  echo "[entrypoint] Re-seed des packs (idempotent)…"
+  node prisma/seedPacks.js || echo "[entrypoint] ⚠️ seed packs ignoré (échec non bloquant)"
+fi
+
 echo "[entrypoint] Démarrage du serveur Gbairai (port ${PORT:-4000})…"
 exec node src/server.js

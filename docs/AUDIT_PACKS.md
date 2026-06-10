@@ -23,6 +23,14 @@
 média ont des choix** → elles se comportent comme des QCM (`questionAChoix` les
 classe « à choix »).
 
+> ⚠️ **Correction importante (vérifiée en base)** : les CSV média (`catalog/csv/*`)
+> ne sont **PAS importés** par le seed (`seed-full.js`). Aujourd'hui la base ne
+> contient **aucune** question de type IMAGE/AUDIO/VIDEO ; les seeds audio/vidéo
+> stockent des questions **texte** en `QCM`/`BUZZER`. Le vivier « à choix » réel =
+> **QCM + VRAI_FAUX** (densifié par `questions_qcm.seed.js`). Conséquence : ne jamais
+> restreindre un pack à AUDIO/VIDEO seuls (vivier vide). Les constantes incluent ces
+> types par anticipation (importateur média = chantier séparé).
+
 **Implication centrale (rappel du moteur) :**
 - **À choix** (QCM/VF/média) → sélection simultanée, **comparaison exacte** → vérifiable
   dans **tous les modes**, y compris auto, sans humain.

@@ -126,10 +126,13 @@ export default function Dashboard() {
     setSelectedPack(pack)
   }
 
-  async function launchPack(packId, gameMode) {
+  // `autostart` (solo / preset) : on enchaîne directement le démarrage et on saute
+  // la salle d'attente → « Scanner → Jouer ». `distanciel` peut surcharger l'état.
+  async function launchPack(packId, gameMode, { autostart = false, distanciel } = {}) {
     setLaunching(packId)
     try {
-      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false, modeDistanciel } })
+      const dist = distanciel ?? modeDistanciel
+      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false, modeDistanciel: dist } })
       if (!res?.ok) {
         const err = await res?.json().catch(() => ({}))
         setLaunching(null); setSelectedPack(null)
@@ -142,6 +145,18 @@ export default function Dashboard() {
         return
       }
       const partie = await res.json()
+      if (autostart) {
+        // Lancement immédiat (la route applique les garde-fous : vivier, vote ≥3…).
+        const s = await apiFetch(`/parties/${partie.id}/start`, { method: 'POST', body: {} })
+        if (!s?.ok) {
+          const e = await s?.json().catch(() => ({}))
+          setLaunching(null); setSelectedPack(null)
+          setPaywall({ reason: e?.error ?? 'Lancement impossible.', requiredPlan: null, quota: false })
+          return
+        }
+        navigate(`/parties/${partie.code}/jeu`)
+        return
+      }
       navigate(`/parties/${partie.code}/attente`)
     } catch {
       setLaunching(null)
@@ -386,7 +401,17 @@ export default function Dashboard() {
               </span>
             </button>
 
-            <p className="label mb-2">Choisis le mode de jeu</p>
+            {/* Jouer maintenant : solo instantané (auto + distanciel), zéro étape. */}
+            <button disabled={!!launching}
+              onClick={() => launchPack(selectedPack.id, 'auto', { autostart: true, distanciel: true })}
+              className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl mb-4 font-semibold transition-all"
+              style={{ background: selectedPack.couleur, color: '#fff', opacity: launching ? 0.7 : 1 }}>
+              {launching === selectedPack.id
+                ? <Loader2 size={16} className="animate-spin" />
+                : <><Play size={16} />Jouer maintenant <span className="text-2xs font-normal opacity-90">· solo, en 1 clic</span></>}
+            </button>
+
+            <p className="label mb-2">…ou choisis un mode (pour inviter des joueurs)</p>
             <div className="space-y-2">
               {GAMEMODES.map(m => {
                 const Icon = m.icon

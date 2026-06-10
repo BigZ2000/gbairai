@@ -211,11 +211,14 @@ export const PACKS = [
     difficulte: 'MIXTE', modeRecommande: 'auto', typesAutorises: CHOIX_TYPES, nbManches: 4, nbQuestions: 8,
   },
   {
-    // Blind test musical en ligne : AUDIO (à choix) + distanciel (écoute sur tél.).
+    // Quiz musical rapide (catégorie Musique) en distanciel. typesAutorises =
+    // CHOIX_TYPES_AV : aujourd'hui les questions AUDIO « vraies » (avec fichier) ne
+    // sont pas encore semées en base → on s'appuie sur les QCM/VF Musique (et l'AUDIO
+    // sera utilisé automatiquement le jour où le catalogue média sera importé).
     id: 'blind-test-express', emoji: '🎵', nom: 'Blind Test Express',
-    description: 'Musique en ligne : écoute sur ton téléphone et réponds le plus vite.',
+    description: 'Spécial musique : réponds le plus vite, sur ton téléphone.',
     couleur: '#EC4899', categories: ['Musique'], difficulte: 'MIXTE',
-    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: ['AUDIO'],
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: CHOIX_TYPES_AV,
     nbManches: 1, nbQuestions: 12, tempsParQuestion: 20,
   },
 ]
