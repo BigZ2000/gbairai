@@ -5,8 +5,11 @@ uploads
 .env.*
 npm-debug.log*
 
-# Outillage de seed/catalogue (non utilisé au runtime)
-catalog
+# Outillage de seed/catalogue (non utilisé au runtime) — on exclut le CONTENU
+# (catalog/*) plutôt que le dossier, pour pouvoir ré-inclure la démo média ci-après.
+catalog/*
+# …sauf le jeu de démo média, requis par prisma/seedMediaDemo.js
+!catalog/demo-media
 
 # Divers
 .DS_Store
