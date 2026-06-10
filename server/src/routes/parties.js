@@ -490,6 +490,22 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
     return res.status(403).json({ error: 'Seul l\'hôte peut lancer cette partie' })
   }
 
+  // P0 — Le mode VOTE collectif exige au moins 3 joueurs. Sinon, après un buzz,
+  // le nombre de votants attendus peut tomber à 0 → la réponse se résout
+  // instantanément sans que personne ne marque (le buzzeur ne vote pas sa propre
+  // réponse). On bloque proprement au lancement, avec un message clair.
+  if (partie.modeVote) {
+    const joueurs = await prisma.participant.count({
+      where: { partieId, isAnimateur: false },
+    })
+    if (joueurs < 3) {
+      return res.status(400).json({
+        error: 'Le mode vote collectif nécessite au moins 3 joueurs pour fonctionner.',
+        code: 'VOTE_MIN_JOUEURS',
+      })
+    }
+  }
+
   // Draw random questions for each manche
   await drawAndStoreQuestions(partieId)
 

@@ -266,6 +266,14 @@ export default function JoueurJeu() {
 
       {/* Zone centrale */}
       <div className="flex-1 flex flex-col items-center justify-center p-6">
+        {/* P0 — L'énoncé est TOUJOURS visible sur le téléphone (téléphone-seul,
+            présentiel sans écran, saisie texte distanciel…). Exceptions : le pavé
+            QCM/VF l'affiche déjà lui-même, et on le masque après la révélation. */}
+        {!showSelect && !revealed && question?.enonce && (
+          <p className="text-center text-base font-semibold mb-6 max-w-md px-2" style={{ color: '#ECECF0' }}>
+            {question.enonce}
+          </p>
+        )}
         {showVote ? (
           <div className="text-center w-full max-w-xs">
             <p className="text-sm mb-1" style={{ color: '#9090A0' }}><strong style={{ color: '#ECECF0' }}>{winner.prenom}</strong> a buzzé.</p>
