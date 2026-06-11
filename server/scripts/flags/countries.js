@@ -112,6 +112,13 @@ export function difficulteOf(code) {
   return 'MOYEN'
 }
 
+// Slug « parlant » à partir d'un libellé (accents/apostrophes → tirets).
+// Ex. "Côte d'Ivoire" → "cote-d-ivoire", "États-Unis" → "etats-unis".
+export function slugify(s) {
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/['’]/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
 // Tags d'un pays : drapeaux + continent + groupes d'appartenance.
 export function tagsOf(code) {
   const cont = COUNTRIES[code]?.[1]

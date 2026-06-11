@@ -14,7 +14,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import AdmZip from 'adm-zip'
-import { COUNTRIES, difficulteOf, tagsOf } from './countries.js'
+import { COUNTRIES, difficulteOf, tagsOf, slugify } from './countries.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..', '..', '..') // racine du repo (gbairai/)
@@ -42,6 +42,17 @@ function main() {
   const missingImg = Object.keys(COUNTRIES).filter(c => !files.has(c))
   codes = codes.slice(0, LIMIT)
 
+  // Noms de fichiers PARLANTS dans le ZIP (slug du pays au lieu du code ISO).
+  // Ex. ci.png → cote-d-ivoire.png. Garde-fou anti-collision (suffixe ISO).
+  const fileName = {}
+  const seen = new Set()
+  for (const code of codes) {
+    let base = slugify(nameOf(code)) || code
+    if (seen.has(base)) base = `${base}-${code}`
+    seen.add(base)
+    fileName[code] = `${base}.png`
+  }
+
   // Distracteurs : préférer le même continent, compléter avec n'importe lequel.
   const pickDistractors = (code, n) => {
     const cont = contOf(code)
@@ -65,14 +76,14 @@ function main() {
         { text: name, correct: true },
         ...distract.map(d => ({ text: nameOf(d) })),
       ])
-      questions.push({ format: 'QCM', media: { kind: 'IMAGE', file: `${code}.png` }, enonce: 'Quel est ce pays ?', choices, meta, difficulte: diff, points: 100 })
+      questions.push({ format: 'QCM', media: { kind: 'IMAGE', file: fileName[code] }, enonce: 'Quel est ce pays ?', choices, meta, difficulte: diff, points: 100 })
     }
     if (TYPES.includes('2')) {
       const distract = pickDistractors(code, NCHOICES - 1)
       distract.forEach(d => usedFiles.add(d))
       const choices = shuffle([
-        { mediaFile: `${code}.png`, correct: true },
-        ...distract.map(d => ({ mediaFile: `${d}.png` })),
+        { mediaFile: fileName[code], correct: true },
+        ...distract.map(d => ({ mediaFile: fileName[d] })),
       ])
       questions.push({ format: 'QCM', enonce: `Quel est le drapeau de « ${name} » ?`, choices, meta, difficulte: diff, points: 100 })
     }
@@ -94,7 +105,7 @@ function main() {
   zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 0)))
   for (const code of usedFiles) {
     const p = path.join(SRC, `${code}.png`)
-    if (fs.existsSync(p)) zip.addLocalFile(p, 'media', `${code}.png`)
+    if (fs.existsSync(p)) zip.addLocalFile(p, 'media', fileName[code])
   }
   zip.writeZip(OUT)
 
