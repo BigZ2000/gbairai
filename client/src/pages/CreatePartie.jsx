@@ -42,7 +42,7 @@ export default function CreatePartie() {
   const [step, setStep] = useState(1)
   // Défauts « plug & play » : mode AUTO (le plus utilisé) + réponses masquées
   // jusqu'à la révélation (recommandé pour toutes les parties auto).
-  const [form, setForm] = useState({ nom: '', mode: 'auto', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: true, modeDistanciel: false, eliminationActive: false })
+  const [form, setForm] = useState({ nom: '', mode: 'auto', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: true, modeDistanciel: false, eliminationActive: false, viesParJoueur: 0 })
   const [manches, setManches] = useState([defaultManche(0)])
   const [categories, setCategories] = useState([])
   const [error, setError]   = useState('')
@@ -84,6 +84,7 @@ export default function CreatePartie() {
         masquerReponses: form.mode === 'animateur' ? form.masquerReponses : false,
         modeDistanciel: isSolo ? true : !!form.modeDistanciel,
         eliminationActive: isSolo ? false : !!form.eliminationActive,
+        viesParJoueur: isSolo ? 0 : (Number(form.viesParJoueur) || 0),
       }
       const res = await apiFetch('/parties', { method: 'POST', body })
       if (!res?.ok) {
@@ -214,6 +215,12 @@ export default function CreatePartie() {
                   <span>🔴 Élimination progressive (active par manche ci-après)</span>
                   <input type="checkbox" checked={!!form.eliminationActive}
                     onChange={e => setForm(f => ({ ...f, eliminationActive: e.target.checked }))} />
+                </label>
+                <label className="flex items-center justify-between text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <span>❤️ Vies par joueur (0 = désactivé · −1 par mauvaise réponse)</span>
+                  <input type="number" min={0} max={10} value={form.viesParJoueur}
+                    onChange={e => setForm(f => ({ ...f, viesParJoueur: Number(e.target.value) }))}
+                    className="input text-center w-16 py-1" />
                 </label>
               </div>
             )}

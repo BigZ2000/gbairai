@@ -210,6 +210,12 @@ export default function JoueurJeu() {
             {buzzerLive ? '🎮 Buzzer' : '📱 Téléphone'}
           </span>
           <span className="text-2xs" style={{ color: '#5A5A6E' }}>{myParticipant?.prenom}</span>
+          {myParticipant?.vies != null && (
+            <span className="text-sm px-2 py-1 rounded-lg" title="Vies restantes"
+              style={{ background: 'rgba(239,68,68,0.12)' }}>
+              {myParticipant.vies > 0 ? '❤️'.repeat(myParticipant.vies) : '💀'}
+            </span>
+          )}
           <span className="text-sm font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(99,102,241,0.15)', color: '#A5B4FC' }}>
             {myScore} pts
           </span>
