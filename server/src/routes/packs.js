@@ -196,7 +196,9 @@ async function buildManchesManuel(partieId, pack) {
 
 async function buildManchesDynamique(partieId, pack, mode) {
   const plan = buildDynamicPlan(pack, mode)
+  // Unicité sur TOUTE la partie : ids déjà tirés + clés métier (subjectKey).
   const used = new Set()
+  const usedSubjects = new Set()
   let ordre = 0
   for (const m of plan) {
     ordre++
@@ -210,11 +212,12 @@ async function buildManchesDynamique(partieId, pack, mode) {
         eliminationActive:    m.eliminationActive ?? false,
       },
     })
+    // pickQuestionsForPack MUTE `used`/`usedSubjects` → unicité garantie inter-manches.
     const ids = await pickQuestionsForPack({
       categories: m.categories, difficulte: m.difficulte, count: m.nbQuestions,
-      exclude: used, types: pack.typesAutorises ?? [],
+      exclude: used, excludeSubjects: usedSubjects,
+      types: pack.typesAutorises ?? [], tags: pack.filtreTags ?? [],
     })
-    ids.forEach(id => used.add(id))
     if (ids.length > 0) {
       await prisma.mancheQuestion.createMany({
         data: ids.map((qId, i) => ({ mancheId: manche.id, questionId: qId, ordre: i + 1 })),

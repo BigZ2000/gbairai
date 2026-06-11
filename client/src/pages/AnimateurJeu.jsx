@@ -311,7 +311,20 @@ export default function AnimateurJeu() {
                 {currentQ.enonce}
               </p>
 
-              {/* QCM choices (for animateur reference) */}
+              {/* Choix RICHES (texte/image — drapeaux, logos…) : aperçu régie */}
+              {currentQ.choices?.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {currentQ.choices.map((c, i) => (
+                    <div key={i} className="rounded-lg px-3 py-2 flex flex-col items-center gap-1.5"
+                      style={{ background: 'var(--input-bg)', border: '1px solid var(--border)' }}>
+                      {c?.mediaUrl && <img src={c.mediaUrl} alt="" className="rounded object-contain" style={{ maxHeight: 70, maxWidth: '100%' }} />}
+                      {c?.text && <span className="text-sm" style={{ color: 'var(--text)' }}>{c.text}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* QCM choices texte (for animateur reference) */}
               {currentQ.type === 'QCM' && currentQ.choix?.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 mb-4 text-left">
                   {currentQ.choix.map((c, i) => (
@@ -324,14 +337,14 @@ export default function AnimateurJeu() {
                 </div>
               )}
 
-              {/* Média (aperçu animateur — synchronisé avec les joueurs) */}
-              {['IMAGE', 'AUDIO', 'VIDEO'].includes(currentQ.type) && (
+              {/* Média (aperçu animateur — synchronisé). Affiché selon l'URL (découplé du type). */}
+              {(currentQ.mediaUrl || currentQ.audioUrl || currentQ.videoUrl) && (
                 <QuestionMedia question={currentQ} compact mediaState={mediaState} />
               )}
 
               {/* Pilotage média : play / pause / rejouer — diffusé à tous les écrans.
                   Réservé à l'animateur, hors mode auto (serveur-piloté). */}
-              {isAnimateur && !isModeAuto && ['AUDIO', 'VIDEO'].includes(currentQ.type) && mediaState && (
+              {isAnimateur && !isModeAuto && (currentQ.audioUrl || currentQ.videoUrl) && mediaState && (
                 <div className="flex items-center justify-center gap-2 mt-4">
                   {mediaState.playing ? (
                     <button onClick={() => mediaControl('pause')} className="btn-secondary btn-sm gap-1.5">

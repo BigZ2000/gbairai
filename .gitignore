@@ -8,3 +8,5 @@ dist/
 server/uploads/
 # Venv simulateur Python
 tools/buzzer-simulator/.venv/
+W2560/
+W2560-*.zip

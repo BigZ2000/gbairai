@@ -52,6 +52,7 @@ async function upsertPack(p, idx, { signature }) {
     tags,
     difficulte: p.difficulte ?? 'MIXTE',
     typesAutorises: p.typesAutorises ?? [],
+    filtreTags: p.filtreTags ?? [],
     modeRecommande: p.modeRecommande ?? 'animateur',
     contentMode: 'DYNAMIQUE',
     ...params,

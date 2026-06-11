@@ -84,42 +84,54 @@ async function resolveCategorieIds(noms = []) {
 }
 
 // Tire `count` questions pour une manche d'un pack.
-// - filtre par catégories (si fournies) et difficulté (si != MIXTE)
+// - filtre par catégories (si fournies), difficulté (si != MIXTE) et `tags` (si fournis)
 // - varie l'ordre à chaque partie (shuffle)
-// - évite les répétitions grâce à `exclude` (questions déjà tirées dans la partie)
+// - évite les répétitions : `exclude` (ids déjà tirés) ET `excludeSubjects`
+//   (clés métier `subjectKey` déjà vues → anti-doublon « même pays sous 2 formes »)
 // - complète avec d'autres questions publiques si le vivier est insuffisant
-export async function pickQuestionsForPack({ categories = [], difficulte = 'MIXTE', count = 10, exclude = new Set(), types = [] }) {
+// Les Set `exclude` / `excludeSubjects` sont MUTÉS (partagés entre les manches d'une
+// même partie par l'appelant) pour garantir l'unicité sur toute la partie.
+export async function pickQuestionsForPack({
+  categories = [], difficulte = 'MIXTE', count = 10,
+  exclude = new Set(), excludeSubjects = new Set(), types = [], tags = [],
+}) {
   const categorieIds = await resolveCategorieIds(categories)
-  // Contrainte STRICTE de types de questions (ex : pack "AUDIO uniquement").
-  // Appliquée à tous les viviers, y compris les compléments de secours.
   const typeFilter = Array.isArray(types) && types.length ? { type: { in: types } } : {}
+  // Filtre par tags transverses (CEDEAO, drapeaux…) : la question doit porter
+  // AU MOINS un des tags demandés.
+  const tagFilter = Array.isArray(tags) && tags.length ? { tags: { hasSome: tags } } : {}
 
-  const baseWhere = { publique: true, id: { notIn: [...exclude] }, ...typeFilter }
+  const out = []
+  // Sélectionne dans `rows` en respectant l'unicité id ET subjectKey.
+  const take = (rows) => {
+    for (const row of shuffle(rows)) {
+      if (out.length >= count) break
+      if (exclude.has(row.id)) continue
+      if (row.subjectKey && excludeSubjects.has(row.subjectKey)) continue
+      out.push(row.id)
+      exclude.add(row.id)
+      if (row.subjectKey) excludeSubjects.add(row.subjectKey)
+    }
+  }
+  const fetchRows = (where) => prisma.question.findMany({ where, select: { id: true, subjectKey: true } })
+
+  // 1. Vivier principal (catégorie + difficulté + tags)
+  const baseWhere = { publique: true, id: { notIn: [...exclude] }, ...typeFilter, ...tagFilter }
   if (categorieIds.length) baseWhere.categorieId = { in: categorieIds }
   if (difficulte && difficulte !== 'MIXTE') baseWhere.difficulte = difficulte
+  take(await fetchRows(baseWhere))
 
-  // 1. Vivier principal (catégorie + difficulté)
-  let pool = await prisma.question.findMany({ where: baseWhere, select: { id: true } })
-  let ids = shuffle(pool.map(r => r.id)).slice(0, count)
-
-  // 2. Complément : même catégorie, toutes difficultés
-  if (ids.length < count && difficulte && difficulte !== 'MIXTE') {
-    const picked = new Set([...exclude, ...ids])
-    const relax = { publique: true, id: { notIn: [...picked] }, ...typeFilter }
+  // 2. Complément : même catégorie + tags, toutes difficultés
+  if (out.length < count && difficulte && difficulte !== 'MIXTE') {
+    const relax = { publique: true, id: { notIn: [...exclude] }, ...typeFilter, ...tagFilter }
     if (categorieIds.length) relax.categorieId = { in: categorieIds }
-    const extra = await prisma.question.findMany({ where: relax, select: { id: true } })
-    ids = ids.concat(shuffle(extra.map(r => r.id)).slice(0, count - ids.length))
+    take(await fetchRows(relax))
   }
 
-  // 3. Complément ultime : n'importe quelle question publique (types respectés)
-  if (ids.length < count) {
-    const picked = new Set([...exclude, ...ids])
-    const extra = await prisma.question.findMany({
-      where: { publique: true, id: { notIn: [...picked] }, ...typeFilter },
-      select: { id: true },
-    })
-    ids = ids.concat(shuffle(extra.map(r => r.id)).slice(0, count - ids.length))
+  // 3. Complément ultime : toute question publique (types + tags respectés)
+  if (out.length < count) {
+    take(await fetchRows({ publique: true, id: { notIn: [...exclude] }, ...typeFilter, ...tagFilter }))
   }
 
-  return ids
+  return out
 }
