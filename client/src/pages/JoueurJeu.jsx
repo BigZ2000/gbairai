@@ -241,13 +241,6 @@ export default function JoueurJeu() {
         </div>
       )}
 
-      {/* D5 — Média visible sur le téléphone en mode distanciel */}
-      {showMediaOnPhone && !revealed && (
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <QuestionMedia question={question} compact mediaState={mediaState} />
-        </div>
-      )}
-
       {/* Barre HÔTE (créateur en auto/vote/distanciel) : projection + Fin */}
       {isHost && (
         <div className="px-4 py-2 flex items-center justify-between gap-2"
@@ -270,6 +263,13 @@ export default function JoueurJeu() {
 
       {/* Zone centrale */}
       <div className="flex-1 flex flex-col items-center justify-center p-6">
+        {/* Média de la question (ex. drapeau) — AU-DESSUS des réponses, sous la barre HÔTE. */}
+        {showMediaOnPhone && !revealed && (
+          <div className="w-full max-w-md mb-4">
+            <QuestionMedia question={question} compact mediaState={mediaState} />
+          </div>
+        )}
+
         {/* P2 — Enjeux de la manche rendus visibles (sinon scores « magiques »). */}
         {!revealed && question && ((question.multiplicateurPoints && question.multiplicateurPoints !== 1) || question.malusEnabled) && (
           <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
