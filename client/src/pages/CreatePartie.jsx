@@ -135,25 +135,30 @@ export default function CreatePartie() {
           <ChevronLeft size={15} />Retour
         </button>
 
-        <div className="flex items-center gap-2 mb-6">
-          {steps.map((s, i) => (
-            <React.Fragment key={s.n}>
-              <div className="flex items-center gap-1.5">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all`}
-                  style={{
-                    background: step > s.n ? '#22C55E' : step === s.n ? '#6366F1' : 'var(--border)',
-                    color: step >= s.n ? '#fff' : 'var(--text-dim)',
-                  }}>
-                  {step > s.n ? <Check size={12} /> : s.n}
+        {/* Le stepper n'apparaît qu'en mode AVANCÉ (étapes 2-3). Le chemin par
+            défaut est la création rapide en 1 écran (plug & play) : afficher
+            3 étapes qu'on ne traverse pas créait une fausse attente. */}
+        {step > 1 && (
+          <div className="flex items-center gap-2 mb-6">
+            {steps.map((s, i) => (
+              <React.Fragment key={s.n}>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all`}
+                    style={{
+                      background: step > s.n ? '#22C55E' : step === s.n ? '#6366F1' : 'var(--border)',
+                      color: step >= s.n ? '#fff' : 'var(--text-dim)',
+                    }}>
+                    {step > s.n ? <Check size={12} /> : s.n}
+                  </div>
+                  <span className="text-sm hidden sm:block" style={{ color: step === s.n ? 'var(--text)' : 'var(--text-dim)' }}>{s.label}</span>
                 </div>
-                <span className="text-sm hidden sm:block" style={{ color: step === s.n ? 'var(--text)' : 'var(--text-dim)' }}>{s.label}</span>
-              </div>
-              {i < steps.length - 1 && (
-                <div className="flex-1 h-px" style={{ background: step > s.n ? '#22C55E' : 'var(--border)' }} />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+                {i < steps.length - 1 && (
+                  <div className="flex-1 h-px" style={{ background: step > s.n ? '#22C55E' : 'var(--border)' }} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
 
         {/* ── Étape 1 : Paramètres ── */}
         {step === 1 && (
@@ -276,15 +281,19 @@ export default function CreatePartie() {
               </div>
             </div>
 
-            {/* Création rapide : 1 manche aux réglages par défaut → on lance direct. */}
+            {/* Création RAPIDE (défaut plug & play) : crée directement la partie
+                avec les manches aux réglages standards → salle d'attente. */}
             <button onClick={handleCreate} disabled={!form.nom.trim() || loading}
               className="btn-primary w-full btn-xl gap-2">
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <>Créer la partie <ChevronRight size={16} /></>}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <>🚀 Créer la partie <ChevronRight size={16} /></>}
             </button>
+            <p className="text-2xs text-center -mt-2" style={{ color: 'var(--text-dim)' }}>
+              Prêt à jouer tout de suite : {form.nbManches} manche{form.nbManches > 1 ? 's' : ''} · 10 questions/manche · 30 s · thème mélangé
+            </p>
             <button onClick={() => { if (form.nom.trim()) setStep(2) }}
               disabled={!form.nom.trim()}
-              className="btn-ghost btn-sm w-full">
-              Personnaliser les manches (avancé)
+              className="btn-secondary w-full gap-2">
+              <Layers size={15} />Personnaliser les manches (thèmes, difficulté, points…)
             </button>
           </div>
         )}

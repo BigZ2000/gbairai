@@ -325,12 +325,33 @@ export default function JoueurJeu() {
           <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed} revealReponse={revealReponse} revealCorrectIndex={revealCorrectIndex} onAnswer={answer} />
         ) : showTextInput ? (
           // A4 — Mode auto + BUZZER + distanciel : saisie libre, matching intelligent.
+          // À la révélation : grand panneau trouvé/raté (même lisibilité que le QCM).
           <div className="w-full max-w-sm text-center">
-            <p className="text-sm mb-4" style={{ color: '#9090A0' }}>
-              {revealed ? (revealReponse ? `Réponse : ${revealReponse}` : 'Réponse révélée') : 'Tape ta réponse'}
-            </p>
-            {!revealed && (
+            {revealed ? (() => {
+              const ok = myAnswer !== null && answersMatchClient(myAnswer, revealReponse)
+              const none = myAnswer === null
+              const color = none ? '#9090A0' : ok ? '#22C55E' : '#F87171'
+              return (
+                <div className="rounded-3xl px-6 py-8 animate-fadeUp"
+                  style={{
+                    background: none ? 'rgba(255,255,255,0.04)' : ok ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.10)',
+                    border: `2px solid ${none ? 'rgba(255,255,255,0.10)' : ok ? 'rgba(34,197,94,0.55)' : 'rgba(248,113,113,0.45)'}`,
+                  }}>
+                  <p className="text-6xl mb-3">{none ? '⏰' : ok ? '🎉' : '😅'}</p>
+                  <p className="text-2xl font-extrabold mb-1" style={{ color }}>
+                    {none ? 'Pas de réponse' : ok ? 'Bonne réponse !' : 'Raté cette fois…'}
+                  </p>
+                  {!none && !ok && (
+                    <p className="text-sm mb-2" style={{ color: '#9090A0' }}>Ta réponse : « {myAnswer} »</p>
+                  )}
+                  <p className="text-lg mt-2" style={{ color: '#ECECF0' }}>
+                    Réponse : <strong>{revealReponse ?? '—'}</strong>
+                  </p>
+                </div>
+              )
+            })() : (
               <>
+                <p className="text-sm mb-4" style={{ color: '#9090A0' }}>Tape ta réponse</p>
                 <input
                   className="w-full rounded-2xl px-4 py-4 text-lg font-semibold text-center mb-3"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '2px solid rgba(99,102,241,0.4)', color: '#ECECF0', outline: 'none' }}
@@ -352,10 +373,10 @@ export default function JoueurJeu() {
                   }}>
                   {myAnswer !== null ? 'Réponse envoyée ✓' : 'Envoyer'}
                 </button>
+                {myAnswer !== null && (
+                  <p className="text-sm mt-3" style={{ color: '#9090A0' }}>En attente de la révélation…</p>
+                )}
               </>
-            )}
-            {myAnswer !== null && !revealed && (
-              <p className="text-sm mt-3" style={{ color: '#9090A0' }}>En attente de la révélation…</p>
             )}
           </div>
         ) : isEliminated ? (
@@ -388,6 +409,39 @@ export default function JoueurJeu() {
       )}
     </div>
   )
+}
+
+// ── Correspondance intelligente (MIROIR du serveur, gameHandler.answersMatch) ──
+// Permet un feedback IMMÉDIAT à la révélation pour la saisie libre : même algo
+// déterministe (casse/accents, ~1 faute / 5 lettres, inclusion contrôlée).
+function normalizeAnswer(s) {
+  return String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+function editDistance(a, b) {
+  const m = a.length, n = b.length
+  if (!m) return n
+  if (!n) return m
+  let prev = Array.from({ length: n + 1 }, (_, j) => j)
+  for (let i = 1; i <= m; i++) {
+    const cur = [i]
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+    }
+    prev = cur
+  }
+  return prev[n]
+}
+function answersMatchClient(playerAnswer, correctAnswer) {
+  const p = normalizeAnswer(playerAnswer)
+  const c = normalizeAnswer(correctAnswer)
+  if (!p || !c || p.length < 3) return false
+  if (p === c) return true
+  const tol = Math.max(1, Math.floor(Math.min(p.length, c.length) / 5))
+  if (editDistance(p, c) <= tol) return true
+  const [short, long] = p.length <= c.length ? [p, c] : [c, p]
+  if (short.length >= 5 && long.includes(short) && short.length / long.length >= 0.5) return true
+  return false
 }
 
 // Sélection de réponse (QCM / Vrai-Faux / CHOIX-IMAGES). Le serveur valide et marque.
