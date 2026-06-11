@@ -1,14 +1,15 @@
 import React from 'react'
 
-// Indicateur de batterie compact : 🟢 >60 · 🟡 30–60 · 🔴 <30. % exact au survol.
+// Indicateur de batterie compact : pastille verte >60 · jaune 30-60 · rouge <30.
+// % exact au survol.
 export default function BatteryBadge({ battery, showPct = true }) {
   if (battery == null) return null
   const color = battery > 60 ? '#22C55E' : battery >= 30 ? '#EAB308' : '#F87171'
-  const dot = battery > 60 ? '🟢' : battery >= 30 ? '🟡' : '🔴'
   return (
-    <span title={`Batterie : ${battery}%`} className="inline-flex items-center gap-0.5"
+    <span title={`Batterie : ${battery}%`} className="inline-flex items-center gap-1"
       style={{ color, fontSize: '0.68rem', fontWeight: 600 }}>
-      {dot}{showPct ? ` ${battery}%` : ''}
+      <span className="inline-block rounded-full shrink-0" style={{ width: 7, height: 7, background: color }} />
+      {showPct ? `${battery}%` : ''}
     </span>
   )
 }

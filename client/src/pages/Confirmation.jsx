@@ -25,7 +25,7 @@ export default function Confirmation() {
           style={{ background: 'rgba(34,197,94,0.12)' }}>
           <CheckCircle2 size={32} style={{ color: '#22C55E' }} />
         </div>
-        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)' }}>Paiement réussi 🎉</h1>
+        <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--text)' }}>Paiement réussi</h1>
         {offre ? (
           <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
             Ton abonnement <strong style={{ color: 'var(--text)' }}>{offre.nom}</strong> est désormais actif.

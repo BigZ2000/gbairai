@@ -8,7 +8,7 @@ import Podium from '../components/Podium.jsx'
 import { flattenManches } from '../utils/manches.js'
 import {
   ChevronRight, Square, Trophy, ThumbsUp, ThumbsDown,
-  Users, Hash, Loader2, Eye, EyeOff, Play, Pause, RotateCcw, Tv,
+  Users, Hash, Loader2, Eye, EyeOff, Play, Pause, RotateCcw, Tv, Mic2, Check, X,
 } from 'lucide-react'
 
 const WEB_COLORS = ['#6366F1', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
@@ -256,7 +256,7 @@ export default function AnimateurJeu() {
               {isModeAuto && ' · Auto'}{isModeVote && ' · Vote'}
             </p>
             {isAnimateur && (
-              <p className="text-2xs mt-0.5" style={{ color: '#F59E0B' }}>🎤 Vous animez — hors classement</p>
+              <p className="text-2xs mt-0.5 flex items-center gap-1" style={{ color: '#F59E0B' }}><Mic2 size={10} />Vous animez — hors classement</p>
             )}
           </div>
         </div>
@@ -430,7 +430,9 @@ export default function AnimateurJeu() {
                     border: `1px solid ${winnerSelectedAnswer.isCorrect ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
                     color: winnerSelectedAnswer.isCorrect ? '#4ADE80' : '#F87171',
                   }}>
-                  {winnerSelectedAnswer.isCorrect ? '✅' : '❌'} a dit : <strong>{winnerSelectedAnswer.answer}</strong>
+                  {winnerSelectedAnswer.isCorrect
+                    ? <Check size={15} className="inline mr-1 -mt-0.5" color="#22C55E" />
+                    : <X size={15} className="inline mr-1 -mt-0.5" color="#F87171" />}a dit : <strong>{winnerSelectedAnswer.answer}</strong>
                 </div>
               )}
 

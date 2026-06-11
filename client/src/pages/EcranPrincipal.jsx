@@ -5,7 +5,7 @@ import { useWs } from '../context/WsContext.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
 import QuestionMedia from '../components/QuestionMedia.jsx'
 import Podium from '../components/Podium.jsx'
-import { Trophy, Hash, Eye, Timer, Zap } from 'lucide-react'
+import { Trophy, Hash, Eye, Timer, Zap, Heart, Skull, AlertTriangle, Check, X } from 'lucide-react'
 
 // Palette stable pour les buzzers virtuels (joueurs sur téléphone, sans matériel).
 const WEB_COLORS = ['#6366F1', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
@@ -207,7 +207,11 @@ export default function EcranPrincipal() {
                 <BuzzerAnime couleur={p.buzzer?.couleur ?? '#6366F1'} statut="ready" size="sm" />
                 <span className="text-2xl font-bold flex-1" style={{ color: 'var(--text)' }}>{p.prenom}</span>
                 {p.vies != null && (
-                  <span className="text-xl mr-3" title="Vies">{p.vies > 0 ? '❤️'.repeat(p.vies) : '💀'}</span>
+                  <span className="inline-flex items-center gap-1 mr-3" title="Vies">
+                    {p.vies > 0
+                      ? Array.from({ length: p.vies }).map((_, k) => <Heart key={k} size={18} fill="#F87171" color="#F87171" />)
+                      : <Skull size={20} color="#9090A0" />}
+                  </span>
                 )}
                 <span className="text-2xl font-black" style={{ color: '#F59E0B' }}>{p.score} pts</span>
               </div>
@@ -330,7 +334,7 @@ export default function EcranPrincipal() {
                   )}
                   {q.malusEnabled && (
                     <span className="text-lg font-bold px-4 py-1.5 rounded-full" style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171' }}>
-                      ⚠️ Manche à risque −{q.malusPenalite ?? 50}%
+                      <AlertTriangle size={16} className="inline mr-1.5 -mt-1" />Manche à risque −{q.malusPenalite ?? 50}%
                     </span>
                   )}
                 </div>
@@ -411,7 +415,7 @@ export default function EcranPrincipal() {
                           color: isGreen ? '#4ADE80' : '#F87171',
                           transform: isCorrect ? 'scale(1.06)' : 'none',
                         }}>
-                        {isGreen ? '✅' : '❌'} {val}
+                        {isGreen ? <Check size={26} className="inline mr-2 -mt-1" /> : <X size={26} className="inline mr-2 -mt-1" />}{val}
                       </div>
                     )
                   })}

@@ -9,9 +9,9 @@ import {
 } from 'lucide-react'
 
 const GAMEMODES = [
-  { id: 'animateur', label: 'Animateur', emoji: '🎤', desc: 'Tu présentes et valides les réponses.', icon: Target },
-  { id: 'auto',      label: 'Automatique', emoji: '🤖', desc: 'Le jeu se déroule tout seul.', icon: Zap },
-  { id: 'vote',      label: 'Vote collectif', emoji: '🗳️', desc: 'Tout le monde vote la bonne réponse.', icon: Trophy },
+  { id: 'animateur', label: 'Animateur', desc: 'Tu présentes et valides les réponses.', icon: Target },
+  { id: 'auto',      label: 'Automatique', desc: 'Le jeu se déroule tout seul.', icon: Zap },
+  { id: 'vote',      label: 'Vote collectif', desc: 'Tout le monde vote la bonne réponse.', icon: Trophy },
 ]
 
 const DIFFICULTES = [['FACILE', 'Facile'], ['MOYEN', 'Moyen'], ['DIFFICILE', 'Difficile'], ['MIXTE', 'Mixte']]
@@ -172,7 +172,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-end justify-between mb-7">
         <div>
-          <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>{greeting} 👋</p>
+          <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>{greeting}</p>
           <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>{displayName}</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -396,7 +396,7 @@ export default function Dashboard() {
                 <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: modeDistanciel ? '18px' : '2px' }} />
               </span>
               <span className="text-2xs" style={{ color: 'var(--text-muted)' }}>
-                {modeDistanciel ? '🌐 Jeu à distance activé' : '🌐 Jeu à distance désactivé'}
+                {modeDistanciel ? 'Jeu à distance activé' : 'Jeu à distance désactivé'}
                 <span className="block" style={{ color: 'var(--text-dim)' }}>Médias + saisie sur téléphone</span>
               </span>
             </button>
@@ -430,7 +430,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
-                        {m.emoji} {m.label}
+                        {m.label}
                         {recommended && <span className="text-2xs px-1.5 py-0.5 rounded-full" style={{ background: hex(selectedPack.couleur, 0.15), color: selectedPack.couleur }}>Recommandé</span>}
                       </p>
                       <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>{m.desc}</p>
@@ -570,7 +570,7 @@ function PackRating({ pack, apiFetch }) {
     <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
       <div>
         <p className="text-2xs mb-0.5" style={{ color: 'var(--text-dim)' }}>
-          {data?.nbAvis ? <>⭐ {data.noteMoyenne} / 5 · {data.nbAvis} avis</> : 'Aucun avis — sois le premier !'}
+          {data?.nbAvis ? <><Star size={12} className="inline -mt-0.5 mr-1" fill="#EAB308" color="#EAB308" />{data.noteMoyenne} / 5 · {data.nbAvis} avis</> : 'Aucun avis — sois le premier !'}
         </p>
         <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Ta note :</p>
       </div>

@@ -5,6 +5,7 @@ import Layout from '../components/Layout.jsx'
 import {
   ChevronLeft, ChevronRight, Mic2, Timer, Users, Plus, Trash2,
   Loader2, AlertCircle, Check, Layers, User,
+  Rocket, Globe, UserMinus, Heart, AlertTriangle, TrendingUp,
 } from 'lucide-react'
 
 const MODES = [
@@ -129,31 +130,46 @@ export default function CreatePartie() {
 
   return (
     <Layout>
-      <div className="max-w-lg">
+      {/* Colonne CENTRÉE (mx-auto) + en-tête harmonisé avec les autres pages. */}
+      <div className="max-w-lg mx-auto w-full">
         <button onClick={() => step > 1 ? setStep(s => s - 1) : navigate(-1)}
-          className="btn-ghost btn-sm mb-6 -ml-2">
+          className="btn-ghost btn-sm mb-4 -ml-2">
           <ChevronLeft size={15} />Retour
         </button>
 
-        <div className="flex items-center gap-2 mb-6">
-          {steps.map((s, i) => (
-            <React.Fragment key={s.n}>
-              <div className="flex items-center gap-1.5">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all`}
-                  style={{
-                    background: step > s.n ? '#22C55E' : step === s.n ? '#6366F1' : 'var(--border)',
-                    color: step >= s.n ? '#fff' : 'var(--text-dim)',
-                  }}>
-                  {step > s.n ? <Check size={12} /> : s.n}
-                </div>
-                <span className="text-sm hidden sm:block" style={{ color: step === s.n ? 'var(--text)' : 'var(--text-dim)' }}>{s.label}</span>
-              </div>
-              {i < steps.length - 1 && (
-                <div className="flex-1 h-px" style={{ background: step > s.n ? '#22C55E' : 'var(--border)' }} />
-              )}
-            </React.Fragment>
-          ))}
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>
+            Nouvelle partie
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            {step === 1 ? 'Donne un nom, choisis un mode — et c\'est parti.' : step === 2 ? 'Personnalise tes manches.' : 'Vérifie et lance.'}
+          </p>
         </div>
+
+        {/* Le stepper n'apparaît qu'en mode AVANCÉ (étapes 2-3). Le chemin par
+            défaut est la création rapide en 1 écran (plug & play) : afficher
+            3 étapes qu'on ne traverse pas créait une fausse attente. */}
+        {step > 1 && (
+          <div className="flex items-center gap-2 mb-6">
+            {steps.map((s, i) => (
+              <React.Fragment key={s.n}>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all`}
+                    style={{
+                      background: step > s.n ? '#22C55E' : step === s.n ? '#6366F1' : 'var(--border)',
+                      color: step >= s.n ? '#fff' : 'var(--text-dim)',
+                    }}>
+                    {step > s.n ? <Check size={12} /> : s.n}
+                  </div>
+                  <span className="text-sm hidden sm:block" style={{ color: step === s.n ? 'var(--text)' : 'var(--text-dim)' }}>{s.label}</span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className="flex-1 h-px" style={{ background: step > s.n ? '#22C55E' : 'var(--border)' }} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
 
         {/* ── Étape 1 : Paramètres ── */}
         {step === 1 && (
@@ -206,18 +222,18 @@ export default function CreatePartie() {
                 sont implicites (distanciel forcé, pas d'élimination) → masquées. */}
             {form.mode !== 'solo' && (
               <div className="card p-4 space-y-2">
-                <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                  <span>🌐 Jeu à distance (médias + saisie sur téléphone)</span>
+                <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                  <span className="flex items-center gap-2"><Globe size={15} style={{ color: '#0EA5E9' }} className="shrink-0" />Jeu à distance (médias + saisie sur téléphone)</span>
                   <input type="checkbox" checked={!!form.modeDistanciel}
                     onChange={e => setForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
                 </label>
-                <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                  <span>🔴 Élimination progressive (active par manche ci-après)</span>
+                <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                  <span className="flex items-center gap-2"><UserMinus size={15} style={{ color: '#EF4444' }} className="shrink-0" />Élimination progressive (active par manche ci-après)</span>
                   <input type="checkbox" checked={!!form.eliminationActive}
                     onChange={e => setForm(f => ({ ...f, eliminationActive: e.target.checked }))} />
                 </label>
-                <label className="flex items-center justify-between text-sm" style={{ color: 'var(--text-muted)' }}>
-                  <span>❤️ Vies par joueur (0 = désactivé · −1 par mauvaise réponse)</span>
+                <label className="flex items-center justify-between gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <span className="flex items-center gap-2"><Heart size={15} style={{ color: '#F87171' }} className="shrink-0" />Vies par joueur (0 = désactivé · −1 par mauvaise réponse)</span>
                   <input type="number" min={0} max={10} value={form.viesParJoueur}
                     onChange={e => setForm(f => ({ ...f, viesParJoueur: Number(e.target.value) }))}
                     className="input text-center w-16 py-1" />
@@ -276,15 +292,19 @@ export default function CreatePartie() {
               </div>
             </div>
 
-            {/* Création rapide : 1 manche aux réglages par défaut → on lance direct. */}
+            {/* Création RAPIDE (défaut plug & play) : crée directement la partie
+                avec les manches aux réglages standards → salle d'attente. */}
             <button onClick={handleCreate} disabled={!form.nom.trim() || loading}
               className="btn-primary w-full btn-xl gap-2">
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <>Créer la partie <ChevronRight size={16} /></>}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <><Rocket size={16} />Créer la partie <ChevronRight size={16} /></>}
             </button>
+            <p className="text-2xs text-center -mt-2" style={{ color: 'var(--text-dim)' }}>
+              Prêt à jouer tout de suite : {form.nbManches} manche{form.nbManches > 1 ? 's' : ''} · 10 questions/manche · 30 s · thème mélangé
+            </p>
             <button onClick={() => { if (form.nom.trim()) setStep(2) }}
               disabled={!form.nom.trim()}
-              className="btn-ghost btn-sm w-full">
-              Personnaliser les manches (avancé)
+              className="btn-secondary w-full gap-2">
+              <Layers size={15} />Personnaliser les manches (thèmes, difficulté, points…)
             </button>
           </div>
         )}
@@ -316,7 +336,7 @@ export default function CreatePartie() {
                     <select value={m.theme} onChange={e => updateManche(i, 'theme', e.target.value)}
                       className="input text-sm">
                       {allThemes.map(t => (
-                        <option key={t} value={t}>{t === 'MELANGE' ? '🔀 Mélange' : t}</option>
+                        <option key={t} value={t}>{t === 'MELANGE' ? 'Mélange' : t}</option>
                       ))}
                     </select>
                   </div>
@@ -353,8 +373,8 @@ export default function CreatePartie() {
                 {/* Mécaniques avancées (manches inspirées des jeux TV) */}
                 <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border)' }}>
                   <p className="text-2xs uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Mécaniques (optionnel)</p>
-                  <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                    <span>🟠 Manche à risque (malus si mauvaise réponse)</span>
+                  <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                    <span className="flex items-center gap-2"><AlertTriangle size={14} style={{ color: '#F59E0B' }} className="shrink-0" />Manche à risque (malus si mauvaise réponse)</span>
                     <input type="checkbox" checked={!!m.malusEnabled}
                       onChange={e => updateManche(i, 'malusEnabled', e.target.checked)} />
                   </label>
@@ -366,14 +386,14 @@ export default function CreatePartie() {
                         className="input text-center w-16 py-1" /> %
                     </div>
                   )}
-                  <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                    <span>🟡 Multiplicateur de points (×)</span>
+                  <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                    <span className="flex items-center gap-2"><TrendingUp size={14} style={{ color: '#EAB308' }} className="shrink-0" />Multiplicateur de points (×)</span>
                     <input type="number" min={0.5} max={5} step={0.5} value={m.multiplicateurPoints}
                       onChange={e => updateManche(i, 'multiplicateurPoints', Number(e.target.value))}
                       className="input text-center w-16 py-1" />
                   </label>
-                  <label className="flex items-center justify-between text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                    <span>🔴 Élimination du dernier en fin de manche</span>
+                  <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                    <span className="flex items-center gap-2"><UserMinus size={14} style={{ color: '#EF4444' }} className="shrink-0" />Élimination du dernier en fin de manche</span>
                     <input type="checkbox" checked={!!m.eliminationActive}
                       onChange={e => updateManche(i, 'eliminationActive', e.target.checked)} />
                   </label>
@@ -418,7 +438,7 @@ export default function CreatePartie() {
                   <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{m.nom}</span>
                 </div>
                 <div className="flex gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
-                  <span>{m.theme === 'MELANGE' ? '🔀 Mélange' : m.theme}</span>
+                  <span>{m.theme === 'MELANGE' ? 'Mélange' : m.theme}</span>
                   <span>{m.difficulte === 'MIXTE' ? 'Mixte' : m.difficulte.toLowerCase()}</span>
                   <span>{m.nbQuestions} q.</span>
                 </div>

@@ -36,7 +36,7 @@ export default function GuestHome() {
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(99,102,241,0.15)' }}>
             <Gamepad2 size={26} style={{ color: '#818CF8' }} />
           </div>
-          <h1 className="text-2xl font-bold">Salut {user.prenom} 👋</h1>
+          <h1 className="text-2xl font-bold">Salut {user.prenom}</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Tu joues en invité.</p>
 
           <form onSubmit={join} className="card p-4 mt-6 text-left">
