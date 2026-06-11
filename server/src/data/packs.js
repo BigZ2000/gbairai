@@ -260,6 +260,29 @@ export const PACKS = [
     modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['francophonie'],
     nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
   },
+  {
+    id: 'drapeaux-afrique-ouest', emoji: '🌍', nom: "Drapeaux d'Afrique de l'Ouest",
+    description: "Les drapeaux des pays de l'Afrique de l'Ouest.",
+    couleur: '#15803D', categories: ['Drapeaux'], difficulte: 'FACILE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['afrique-ouest'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
+
+  // ── Packs CAPITALES (alimentés par l'import W2560, tag namespacé "capitales") ─
+  {
+    id: 'capitales-monde', emoji: '🏛️', nom: 'Capitales du Monde',
+    description: 'Trouve la capitale de chaque pays.',
+    couleur: '#0EA5E9', categories: ['Géographie'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['capitales'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
+  {
+    id: 'capitales-afrique', emoji: '🌍', nom: "Capitales d'Afrique",
+    description: 'Les capitales des pays africains.',
+    couleur: '#16A34A', categories: ['Géographie'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['capitales-afrique'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
 ]
 
 // Parties signature : presets officiels prêts à jouer (1 clic = on lance).

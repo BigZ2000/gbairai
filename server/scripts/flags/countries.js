@@ -99,6 +99,70 @@ export const GROUPES = {
                  'gp', 'mq', 'gf', 're', 'yt', 'nc', 'pf', 'wf', 'bl', 'mf', 'pm'],
 }
 
+// ── Capitales (FR) — sous-ensemble fiable (États souverains principalement).
+// Les codes absents ne génèrent pas de question « capitale ». ⚠️ quelques cas
+// peuvent prêter à débat (capitales multiples) ; à ajuster si besoin.
+export const CAPITALS = {
+  ad: 'Andorre-la-Vieille', ae: 'Abou Dabi', af: 'Kaboul', ag: "Saint John's", al: 'Tirana',
+  am: 'Erevan', ao: 'Luanda', ar: 'Buenos Aires', at: 'Vienne', au: 'Canberra', az: 'Bakou',
+  ba: 'Sarajevo', bb: 'Bridgetown', bd: 'Dacca', be: 'Bruxelles', bf: 'Ouagadougou', bg: 'Sofia',
+  bh: 'Manama', bi: 'Gitega', bj: 'Porto-Novo', bn: 'Bandar Seri Begawan', bo: 'Sucre',
+  br: 'Brasília', bs: 'Nassau', bt: 'Thimphou', bw: 'Gaborone', by: 'Minsk', bz: 'Belmopan',
+  ca: 'Ottawa', cd: 'Kinshasa', cf: 'Bangui', cg: 'Brazzaville', ch: 'Berne', ci: 'Yamoussoukro',
+  cl: 'Santiago', cm: 'Yaoundé', cn: 'Pékin', co: 'Bogota', cr: 'San José', cu: 'La Havane',
+  cv: 'Praia', cy: 'Nicosie', cz: 'Prague', de: 'Berlin', dj: 'Djibouti', dk: 'Copenhague',
+  dm: 'Roseau', do: 'Saint-Domingue', dz: 'Alger', ec: 'Quito', ee: 'Tallinn', eg: 'Le Caire',
+  er: 'Asmara', es: 'Madrid', et: 'Addis-Abeba', fi: 'Helsinki', fj: 'Suva', fm: 'Palikir',
+  fr: 'Paris', ga: 'Libreville', gb: 'Londres', gd: "Saint-Georges", ge: 'Tbilissi', gh: 'Accra',
+  gm: 'Banjul', gn: 'Conakry', gq: 'Malabo', gr: 'Athènes', gt: 'Guatemala', gw: 'Bissau',
+  gy: 'Georgetown', hn: 'Tegucigalpa', hr: 'Zagreb', ht: 'Port-au-Prince', hu: 'Budapest',
+  id: 'Jakarta', ie: 'Dublin', il: 'Jérusalem', in: 'New Delhi', iq: 'Bagdad', ir: 'Téhéran',
+  is: 'Reykjavik', it: 'Rome', jm: 'Kingston', jo: 'Amman', jp: 'Tokyo', ke: 'Nairobi',
+  kg: 'Bichkek', kh: 'Phnom Penh', ki: 'Tarawa-Sud', km: 'Moroni', kn: 'Basseterre',
+  kp: 'Pyongyang', kr: 'Séoul', kw: 'Koweït', kz: 'Astana', la: 'Vientiane', lb: 'Beyrouth',
+  lc: 'Castries', li: 'Vaduz', lk: 'Colombo', lr: 'Monrovia', ls: 'Maseru', lt: 'Vilnius',
+  lu: 'Luxembourg', lv: 'Riga', ly: 'Tripoli', ma: 'Rabat', mc: 'Monaco', md: 'Chișinău',
+  me: 'Podgorica', mg: 'Antananarivo', mh: 'Majuro', mk: 'Skopje', ml: 'Bamako', mm: 'Naypyidaw',
+  mn: 'Oulan-Bator', mr: 'Nouakchott', mt: 'La Valette', mu: 'Port-Louis', mv: 'Malé',
+  mw: 'Lilongwe', mx: 'Mexico', my: 'Kuala Lumpur', mz: 'Maputo', na: 'Windhoek', ne: 'Niamey',
+  ng: 'Abuja', ni: 'Managua', nl: 'Amsterdam', no: 'Oslo', np: 'Katmandou', nr: 'Yaren',
+  nz: 'Wellington', om: 'Mascate', pa: 'Panama', pe: 'Lima', pg: 'Port Moresby', ph: 'Manille',
+  pk: 'Islamabad', pl: 'Varsovie', ps: 'Ramallah', pt: 'Lisbonne', pw: 'Ngerulmud', py: 'Asunción',
+  qa: 'Doha', ro: 'Bucarest', rs: 'Belgrade', ru: 'Moscou', rw: 'Kigali', sa: 'Riyad',
+  sb: 'Honiara', sc: 'Victoria', sd: 'Khartoum', se: 'Stockholm', sg: 'Singapour', si: 'Ljubljana',
+  sk: 'Bratislava', sl: 'Freetown', sm: 'Saint-Marin', sn: 'Dakar', so: 'Mogadiscio',
+  sr: 'Paramaribo', ss: 'Djouba', st: 'São Tomé', sv: 'San Salvador', sy: 'Damas', sz: 'Mbabane',
+  td: "N'Djaména", tg: 'Lomé', th: 'Bangkok', tj: 'Douchanbé', tl: 'Dili', tm: 'Achgabat',
+  tn: 'Tunis', to: "Nuku'alofa", tr: 'Ankara', tt: "Port-d'Espagne", tv: 'Funafuti', tw: 'Taipei',
+  tz: 'Dodoma', ua: 'Kiev', ug: 'Kampala', us: 'Washington', uy: 'Montevideo', uz: 'Tachkent',
+  va: 'Cité du Vatican', vc: 'Kingstown', ve: 'Caracas', vn: 'Hanoï', vu: 'Port-Vila', ws: 'Apia',
+  xk: 'Pristina', ye: 'Sanaa', za: 'Pretoria', zm: 'Lusaka', zw: 'Harare',
+}
+
+// ── Sous-régions AFRICAINES (UN) — code → libellé. (Autres continents : niveau
+// continent uniquement pour l'instant ; extensible.)
+const SOUSREGION_AF = {
+  nord:     ['dz', 'eg', 'ly', 'ma', 'tn', 'sd', 'eh'],
+  ouest:    ['bj', 'bf', 'cv', 'ci', 'gm', 'gh', 'gn', 'gw', 'lr', 'ml', 'mr', 'ne', 'ng', 'sn', 'sl', 'tg', 'sh'],
+  centrale: ['ao', 'cm', 'cf', 'td', 'cg', 'cd', 'gq', 'ga', 'st'],
+  est:      ['bi', 'km', 'dj', 'er', 'et', 'ke', 'mg', 'mw', 'mu', 'yt', 'mz', 're', 'rw', 'sc', 'so', 'ss', 'tz', 'ug', 'zm', 'zw'],
+  australe: ['bw', 'sz', 'ls', 'na', 'za'],
+}
+const SOUSREGION_LABEL = {
+  nord: "Afrique du Nord", ouest: "Afrique de l'Ouest", centrale: 'Afrique centrale',
+  est: "Afrique de l'Est", australe: 'Afrique australe',
+}
+
+export function capitaleOf(code) { return CAPITALS[code] ?? null }
+
+// Renvoie { tag, nom } de la sous-région, ou null.
+export function sousRegionOf(code) {
+  for (const [k, list] of Object.entries(SOUSREGION_AF)) {
+    if (list.includes(code)) return { tag: `afrique-${k}`, nom: SOUSREGION_LABEL[k] }
+  }
+  return null
+}
+
 // ── Difficulté indicative ────────────────────────────────────────────────────
 const FACILE = new Set(['fr', 'us', 'gb', 'de', 'it', 'es', 'pt', 'be', 'nl', 'ch', 'ca', 'br', 'ar',
   'mx', 'jp', 'cn', 'in', 'ru', 'au', 'za', 'ng', 'ci', 'sn', 'gh', 'ma', 'dz', 'eg', 'sa', 'kr', 'tr', 'gr', 'se', 'no'])
@@ -124,6 +188,8 @@ export function tagsOf(code) {
   const cont = COUNTRIES[code]?.[1]
   const tags = ['drapeaux']
   if (cont && CONTINENTS[cont]) tags.push(CONTINENTS[cont].tag)
+  const sr = sousRegionOf(code)
+  if (sr) tags.push(sr.tag)
   for (const [g, list] of Object.entries(GROUPES)) if (list.includes(code)) tags.push(g)
   return tags
 }

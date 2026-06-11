@@ -14,7 +14,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import AdmZip from 'adm-zip'
-import { COUNTRIES, difficulteOf, tagsOf, slugify } from './countries.js'
+import { COUNTRIES, CONTINENTS, GROUPES, difficulteOf, tagsOf, slugify, capitaleOf, sousRegionOf } from './countries.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..', '..', '..') // racine du repo (gbairai/)
@@ -24,7 +24,7 @@ const args = Object.fromEntries(process.argv.slice(2).map(a => {
 }))
 const SRC = path.resolve(ROOT, args.src || 'W2560')
 const OUT = path.resolve(ROOT, args.out || 'W2560-drapeaux.zip')
-const TYPES = String(args.types || '1,2').split(',').map(s => s.trim())
+const TYPES = String(args.types || '1,2,3,4').split(',').map(s => s.trim())
 const NCHOICES = Math.max(2, Math.min(6, Number(args.choices) || 4))
 const LIMIT = args.limit ? Number(args.limit) : Infinity
 
@@ -60,6 +60,23 @@ function main() {
     const other = codes.filter(c => c !== code && contOf(c) !== cont)
     return [...shuffle(same), ...shuffle(other)].slice(0, n)
   }
+  // Distracteurs pour les capitales (uniquement parmi les pays AVEC capitale connue).
+  const capCodes = codes.filter(c => capitaleOf(c))
+  const pickCapDistractors = (code, n) => {
+    const cont = contOf(code)
+    const same = capCodes.filter(c => c !== code && contOf(c) === cont)
+    const other = capCodes.filter(c => c !== code && contOf(c) !== cont)
+    return [...shuffle(same), ...shuffle(other)].slice(0, n)
+  }
+  // Tags d'une question « capitale ». Namespacés (capitales-…) pour NE PAS polluer
+  // les packs drapeaux qui filtrent sur les tags bruts (afrique, cedeao…).
+  const capTags = (code) => {
+    const t = ['capitales']
+    const cont = CONTINENTS[contOf(code)]?.tag; if (cont) t.push(`capitales-${cont}`)
+    const sr = sousRegionOf(code); if (sr) t.push(`capitales-${sr.tag}`)
+    for (const [g, list] of Object.entries(GROUPES)) if (list.includes(code)) t.push(`capitales-${g}`)
+    return t
+  }
 
   const questions = []
   const usedFiles = new Set()
@@ -86,6 +103,21 @@ function main() {
         ...distract.map(d => ({ mediaFile: fileName[d] })),
       ])
       questions.push({ format: 'QCM', enonce: `Quel est le drapeau de « ${name} » ?`, choices, meta, difficulte: diff, points: 100 })
+    }
+    // Type 3 — BUZZER : drapeau (IMAGE) → réponse libre = nom du pays.
+    if (TYPES.includes('3')) {
+      questions.push({ format: 'BUZZER', media: { kind: 'IMAGE', file: fileName[code] }, enonce: 'À quel pays appartient ce drapeau ?', reponse: name, meta, difficulte: diff, points: 100 })
+    }
+    // Type 4 — CAPITALE : QCM texte (sans image). Catégorie Géographie, tag capitales.
+    if (TYPES.includes('4') && capitaleOf(code)) {
+      const cap = capitaleOf(code)
+      const dist = pickCapDistractors(code, NCHOICES - 1)
+      const choices = shuffle([{ text: cap, correct: true }, ...dist.map(d => ({ text: capitaleOf(d) }))])
+      questions.push({
+        format: 'QCM', enonce: `Quelle est la capitale de « ${name} » ?`, choices,
+        meta: { subjectKey: `CAP-${code.toUpperCase()}`, categorie: 'Géographie', tags: capTags(code) },
+        difficulte: diff, points: 100,
+      })
     }
   }
 
