@@ -221,6 +221,45 @@ export const PACKS = [
     modeRecommande: 'auto', modeDistanciel: true, typesAutorises: CHOIX_TYPES_AV,
     nbManches: 1, nbQuestions: 12, tempsParQuestion: 20,
   },
+
+  // ── Packs DRAPEAUX (alimentés par l'import W2560 → tags continent/groupes) ────
+  // Filtrage par `filtreTags` (le tag de région n'existe que sur les drapeaux).
+  // Vides tant que le pack « Drapeaux du Monde » n'est pas importé (Admin → Import).
+  {
+    id: 'drapeaux-monde', emoji: '🏳️', nom: 'Drapeaux du Monde',
+    description: 'Reconnais les drapeaux du monde entier.',
+    couleur: '#6366F1', categories: ['Géographie'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['drapeaux'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
+  {
+    id: 'drapeaux-afrique', emoji: '🌍', nom: "Drapeaux d'Afrique",
+    description: 'Les drapeaux des pays africains.',
+    couleur: '#22C55E', categories: ['Géographie'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['afrique'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
+  {
+    id: 'drapeaux-cedeao', emoji: '🤝', nom: 'Drapeaux de la CEDEAO',
+    description: 'Les 15 pays de la Communauté économique des États de l\'Afrique de l\'Ouest.',
+    couleur: '#16A34A', categories: ['Géographie'], difficulte: 'FACILE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['cedeao'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
+  {
+    id: 'drapeaux-g20', emoji: '🏛️', nom: 'Drapeaux du G20',
+    description: 'Les grandes puissances économiques mondiales.',
+    couleur: '#3B82F6', categories: ['Géographie'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['g20'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
+  {
+    id: 'drapeaux-francophonie', emoji: '🗣️', nom: 'Drapeaux de la Francophonie',
+    description: 'Les pays et territoires francophones.',
+    couleur: '#8B5CF6', categories: ['Géographie'], difficulte: 'MIXTE',
+    modeRecommande: 'auto', modeDistanciel: true, typesAutorises: [], filtreTags: ['francophonie'],
+    nbManches: 1, nbQuestions: 10, tempsParQuestion: 20,
+  },
 ]
 
 // Parties signature : presets officiels prêts à jouer (1 clic = on lance).
