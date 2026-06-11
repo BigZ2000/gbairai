@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import AdminLayout from './AdminLayout.jsx'
-import Pagination, { usePagination } from '../../components/Pagination.jsx'
+import Pagination from '../../components/Pagination.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { MediaPreview } from '../../components/MediaPicker.jsx'
 import { Upload, Search, Trash2, X, Loader2, Image as ImageIcon, Music, Video, Check } from 'lucide-react'
@@ -22,8 +22,9 @@ export default function AdminMedia() {
   const { apiFetch, apiUpload } = useAuth()
   const fileRef = useRef(null)
   const [items, setItems]     = useState([])
-  const pg = usePagination(items, 20)
+  const [page, setPage]       = useState(1)
   const [total, setTotal]     = useState(0)
+  const PER = 60
   const [type, setType]       = useState('')
   const [q, setQ]             = useState('')
   const [loading, setLoading] = useState(false)
@@ -33,15 +34,17 @@ export default function AdminMedia() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams({ limit: '60' })
+    const params = new URLSearchParams({ limit: String(PER), page: String(page) })
     if (type) params.set('type', type)
     if (q)    params.set('q', q)
     const res = await apiFetch(`/media?${params}`)
     if (res?.ok) { const d = await res.json(); setItems(d.media ?? []); setTotal(d.total ?? 0) }
     setLoading(false)
-  }, [type, q, apiFetch])
+  }, [type, q, page, apiFetch])
 
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t) }, [load])
+  // Retour à la page 1 quand on change de filtre/recherche.
+  useEffect(() => { setPage(1) }, [type, q])
 
   async function handleFiles(files) {
     if (!files?.length) return
@@ -122,7 +125,7 @@ export default function AdminMedia() {
         <p className="text-center text-sm py-16" style={{ color: 'var(--text-dim)' }}>Aucun média</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {pg.slice.map(m => {
+          {items.map(m => {
             const Icon = TYPE_ICON[m.type]
             return (
               <button key={m.id} onClick={() => setSelected(m)}
@@ -146,7 +149,7 @@ export default function AdminMedia() {
           })}
         </div>
       )}
-      <Pagination page={pg.page} pages={pg.pages} total={pg.total} perPage={pg.perPage} onPage={pg.setPage} />
+      <Pagination page={page} pages={Math.max(1, Math.ceil(total / PER))} total={total} perPage={PER} onPage={setPage} />
 
       {/* Détail média */}
       {selected && (
