@@ -151,7 +151,7 @@ async function broadcastParticipants(partieCode) {
     type: 'participant_update',
     participants: participants.map(p => ({
       id: p.id, userId: p.userId, prenom: p.prenom, score: p.score, rang: p.rang,
-      isEliminated: p.isEliminated ?? false,
+      isEliminated: p.isEliminated ?? false, vies: p.vies ?? null,
       buzzer: p.buzzer ? { couleur: p.buzzer.couleur, mac: p.buzzer.mac, status: p.buzzer.status, battery: p.buzzer.battery } : null,
     })),
   })
@@ -174,6 +174,22 @@ async function eliminateLastPlayer(partieCode) {
     participantId: last.id,
     prenom: last.prenom,
   })
+}
+
+// Mode « vies » : retire une vie à un joueur ; à 0 → éliminé (spectateur).
+// No-op si le joueur n'a pas de vies (mode désactivé) ou est déjà éliminé.
+async function loseLife(partieCode, participantId) {
+  if (!participantId) return
+  const p = await prisma.participant.findUnique({
+    where: { id: participantId }, select: { vies: true, isEliminated: true, prenom: true },
+  })
+  if (!p || p.vies == null || p.isEliminated) return
+  const left = p.vies - 1
+  await prisma.participant.update({
+    where: { id: participantId },
+    data: { vies: left, ...(left <= 0 ? { isEliminated: true } : {}) },
+  }).catch(() => {})
+  if (left <= 0) broadcast(partieCode, { type: 'player_eliminated', participantId, prenom: p.prenom })
 }
 
 // Avance à la question suivante (ou termine la partie). Renvoie true si une
@@ -369,25 +385,23 @@ async function scoreAutoQuestion(partieCode) {
   const state = getGameState(partieCode)
   const q = state.questions?.[state.currentQuestion]
   if (!q) return
+  const partie = await prisma.partie.findUnique({
+    where: { code: partieCode }, select: { modeDistanciel: true, viesParJoueur: true },
+  })
   const updates = []
+  const wrong = [] // mauvaises réponses (pour le mode « vies »)
 
   if (questionAChoix(q)) {
     // Questions à choix (QCM/VF/choix-images) : choix riches → index ; sinon texte.
     for (const [pid, a] of state.answers) {
-      if (isChoiceCorrect(q, a.answer)) {
-        updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
-      }
+      if (isChoiceCorrect(q, a.answer)) updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
+      else wrong.push(pid)
     }
-  } else {
-    // A4/A5 — Question BUZZER en mode distanciel : saisie libre, matching intelligent.
-    // (En présentiel, les questions BUZZER ne sont pas scorées automatiquement.)
-    const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { modeDistanciel: true } })
-    if (partie?.modeDistanciel) {
-      for (const [pid, a] of state.answers) {
-        if (answersMatch(a.answer, q.reponse)) {
-          updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
-        }
-      }
+  } else if (partie?.modeDistanciel) {
+    // A4/A5 — BUZZER distanciel : saisie libre, matching intelligent.
+    for (const [pid, a] of state.answers) {
+      if (answersMatch(a.answer, q.reponse)) updates.push({ participantId: pid, pts: questionPoints(q, a.ms) })
+      else wrong.push(pid)
     }
   }
 
@@ -398,7 +412,11 @@ async function scoreAutoQuestion(partieCode) {
       questionId: q.id ?? null, participantId: u.participantId, valide: true,
     })
   }
-  if (updates.length) await broadcastParticipants(partieCode)
+  // Mode « vies » : -1 vie pour chaque mauvaise réponse (élimination à 0).
+  if (partie?.viesParJoueur > 0 && wrong.length) {
+    for (const pid of wrong) await loseLife(partieCode, pid)
+  }
+  if (updates.length || wrong.length) await broadcastParticipants(partieCode)
 }
 
 // Révèle la réponse de la question courante puis programme l'avancement.
@@ -720,6 +738,11 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
           })
           await broadcastParticipants(partieCode)
         }
+      }
+      // Mode « vies » : mauvaise réponse jugée = -1 vie (no-op si désactivé).
+      if (!valide && participantId) {
+        await loseLife(partieCode, participantId)
+        await broadcastParticipants(partieCode)
       }
 
       recordEvent(partieCode, {

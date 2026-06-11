@@ -65,6 +65,7 @@ const CreatePartieSchema = z.object({
   masquerReponses: z.boolean().default(false),
   modeDistanciel: z.boolean().default(false),
   eliminationActive: z.boolean().default(false),
+  viesParJoueur: z.number().int().min(0).max(10).default(0),
 })
 
 // ── Routes statiques AVANT /:partieId ───────────────────────────────────────
@@ -73,7 +74,7 @@ router.post('/', requireAuth, async (req, res) => {
   const parsed = CreatePartieSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, eliminationActive } = parsed.data
+  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, eliminationActive, viesParJoueur } = parsed.data
   let code
   let attempts = 0
   do {
@@ -94,6 +95,7 @@ router.post('/', requireAuth, async (req, res) => {
       masquerReponses: mode === 'animateur' ? masquerReponses : false,
       modeDistanciel: !!modeDistanciel,
       eliminationActive: !!eliminationActive,
+      viesParJoueur: viesParJoueur ?? 0,
       timerBuzz, timerVote,
     },
   })
@@ -528,6 +530,14 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
     where: { id: partieId },
     data: { status: 'EN_COURS', startedAt: new Date() },
   })
+
+  // Mode « vies » : initialise le compteur de chaque joueur (hors animateur).
+  if (partie.viesParJoueur > 0) {
+    await prisma.participant.updateMany({
+      where: { partieId, isAnimateur: false },
+      data: { vies: partie.viesParJoueur },
+    })
+  }
 
   // Les buzzers matériels assignés passent EN JEU (statut IN_GAME).
   await markBuzzersInGame(partieId)

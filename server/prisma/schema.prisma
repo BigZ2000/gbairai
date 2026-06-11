@@ -167,6 +167,9 @@ model Partie {
   modeDistanciel Boolean   @default(false)
   // Élimination progressive activée pour cette partie (D6).
   eliminationActive Boolean @default(false)
+  // Mode « vies » : nb de vies par joueur (0 = désactivé). Mauvaise réponse = −1 vie ;
+  // éliminé à 0. Cumulable avec les autres mécaniques.
+  viesParJoueur     Int     @default(0)
   timerBuzz   Int          @default(10)
   timerVote   Int          @default(15)
   packId      String?
@@ -209,6 +212,7 @@ model Participant {
   buzzer      Buzzer?  @relation(fields: [buzzerId], references: [id])
   isAnimateur  Boolean  @default(false)
   isEliminated Boolean  @default(false) // D6 : exclu du buzz, reste spectateur
+  vies         Int?     // mode « vies » : nb de vies restantes (null = désactivé)
   score        Int      @default(0)
   rang         Int?
   joinedAt     DateTime @default(now())

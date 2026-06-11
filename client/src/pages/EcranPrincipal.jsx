@@ -206,6 +206,9 @@ export default function EcranPrincipal() {
                 </span>
                 <BuzzerAnime couleur={p.buzzer?.couleur ?? '#6366F1'} statut="ready" size="sm" />
                 <span className="text-2xl font-bold flex-1" style={{ color: 'var(--text)' }}>{p.prenom}</span>
+                {p.vies != null && (
+                  <span className="text-xl mr-3" title="Vies">{p.vies > 0 ? '❤️'.repeat(p.vies) : '💀'}</span>
+                )}
                 <span className="text-2xl font-black" style={{ color: '#F59E0B' }}>{p.score} pts</span>
               </div>
             ))}
