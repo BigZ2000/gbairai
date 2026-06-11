@@ -35,6 +35,7 @@ const CANON = [
   ['Littérature',          '📚'],
   ['Art & Culture',        '🎨'],
   ['Nature & Animaux',     '🌿'],
+  ['Drapeaux',             '🏳️'],
 ]
 
 async function main() {

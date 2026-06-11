@@ -66,7 +66,7 @@ function main() {
   for (const code of codes) {
     const name = nameOf(code)
     const subjectKey = code.toUpperCase()
-    const meta = { subjectKey, categorie: 'Géographie', tags: tagsOf(code) }
+    const meta = { subjectKey, categorie: 'Drapeaux', tags: tagsOf(code) }
     const diff = difficulteOf(code)
     usedFiles.add(code)
 
@@ -95,7 +95,7 @@ function main() {
       description: 'Reconnais les drapeaux du monde entier.',
       modeRecommande: 'auto', typesAutorises: [], filtreTags: ['drapeaux'], modeDistanciel: true,
       nbManches: 1, nbQuestions: 10, tempsParQuestion: 20, difficulte: 'MIXTE',
-      categories: ['Géographie'], tier: 'GRATUIT',
+      categorie: 'Drapeaux', categories: ['Drapeaux'], tier: 'GRATUIT',
     },
     questions,
   }
