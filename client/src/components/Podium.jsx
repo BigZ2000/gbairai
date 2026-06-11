@@ -29,7 +29,7 @@ export default function Podium({ classement = [], variant = 'tv', onClose, title
         </div>
         {top3[0] && (
           <p className={`${big ? 'text-2xl' : 'text-base'} font-semibold`} style={{ color: '#F59E0B' }}>
-            🎉 {top3[0].prenom} remporte la partie !
+            {top3[0].prenom} remporte la partie !
           </p>
         )}
       </div>

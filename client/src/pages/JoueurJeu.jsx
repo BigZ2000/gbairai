@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import { flattenManches } from '../utils/manches.js'
 import QuestionMedia from '../components/QuestionMedia.jsx'
-import { Loader2, Zap, Check, X, Trophy, Hand, AlertTriangle, Tv, Square } from 'lucide-react'
+import { Loader2, Zap, Check, X, Trophy, Hand, AlertTriangle, Tv, Square, Gamepad2, Smartphone, Heart, Skull, PartyPopper, Frown, AlarmClock, Eye } from 'lucide-react'
 
 // Écran JOUEUR — pensé pour le présentiel « lève les yeux » :
 // l'essentiel est un grand bouton BUZZ. La question est sur l'écran public.
@@ -94,12 +94,12 @@ export default function JoueurJeu() {
           if (msg.valide) setArmed(false); break
         // Bascule de source transparente (Part 6) — avis discrets, jamais bloquants.
         case 'buzzer_assigned':
-          if (msg.participantId === myIdRef.current) showToast('🎮 Buzzer connecté'); break
+          if (msg.participantId === myIdRef.current) showToast('Buzzer connecté'); break
         case 'unassign_buzzer':
-          if (msg.participantId === myIdRef.current) showToast('📱 Buzzer retiré — tu joues au téléphone'); break
+          if (msg.participantId === myIdRef.current) showToast('Buzzer retiré — tu joues au téléphone'); break
         case 'buzzer_status_update':
           if (msg.mac && msg.mac === myMacRef.current)
-            showToast(msg.status === 'OFFLINE' ? '📱 Buzzer déconnecté — continue au téléphone' : '🎮 Buzzer reconnecté')
+            showToast(msg.status === 'OFFLINE' ? 'Buzzer déconnecté — continue au téléphone' : 'Buzzer reconnecté')
           break
         case 'media_state': // D5
           setMediaState(msg.hasMedia ? { playing: msg.playing, position: msg.position, seq: msg.seq } : null); break
@@ -178,7 +178,7 @@ export default function JoueurJeu() {
           {user?.isGuest ? (
             // Invité → tunnel de conversion (jamais de retour au tableau de bord).
             <div className="w-full max-w-xs mx-auto">
-              <p className="text-sm mb-3" style={{ color: '#9090A0' }}>Garde ton score et ton historique 👇</p>
+              <p className="text-sm mb-3" style={{ color: '#9090A0' }}>Garde ton score et ton historique :</p>
               <div className="flex flex-col gap-2">
                 <button onClick={() => navigate('/register')} className="btn-primary w-full">Créer mon compte</button>
                 <button onClick={() => navigate('/abonnement')} className="btn-secondary w-full">Voir les offres</button>
@@ -207,13 +207,15 @@ export default function JoueurJeu() {
           {/* Source de buzz active (informatif) : matériel ou téléphone. */}
           <span className="text-2xs px-2 py-1 rounded-lg" title="Ta source de buzz"
             style={{ background: 'rgba(255,255,255,0.04)', color: buzzerLive ? '#A5B4FC' : '#9090A0' }}>
-            {buzzerLive ? '🎮 Buzzer' : '📱 Téléphone'}
+            {buzzerLive ? <><Gamepad2 size={12} className="inline mr-1 -mt-0.5" />Buzzer</> : <><Smartphone size={12} className="inline mr-1 -mt-0.5" />Téléphone</>}
           </span>
           <span className="text-2xs" style={{ color: '#5A5A6E' }}>{myParticipant?.prenom}</span>
           {myParticipant?.vies != null && (
             <span className="text-sm px-2 py-1 rounded-lg" title="Vies restantes"
               style={{ background: 'rgba(239,68,68,0.12)' }}>
-              {myParticipant.vies > 0 ? '❤️'.repeat(myParticipant.vies) : '💀'}
+              {myParticipant.vies > 0
+                ? <span className="inline-flex items-center gap-0.5">{Array.from({ length: myParticipant.vies }).map((_, i) => <Heart key={i} size={13} fill="#F87171" color="#F87171" />)}</span>
+                : <Skull size={14} color="#9090A0" />}
             </span>
           )}
           <span className="text-sm font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(99,102,241,0.15)', color: '#A5B4FC' }}>
@@ -243,7 +245,7 @@ export default function JoueurJeu() {
       {isEliminated && (
         <div className="px-4 py-2 flex items-center gap-2 text-sm"
           style={{ background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.25)', color: '#F87171' }}>
-          Tu as été éliminé · Reste spectateur pour soutenir les autres 👀
+          Tu as été éliminé · Reste spectateur pour soutenir les autres
         </div>
       )}
 
@@ -286,7 +288,7 @@ export default function JoueurJeu() {
             )}
             {question.malusEnabled && (
               <span className="text-2xs font-bold px-2.5 py-1 rounded-full" style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171' }}>
-                ⚠️ Manche à risque −{question.malusPenalite ?? 50}%
+                <AlertTriangle size={11} className="inline mr-1 -mt-0.5" />Manche à risque −{question.malusPenalite ?? 50}%
               </span>
             )}
           </div>
@@ -337,7 +339,9 @@ export default function JoueurJeu() {
                     background: none ? 'rgba(255,255,255,0.04)' : ok ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.10)',
                     border: `2px solid ${none ? 'rgba(255,255,255,0.10)' : ok ? 'rgba(34,197,94,0.55)' : 'rgba(248,113,113,0.45)'}`,
                   }}>
-                  <p className="text-6xl mb-3">{none ? '⏰' : ok ? '🎉' : '😅'}</p>
+                  <div className="flex justify-center mb-4">
+                    {none ? <AlarmClock size={56} color="#9090A0" /> : ok ? <PartyPopper size={56} color="#22C55E" /> : <Frown size={56} color="#F87171" />}
+                  </div>
                   <p className="text-2xl font-extrabold mb-1" style={{ color }}>
                     {none ? 'Pas de réponse' : ok ? 'Bonne réponse !' : 'Raté cette fois…'}
                   </p>
@@ -382,7 +386,7 @@ export default function JoueurJeu() {
         ) : isEliminated ? (
           // D6 — Spectateur éliminé
           <div className="text-center px-6">
-            <div className="text-5xl mb-3">👁️</div>
+            <div className="flex justify-center mb-3"><Eye size={48} color="#5A5A6E" /></div>
             <p className="text-xl font-bold" style={{ color: '#9090A0' }}>Mode spectateur</p>
             <p className="text-sm mt-1" style={{ color: '#5A5A6E' }}>Tu ne peux plus buzzer, mais tu peux encourager !</p>
           </div>
@@ -454,7 +458,10 @@ function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectI
   const options = rich
     ? question.choices.map((c, i) => ({ value: i, text: c?.text ?? null, mediaUrl: c?.mediaUrl ?? null }))
     : question.type === 'VRAI_FAUX'
-      ? [{ value: 'Vrai', text: '✅ Vrai' }, { value: 'Faux', text: '❌ Faux' }]
+      ? [
+          { value: 'Vrai', text: <span className="inline-flex items-center gap-2"><Check size={20} color="#22C55E" />Vrai</span> },
+          { value: 'Faux', text: <span className="inline-flex items-center gap-2"><X size={20} color="#F87171" />Faux</span> },
+        ]
       : (question.choix ?? []).map((c, i) => ({ value: c, text: `${['A', 'B', 'C', 'D', 'E', 'F'][i]}. ${c}` }))
 
   const hasImages = rich && options.some(o => o.mediaUrl)
@@ -489,7 +496,7 @@ function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectI
       </div>
       <p className="text-center text-sm mt-5" style={{ color: '#9090A0' }}>
         {revealed
-          ? (myAnswer !== null ? (myCorrect ? 'Bonne réponse ! 🎉' : 'Raté cette fois…') : 'Pas de réponse')
+          ? (myAnswer !== null ? (myCorrect ? 'Bonne réponse !' : 'Raté cette fois…') : 'Pas de réponse')
           : myAnswer !== null ? 'Réponse envoyée ✓ — on attend la suite…' : 'Choisis ta réponse !'}
       </p>
     </div>
@@ -498,9 +505,9 @@ function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectI
 
 function BuzzButton({ armed, winner, iWon, revealed, onBuzz }) {
   let label, sub, color, pulse = false
-  if (iWon) { label = 'TU AS BUZZÉ !'; sub = 'Plus rapide que tout le monde ⚡'; color = '#22C55E' }
+  if (iWon) { label = 'TU AS BUZZÉ !'; sub = 'Plus rapide que tout le monde'; color = '#22C55E' }
   else if (winner) { label = `${winner.prenom} a buzzé`; sub = 'Trop tard cette fois…'; color = '#5A5A6E' }
-  else if (revealed) { label = 'Réponse révélée'; sub = 'Regarde l\'écran 👀'; color = '#818CF8' }
+  else if (revealed) { label = 'Réponse révélée'; sub = 'Regarde l\'écran'; color = '#818CF8' }
   else if (armed) { label = 'BUZZ'; sub = 'Appuie dès que tu sais !'; color = '#6366F1'; pulse = true }
   else { label = 'Prépare-toi…'; sub = 'La prochaine question arrive'; color = '#5A5A6E' }
 

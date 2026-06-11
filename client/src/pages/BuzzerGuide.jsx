@@ -57,7 +57,7 @@ export default function BuzzerGuide() {
           </p>
           <div className="space-y-3">
             <WifiStep n="1" title="Allume le buzzer"
-              text="Tout neuf, il crée son propre réseau Wi-Fi « Gbairai-Buzzer-XXXX » — la LED pulse en ⚪ blanc." />
+              text="Tout neuf, il crée son propre réseau Wi-Fi « Gbairai-Buzzer-XXXX » — la LED pulse en blanc." />
             <WifiStep n="2" title="Connecte ton téléphone à ce réseau"
               text="Choisis « Gbairai-Buzzer-XXXX » dans les réglages Wi-Fi du téléphone. Un portail de configuration s'ouvre tout seul." />
             <WifiStep n="3" title="Choisis ton Wi-Fi"
@@ -69,7 +69,7 @@ export default function BuzzerGuide() {
             <RotateCcw size={15} style={{ color: '#F59E0B' }} className="mt-0.5 shrink-0" />
             <p className="text-2xs" style={{ color: 'var(--text-muted)' }}>
               <b style={{ color: 'var(--text)' }}>Changer de Wi-Fi / réinitialiser :</b> maintiens le bouton enfoncé pendant que tu
-              allumes le buzzer. Il oublie le Wi-Fi et le serveur (clignotement 🔴 rouge de confirmation), puis rouvre son portail pour une nouvelle config.
+              allumes le buzzer. Il oublie le Wi-Fi et le serveur (clignotement rouge de confirmation), puis rouvre son portail pour une nouvelle config.
             </p>
           </div>
         </div>
@@ -108,7 +108,13 @@ export default function BuzzerGuide() {
         <h2 className="text-lg font-bold mb-4">Bon à savoir</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
           <Info icon={Lightbulb} color="#3B82F6" title="La LED te guide"
-            text="⚪ config Wi-Fi · 🟡 à appairer · 🔵 prêt · 🟢 gagné · 🔴 verrouillé · 🟠 réponse · ⚫ éteint." />
+            text={<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+              {[['#E5E7EB', 'config Wi-Fi'], ['#EAB308', 'à appairer'], ['#3B82F6', 'prêt'], ['#22C55E', 'gagné'], ['#EF4444', 'verrouillé'], ['#F97316', 'réponse'], ['#4B5563', 'éteint']].map(([c, l]) => (
+                <span key={l} className="inline-flex items-center gap-1">
+                  <span className="inline-block rounded-full" style={{ width: 7, height: 7, background: c }} />{l}
+                </span>
+              ))}
+            </span>} />
           <Info icon={Smartphone} color="#A855F7" title="Le téléphone est ton filet"
             text="Buzzer déchargé ou hors Wi-Fi ? Tu continues au téléphone, sans perdre ta place." />
           <Info icon={BatteryMedium} color="#22C55E" title="Batterie & reconnexion"

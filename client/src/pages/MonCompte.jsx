@@ -438,14 +438,14 @@ function BuzzersTab({ apiFetch, showToast }) {
           break
         case 'buzzer_online':
           setStatut(msg.mac, 'ONLINE')
-          showToast(`🟢 ${msg.nom ?? nomDe(msg.mac)} est en ligne`)
+          showToast(`${msg.nom ?? nomDe(msg.mac)} est en ligne`)
           break
         case 'buzzer_offline':
           setStatut(msg.mac, 'OFFLINE')
-          showToast(`⚫ ${msg.nom ?? nomDe(msg.mac)} est hors ligne`, 'warn')
+          showToast(`${msg.nom ?? nomDe(msg.mac)} est hors ligne`, 'warn')
           break
         case 'claim_attempt':
-          showToast(msg.message ?? '⚠️ Tentative de réclamation de votre buzzer', 'warn')
+          showToast(msg.message ?? 'Tentative de réclamation de votre buzzer', 'warn')
           break
       }
     })

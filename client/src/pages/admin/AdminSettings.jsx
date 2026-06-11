@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import AdminLayout from './AdminLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { Loader2, Mail, ShieldCheck, LogIn, Check, Smartphone, Send } from 'lucide-react'
+import { Loader2, Mail, ShieldCheck, LogIn, Check, Smartphone, Send, Lightbulb } from 'lucide-react'
 
 const LOGIN_PLANS = ['PRO', 'ENTREPRISE', 'ECOLE']
 
@@ -91,7 +91,7 @@ export default function AdminSettings() {
         </div>
 
         <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
-          💡 Pour tester sans envoi réel : <code style={{ color: 'var(--text-muted)' }}>MAIL_ENABLED=false</code> (email) ou
+          <Lightbulb size={12} className="inline mr-1 -mt-0.5" />Pour tester sans envoi réel : <code style={{ color: 'var(--text-muted)' }}>MAIL_ENABLED=false</code> (email) ou
           <code style={{ color: 'var(--text-muted)' }}> SMS_ENABLED=false</code> (SMS) côté serveur → le contenu est alors **logué dans la console**.
         </p>
 
@@ -119,7 +119,7 @@ function TestSender({ apiFetch }) {
     if (r?.ok) {
       setResult({ ok: true, msg: d.simulated
         ? `Mode simulé (${channel === 'sms' ? 'SMS_ENABLED' : 'MAIL_ENABLED'}=false) — contenu logué côté serveur, pas d'envoi réel.`
-        : `Envoyé à ${d.to} ✅` })
+        : `Envoyé à ${d.to} ✓` })
     } else {
       setResult({ ok: false, msg: d?.error ?? 'Échec de l\'envoi' })
     }

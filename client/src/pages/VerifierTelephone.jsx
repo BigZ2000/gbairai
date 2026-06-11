@@ -38,7 +38,7 @@ export default function VerifierTelephone() {
         {status === 'ok' ? (
           <>
             <CheckCircle2 size={52} className="mx-auto mb-4" style={{ color: '#22C55E' }} />
-            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text)' }}>Numéro vérifié ! 🎉</h1>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text)' }}>Numéro vérifié !</h1>
             <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Ton compte est confirmé.</p>
             <button onClick={() => navigate('/dashboard')} className="btn-primary w-full">Aller au tableau de bord</button>
           </>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Pencil, X } from 'lucide-react'
 
 // Éditeur de questions utilisé dans la SalleAttente avant le lancement
 export default function QuestionEditor({ questions, onChange }) {
@@ -98,8 +99,8 @@ export default function QuestionEditor({ questions, onChange }) {
                     </span>
                     <button onClick={() => moveUp(i)} disabled={i === 0} className="text-gray-500 hover:text-white disabled:opacity-20 px-1 py-1 text-xs">↑</button>
                     <button onClick={() => moveDown(i)} disabled={i === questions.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 px-1 py-1 text-xs">↓</button>
-                    <button onClick={() => startEdit(i)} className="text-gray-400 hover:text-purple-400 px-1.5 py-1 text-xs">✏</button>
-                    <button onClick={() => removeQuestion(i)} className="text-gray-400 hover:text-red-400 px-1.5 py-1 text-xs">✕</button>
+                    <button onClick={() => startEdit(i)} className="text-gray-400 hover:text-purple-400 px-1.5 py-1 text-xs"><Pencil size={12} /></button>
+                    <button onClick={() => removeQuestion(i)} className="text-gray-400 hover:text-red-400 px-1.5 py-1 text-xs"><X size={12} /></button>
                   </div>
                 </div>
               )}

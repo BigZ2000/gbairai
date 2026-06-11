@@ -9,6 +9,7 @@ import BatteryBadge from '../components/BatteryBadge.jsx'
 import {
   Users, Radio, Hash, Play, Plus, X, Loader2, SearchX, Wifi, WifiOff,
   GripVertical, Layers, Search, AtSign, Trash2, Ban, UserPlus, Pencil, Tv,
+  AlertTriangle, Globe,
 } from 'lucide-react'
 
 const DIFF_LABELS = { MIXTE: 'Mixte', FACILE: 'Facile', MOYEN: 'Moyen', DIFFICILE: 'Difficile' }
@@ -548,7 +549,7 @@ export default function SalleAttente() {
                     <div>
                       <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{m.nom}</p>
                       <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
-                        {m.theme === 'MELANGE' ? '🔀 Mélange' : m.theme}
+                        {m.theme === 'MELANGE' ? 'Mélange' : m.theme}
                       </p>
                     </div>
                   </div>
@@ -595,14 +596,14 @@ export default function SalleAttente() {
             {/* D4 — avertissement si vote sélectionné avec peu de joueurs */}
             {editForm.mode === 'vote' && participants.length < 3 && (
               <p className="text-2xs mb-2" style={{ color: '#F59E0B' }}>
-                ⚠️ Le vote collectif requiert au moins 3 joueurs.
+                <AlertTriangle size={12} className="inline mr-1 -mt-0.5" />Le vote collectif requiert au moins 3 joueurs.
               </p>
             )}
             {/* D5/A4 — Mode distanciel */}
             <label className="flex items-center gap-2 mb-3 cursor-pointer select-none text-sm" style={{ color: 'var(--text-muted)' }}>
               <input type="checkbox" checked={!!editForm.modeDistanciel}
                 onChange={e => setEditForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
-              🌐 Jeu à distance (médias + saisie sur téléphone)
+              <Globe size={13} className="inline mr-1.5 -mt-0.5" />Jeu à distance (médias + saisie sur téléphone)
             </label>
 
             <div className="grid grid-cols-2 gap-3 mb-4">

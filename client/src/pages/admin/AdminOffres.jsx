@@ -157,7 +157,7 @@ function OffreEditor({ offre, onClose, onSaved }) {
           <input value={featInput} onChange={e => setFeatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFeat() } }} placeholder="Ajouter un avantage + Entrée" className="input w-full" />
         </F>
         <div className="flex gap-4">
-          <Toggle label="⭐ Populaire" checked={!!form.populaire} onChange={v => set('populaire', v)} />
+          <Toggle label="Populaire" checked={!!form.populaire} onChange={v => set('populaire', v)} />
           <Toggle label="Visible" checked={!!form.visible} onChange={v => set('visible', v)} />
         </div>
         <div className="flex gap-2 justify-end">
