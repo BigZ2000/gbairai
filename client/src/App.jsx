@@ -40,6 +40,7 @@ import Confirmation from './pages/Confirmation.jsx'
 import Paiements from './pages/Paiements.jsx'
 import MonOrganisation from './pages/MonOrganisation.jsx'
 import InvitationAccept from './pages/InvitationAccept.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
 
 function AdminRoute({ children }) {
   const { user, loading } = useAuth()
@@ -67,6 +68,7 @@ export default function App() {
               sur un appareil non connecté ; le jeton suffit). */}
           <Route path="/verifier-email" element={<VerifierEmail />} />
           <Route path="/verifier-telephone" element={<VerifierTelephone />} />
+          <Route path="/mot-de-passe-oublie" element={<ForgotPassword />} />
 
           <Route element={<ProtectedRoute />}>
             {/* Écran « maison » de l'invité (participant éphémère). */}

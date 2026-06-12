@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import Layout from '../components/Layout.jsx'
@@ -7,7 +8,7 @@ import { formatMac } from '../utils/mac.js'
 import {
   Radio, Pencil, Unlink, Check, X, Link2, Wifi, WifiOff, Cpu, Palette, AtSign,
   User, Shield, Sliders, BarChart3, Sun, Moon, Monitor, LogOut, Trophy,
-  Clock, Target, Gamepad2, Crown, Loader2,
+  Clock, Target, Gamepad2, Crown, Loader2, KeyRound, SendHorizonal,
 } from 'lucide-react'
 
 const COULEURS = ['#6366F1','#8B5CF6','#3B82F6','#06B6D4','#22C55E','#F59E0B','#EF4444','#EC4899']
@@ -38,7 +39,9 @@ const TABS = [
 
 export default function MonCompte() {
   const { user, setUser, apiFetch } = useAuth()
-  const [tab, setTab] = useState('profil')
+  const location = useLocation()
+  const initialTab = location.state?.tab ?? 'profil'
+  const [tab, setTab] = useState(initialTab)
   const [toast, setToast] = useState(null)
 
   function showToast(msg, type = 'success') {
@@ -97,7 +100,7 @@ export default function MonCompte() {
 
       <div className="max-w-2xl">
         {tab === 'profil'      && <ProfilTab user={user} setUser={setUser} apiFetch={apiFetch} showToast={showToast} />}
-        {tab === 'securite'    && <SecuriteTab apiFetch={apiFetch} showToast={showToast} />}
+        {tab === 'securite'    && <SecuriteTab apiFetch={apiFetch} showToast={showToast} user={user} />}
         {tab === 'preferences' && <PreferencesTab user={user} setUser={setUser} apiFetch={apiFetch} showToast={showToast} />}
         {tab === 'stats'       && <StatsTab apiFetch={apiFetch} />}
         {tab === 'buzzers'     && <BuzzersTab apiFetch={apiFetch} showToast={showToast} />}
@@ -193,8 +196,11 @@ function ProfilTab({ user, setUser, apiFetch, showToast }) {
 }
 
 // ── Onglet Sécurité ───────────────────────────────────────────────────────────
-function SecuriteTab({ apiFetch, showToast }) {
-  const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' })
+function SecuriteTab({ apiFetch, showToast, user }) {
+  // Étape : 'form' → 'otp' (après envoi du code) → retour 'form' après succès
+  const [pwdStep, setPwdStep] = useState('form')
+  const [otpHint, setOtpHint] = useState('')   // masquage email/tél affiché
+  const [pwd, setPwd] = useState({ current: '', next: '', confirm: '', otp: '' })
   const [pwdErr, setPwdErr] = useState('')
   const [pwdSaving, setPwdSaving] = useState(false)
   const [sessions, setSessions] = useState(null)
@@ -206,15 +212,35 @@ function SecuriteTab({ apiFetch, showToast }) {
   }
   useEffect(() => { loadSessions() }, [])
 
-  async function changePassword(e) {
+  // Étape 1 : valider les champs et demander l'OTP au serveur.
+  async function requestOtp(e) {
     e.preventDefault()
     setPwdErr('')
     if (pwd.next.length < 6) { setPwdErr('Le nouveau mot de passe doit faire au moins 6 caractères'); return }
     if (pwd.next !== pwd.confirm) { setPwdErr('Les mots de passe ne correspondent pas'); return }
+    // Si pas de téléphone ni de mot de passe existant, on passe directement à la validation classique.
+    setPwdSaving(true)
+    const res = await apiFetch('/profile/password/request-otp', { method: 'POST' })
+    setPwdSaving(false)
+    if (!res?.ok) {
+      const e = await res?.json().catch(() => ({}))
+      setPwdErr(typeof e?.error === 'string' ? e.error : 'Erreur')
+      return
+    }
+    const data = await res.json()
+    setOtpHint(data.hint ?? '')
+    setPwdStep('otp')
+  }
+
+  // Étape 2 : soumettre l'OTP + nouveau mot de passe.
+  async function confirmWithOtp(e) {
+    e.preventDefault()
+    setPwdErr('')
+    if (pwd.otp.length !== 6) { setPwdErr('Le code doit avoir 6 chiffres'); return }
     setPwdSaving(true)
     const res = await apiFetch('/profile/password', {
       method: 'POST',
-      body: { currentPassword: pwd.current || undefined, newPassword: pwd.next },
+      body: { otp: pwd.otp, newPassword: pwd.next },
     })
     setPwdSaving(false)
     if (!res?.ok) {
@@ -222,7 +248,8 @@ function SecuriteTab({ apiFetch, showToast }) {
       setPwdErr(typeof e?.error === 'string' ? e.error : 'Erreur')
       return
     }
-    setPwd({ current: '', next: '', confirm: '' })
+    setPwd({ current: '', next: '', confirm: '', otp: '' })
+    setPwdStep('form')
     showToast('Mot de passe modifié')
   }
 
@@ -244,37 +271,62 @@ function SecuriteTab({ apiFetch, showToast }) {
 
   return (
     <div className="space-y-5">
-      {/* Mot de passe */}
-      <form onSubmit={changePassword} className="card p-5 space-y-4">
-        <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-          <Shield size={15} style={{ color: '#6366F1' }} />Changer le mot de passe
-        </h2>
-        <div>
-          <label className="label">Mot de passe actuel</label>
-          <input type="password" className="input" value={pwd.current}
-            onChange={e => setPwd(p => ({ ...p, current: e.target.value }))} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Nouveau</label>
-            <input type="password" className="input" value={pwd.next}
-              onChange={e => setPwd(p => ({ ...p, next: e.target.value }))} />
+      {/* ── Mot de passe ── */}
+      {pwdStep === 'form' ? (
+        <form onSubmit={requestOtp} className="card p-5 space-y-4">
+          <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            <Shield size={15} style={{ color: '#6366F1' }} />Changer le mot de passe
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Nouveau mot de passe</label>
+              <input type="password" className="input" placeholder="6 car. minimum" value={pwd.next}
+                onChange={e => setPwd(p => ({ ...p, next: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Confirmer</label>
+              <input type="password" className="input" placeholder="Répéter" value={pwd.confirm}
+                onChange={e => setPwd(p => ({ ...p, confirm: e.target.value }))} />
+            </div>
+          </div>
+          {pwdErr && <p className="text-xs" style={{ color: '#F87171' }}>{pwdErr}</p>}
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+              Un code de confirmation sera envoyé{user?.telephone ? ' par SMS' : ' par email'}.
+            </p>
+            <button type="submit" disabled={pwdSaving || !pwd.next || !pwd.confirm} className="btn-primary btn-sm gap-1.5 shrink-0">
+              {pwdSaving ? <Loader2 size={13} className="animate-spin" /> : <SendHorizonal size={13} />}Envoyer le code
+            </button>
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={confirmWithOtp} className="card p-5 space-y-4">
+          <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            <KeyRound size={15} style={{ color: '#6366F1' }} />Confirmer le changement
+          </h2>
+          <div className="rounded-lg px-4 py-3 text-sm" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: 'var(--text-muted)' }}>
+            Code envoyé{otpHint ? ` sur ${otpHint}` : ''}. Saisis-le ci-dessous pour confirmer.
           </div>
           <div>
-            <label className="label">Confirmer</label>
-            <input type="password" className="input" value={pwd.confirm}
-              onChange={e => setPwd(p => ({ ...p, confirm: e.target.value }))} />
+            <label className="label">Code de confirmation (6 chiffres)</label>
+            <input type="text" inputMode="numeric" maxLength={6} required
+              value={pwd.otp} onChange={e => setPwd(p => ({ ...p, otp: e.target.value.replace(/\D/g, '') }))}
+              placeholder="123456"
+              className="input font-mono tracking-widest text-center text-lg" />
           </div>
-        </div>
-        {pwdErr && <p className="text-xs" style={{ color: '#F87171' }}>{pwdErr}</p>}
-        <div className="flex justify-end">
-          <button type="submit" disabled={pwdSaving} className="btn-primary btn-sm gap-1.5">
-            {pwdSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}Modifier
-          </button>
-        </div>
-      </form>
+          {pwdErr && <p className="text-xs" style={{ color: '#F87171' }}>{pwdErr}</p>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={pwdSaving || pwd.otp.length !== 6} className="btn-primary btn-sm gap-1.5 flex-1">
+              {pwdSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}Valider
+            </button>
+            <button type="button" onClick={() => { setPwdStep('form'); setPwdErr('') }} className="btn-ghost btn-sm">
+              <X size={13} />
+            </button>
+          </div>
+        </form>
+      )}
 
-      {/* Sessions */}
+      {/* ── Sessions actives ── */}
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>

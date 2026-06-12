@@ -6,8 +6,8 @@ import dns from 'dns/promises'
 import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
-import { sendVerificationEmail } from '../config/mailer.js'
-import { sendVerificationSms, normalizePhone } from '../config/sms.js'
+import { sendVerificationEmail, sendPasswordResetEmail } from '../config/mailer.js'
+import { sendVerificationSms, normalizePhone, sendPasswordResetSms } from '../config/sms.js'
 import { getSettings } from '../config/settings.js'
 
 const router = Router()
@@ -378,6 +378,64 @@ router.post('/logout', requireAuth, async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId }, select: USER_SELECT })
   res.json(user)
+})
+
+// ── Mot de passe oublié ───────────────────────────────────────────────────────
+
+function makeResetOtp() {
+  return {
+    resetCode: String(Math.floor(100000 + Math.random() * 900000)),
+    resetExpiry: new Date(Date.now() + 15 * 60 * 1000),
+  }
+}
+
+// POST /auth/forgot-password — envoie un OTP de réinitialisation par email ou SMS.
+router.post('/forgot-password', async (req, res) => {
+  const { email, telephone } = req.body ?? {}
+  if (!email && !telephone) return res.status(400).json({ error: 'Email ou téléphone requis' })
+
+  const phone = telephone ? normalizePhone(telephone) : null
+  const user = email
+    ? await prisma.user.findUnique({ where: { email: String(email).toLowerCase().trim() } })
+    : (phone ? await prisma.user.findUnique({ where: { telephone: phone } }) : null)
+
+  // Réponse générique même si l'utilisateur n'existe pas (anti-enumération).
+  if (!user) return res.json({ ok: true, channel: email ? 'email' : 'sms' })
+
+  const otp = makeResetOtp()
+  await prisma.user.update({ where: { id: user.id }, data: otp })
+
+  if (email) {
+    sendPasswordResetEmail({ to: user.email, prenom: user.prenom, code: otp.resetCode }).catch(() => {})
+  } else {
+    sendPasswordResetSms({ to: user.telephone, code: otp.resetCode }).catch(() => {})
+  }
+
+  res.json({ ok: true, channel: email ? 'email' : 'sms' })
+})
+
+// POST /auth/reset-password — vérifie l'OTP et définit le nouveau mot de passe.
+router.post('/reset-password', async (req, res) => {
+  const { email, telephone, code, newPassword } = req.body ?? {}
+  if (!code || !newPassword) return res.status(400).json({ error: 'Code et nouveau mot de passe requis' })
+  if (String(newPassword).length < 6) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 6 caractères' })
+
+  const phone = telephone ? normalizePhone(telephone) : null
+  const user = email
+    ? await prisma.user.findUnique({ where: { email: String(email).toLowerCase().trim() } })
+    : (phone ? await prisma.user.findUnique({ where: { telephone: phone } }) : null)
+
+  if (!user) return res.status(400).json({ error: 'Code invalide ou expiré' })
+  if (!user.resetCode || user.resetCode !== String(code).trim()) return res.status(400).json({ error: 'Code incorrect' })
+  if (!user.resetExpiry || user.resetExpiry < new Date()) return res.status(400).json({ error: 'Code expiré — demande un nouveau code' })
+
+  const hashed = await bcrypt.hash(String(newPassword), 10)
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashed, resetCode: null, resetExpiry: null },
+  })
+
+  res.json({ ok: true })
 })
 
 export default router

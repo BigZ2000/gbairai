@@ -6,6 +6,8 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
+import { sendPasswordChangeOtpEmail } from '../config/mailer.js'
+import { sendPasswordChangeOtpSms } from '../config/sms.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -46,9 +48,29 @@ router.patch('/', async (req, res) => {
   res.json(user)
 })
 
+// POST /profile/password/request-otp — envoie un OTP de confirmation sur email ou tél.
+router.post('/password/request-otp', async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.userId } })
+  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' })
+
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  const expiry = new Date(Date.now() + 15 * 60 * 1000)
+  await prisma.user.update({ where: { id: user.id }, data: { resetCode: code, resetExpiry: expiry } })
+
+  if (user.telephone) {
+    sendPasswordChangeOtpSms({ to: user.telephone, code }).catch(() => {})
+    return res.json({ ok: true, channel: 'sms', hint: user.telephone.replace(/\d(?=\d{2})/g, '*') })
+  }
+  sendPasswordChangeOtpEmail({ to: user.email, prenom: user.prenom, code }).catch(() => {})
+  const [local, domain] = user.email.split('@')
+  res.json({ ok: true, channel: 'email', hint: local.slice(0, 2) + '***@' + domain })
+})
+
 // POST /profile/password — change le mot de passe.
+// Accepte soit { currentPassword, newPassword } (ancien flux) soit { otp, newPassword } (nouveau flux OTP).
 const PasswordSchema = z.object({
   currentPassword: z.string().optional(),
+  otp: z.string().length(6).optional(),
   newPassword: z.string().min(6),
 })
 router.post('/password', async (req, res) => {
@@ -58,13 +80,22 @@ router.post('/password', async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId } })
   if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' })
 
-  // Si un mot de passe existe déjà, on exige l'ancien (sauf comptes Google sans mdp).
-  if (user.password) {
-    const ok = await bcrypt.compare(parsed.data.currentPassword ?? '', user.password)
-    if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' })
+  const { currentPassword, otp, newPassword } = parsed.data
+
+  if (otp) {
+    // Validation par OTP (flux avec confirmation).
+    if (!user.resetCode || user.resetCode !== otp) return res.status(400).json({ error: 'Code incorrect' })
+    if (!user.resetExpiry || user.resetExpiry < new Date()) return res.status(400).json({ error: 'Code expiré' })
+    await prisma.user.update({ where: { id: user.id }, data: { resetCode: null, resetExpiry: null } })
+  } else {
+    // Validation par mot de passe actuel (comptes sans OTP ou sans téléphone).
+    if (user.password) {
+      const ok = await bcrypt.compare(currentPassword ?? '', user.password)
+      if (!ok) return res.status(401).json({ error: 'Mot de passe actuel incorrect' })
+    }
   }
 
-  const hashed = await bcrypt.hash(parsed.data.newPassword, 10)
+  const hashed = await bcrypt.hash(newPassword, 10)
   await prisma.user.update({ where: { id: req.userId }, data: { password: hashed } })
   res.json({ ok: true })
 })
