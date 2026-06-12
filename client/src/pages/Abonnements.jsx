@@ -145,7 +145,7 @@ function Carte({ famille, prixLabel, avantages, cta, extra, populaire }) {
   return (
     <div className="relative rounded-2xl p-5 flex flex-col"
       style={{
-        background: populaire ? `linear-gradient(160deg, ${hex(f.couleur, 0.12)}, rgba(20,20,24,0.7))` : 'rgba(255,255,255,0.02)',
+        background: populaire ? `linear-gradient(160deg, ${hex(f.couleur, 0.12)}, var(--card-tint))` : 'var(--surface)',
         border: `1px solid ${populaire ? hex(f.couleur, 0.4) : 'var(--border)'}`,
       }}>
       {populaire && (

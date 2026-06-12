@@ -54,8 +54,9 @@ export default function CreatePartie() {
   const navigate    = useNavigate()
 
   const [step, setStep] = useState(1)
-  // Défauts « plug & play » : mode AUTO + réponses masquées (régie animateur).
-  const [form, setForm] = useState({ nom: '', mode: 'auto', masquerReponses: true, modeDistanciel: false, eliminationActive: false, viesParJoueur: 0 })
+  // Défauts « plug & play » : mode AUTO **à distance** (médias + saisie sur le
+  // téléphone de chacun — le cas le plus courant) + réponses masquées (régie).
+  const [form, setForm] = useState({ nom: '', mode: 'auto', masquerReponses: true, modeDistanciel: true, eliminationActive: false, viesParJoueur: 0 })
   const [showOptions, setShowOptions] = useState(false)
   const [manches, setManches] = useState([defaultManche(0)])
   const [categories, setCategories] = useState([]) // [{ nom, count }] — la base est la seule source

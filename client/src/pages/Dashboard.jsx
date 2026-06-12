@@ -32,7 +32,7 @@ export default function Dashboard() {
   const [selectedPack, setSelectedPack] = useState(null)
   const [launching, setLaunching] = useState(null)
   const [animateurJoue, setAnimateurJoue] = useState(false)
-  const [modeDistanciel, setModeDistanciel] = useState(false) // D5/A4 : jeu en ligne
+  const [modeDistanciel, setModeDistanciel] = useState(true) // défaut : auto À DISTANCE (médias + saisie sur téléphone)
   const [quota, setQuota] = useState(null)
   const [paywall, setPaywall] = useState(null) // { reason, requiredPlan } | null
 
@@ -293,7 +293,7 @@ export default function Dashboard() {
                   <button key={sig.id} onClick={() => pickPack(sig)} disabled={launching === sig.id}
                     className="group relative shrink-0 w-56 text-left rounded-2xl p-4 h-28 flex flex-col justify-between overflow-hidden transition-all"
                     style={{
-                      background: `linear-gradient(135deg, ${hex(sig.couleur, 0.2)} 0%, rgba(20,20,24,0.7) 75%)`,
+                      background: `linear-gradient(135deg, ${hex(sig.couleur, 0.2)} 0%, var(--card-tint) 75%)`,
                       border: `1px solid ${hex(sig.couleur, 0.3)}`,
                     }}>
                     <div className="flex items-center justify-between">
@@ -604,7 +604,7 @@ function PackGrid({ packs, launching, onPick, highlight }) {
         <button key={pack.id} onClick={() => onPick(pack)}
           className="group relative text-left rounded-2xl p-4 h-32 flex flex-col justify-between overflow-hidden transition-all"
           style={{
-            background: `linear-gradient(135deg, ${hex(pack.couleur, highlight ? 0.22 : 0.16)} 0%, rgba(20,20,24,0.6) 70%)`,
+            background: `linear-gradient(135deg, ${hex(pack.couleur, highlight ? 0.22 : 0.16)} 0%, var(--card-tint) 70%)`,
             border: `1px solid ${hex(pack.couleur, highlight ? 0.35 : 0.25)}`,
           }}>
           <div className="absolute -right-4 -top-3 text-6xl opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all">
