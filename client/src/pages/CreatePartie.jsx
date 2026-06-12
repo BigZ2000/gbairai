@@ -238,7 +238,7 @@ export default function CreatePartie() {
                   <div className="px-4 pb-4 space-y-3 animate-fadeUp">
                     <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
                       <span className="flex items-center gap-2"><Globe size={15} style={{ color: '#0EA5E9' }} className="shrink-0" />Jeu à distance (médias + saisie sur téléphone)</span>
-                      <input type="checkbox" checked={!!form.modeDistanciel}
+                      <input type="checkbox" className="check" checked={!!form.modeDistanciel}
                         onChange={e => setForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
                     </label>
                     <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
@@ -383,7 +383,7 @@ export default function CreatePartie() {
                   <p className="text-2xs uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Mécaniques (optionnel)</p>
                   <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
                     <span className="flex items-center gap-2"><AlertTriangle size={14} style={{ color: '#F59E0B' }} className="shrink-0" />Manche à risque (malus si mauvaise réponse)</span>
-                    <input type="checkbox" checked={!!m.malusEnabled}
+                    <input type="checkbox" className="check" checked={!!m.malusEnabled}
                       onChange={e => updateManche(i, 'malusEnabled', e.target.checked)} />
                   </label>
                   {m.malusEnabled && (
@@ -402,7 +402,7 @@ export default function CreatePartie() {
                   </label>
                   <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
                     <span className="flex items-center gap-2"><UserMinus size={14} style={{ color: '#EF4444' }} className="shrink-0" />Élimination du dernier en fin de manche</span>
-                    <input type="checkbox" checked={!!m.eliminationActive}
+                    <input type="checkbox" className="check" checked={!!m.eliminationActive}
                       onChange={e => updateManche(i, 'eliminationActive', e.target.checked)} />
                   </label>
                 </div>
