@@ -3,22 +3,25 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
 import {
-  ChevronLeft, ChevronRight, Mic2, Timer, Users, Plus, Trash2,
-  Loader2, AlertCircle, Check, Layers, User,
+  ChevronLeft, ChevronRight, ChevronDown, Mic2, Timer, Users, Plus, Trash2,
+  Loader2, AlertCircle, Check, Layers, User, Settings2,
   Rocket, Globe, UserMinus, Heart, AlertTriangle, TrendingUp,
 } from 'lucide-react'
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Workflow « plug & play » en 2 écrans :
+//   1. ESSENTIEL  — nom + mode + CTA immédiat. Les options pointues (distanciel,
+//      élimination, vies, régie animateur) sont REPLIÉES (progressive disclosure).
+//   2. MANCHES    — uniquement si « Personnaliser » : cartes ajoutables/supprimables,
+//      thèmes = catégories réelles de la base (avec nb de questions), filtre par
+//      TYPE de question, récap + création directe (pas d'écran de confirmation).
+// ──────────────────────────────────────────────────────────────────────────────
 
 const MODES = [
   { value: 'solo',      icon: User,    label: 'Solo',           desc: "Joue seul pour t'entraîner. Tout s'affiche sur ton écran, réponses vérifiées automatiquement." },
   { value: 'auto',      icon: Timer,   label: 'Automatique',    desc: 'La partie avance toute seule au minuteur. Idéal en groupe pour démarrer vite. (Buzzer en présentiel = jeu de réflexe : le 1er qui buzze marque.)', recommande: true },
   { value: 'animateur', icon: Mic2,    label: 'Avec animateur', desc: 'Vous présentez et validez chaque réponse. Vous animez — vous n\'apparaissez pas au classement.' },
   { value: 'vote',      icon: Users,   label: 'Vote collectif', desc: 'Les joueurs votent ensemble pour valider (min. 3 joueurs).' },
-]
-
-const THEMES_DEFAUT = [
-  'MELANGE', 'Histoire & Politique CI', 'Géographie CI', 'Musique & Culture CI',
-  'Sport CI', 'Gastronomie CI', 'Institutions CI', 'Biodiversité CI',
-  'Économie CI', 'Littérature & Art CI', 'Actualités Afrique',
 ]
 
 const DIFFS = [
@@ -28,10 +31,20 @@ const DIFFS = [
   { value: 'DIFFICILE',label: 'Difficile' },
 ]
 
+// Types de questions filtrables par manche (vide = tous).
+const QUESTION_TYPES = [
+  { value: 'QCM',       label: 'QCM' },
+  { value: 'VRAI_FAUX', label: 'Vrai / Faux' },
+  { value: 'BUZZER',    label: 'Réponse libre' },
+  { value: 'IMAGE',     label: 'Image' },
+  { value: 'AUDIO',     label: 'Audio' },
+  { value: 'VIDEO',     label: 'Vidéo' },
+]
+
 function defaultManche(i) {
   return {
     id: Date.now() + i, nom: `Manche ${i + 1}`, theme: 'MELANGE', difficulte: 'MIXTE',
-    nbQuestions: 10, pointsParQ: 100, tempsLimite: 30,
+    nbQuestions: 10, pointsParQ: 100, tempsLimite: 30, typesAutorises: [],
     malusEnabled: false, malusPenalite: 50, multiplicateurPoints: 1.0, eliminationActive: false,
   }
 }
@@ -41,43 +54,46 @@ export default function CreatePartie() {
   const navigate    = useNavigate()
 
   const [step, setStep] = useState(1)
-  // Défauts « plug & play » : mode AUTO (le plus utilisé) + réponses masquées
-  // jusqu'à la révélation (recommandé pour toutes les parties auto).
-  const [form, setForm] = useState({ nom: '', mode: 'auto', timerBuzz: 10, timerVote: 15, nbManches: 1, masquerReponses: true, modeDistanciel: false, eliminationActive: false, viesParJoueur: 0 })
+  // Défauts « plug & play » : mode AUTO + réponses masquées (régie animateur).
+  const [form, setForm] = useState({ nom: '', mode: 'auto', masquerReponses: true, modeDistanciel: false, eliminationActive: false, viesParJoueur: 0 })
+  const [showOptions, setShowOptions] = useState(false)
   const [manches, setManches] = useState([defaultManche(0)])
-  const [categories, setCategories] = useState([])
+  const [categories, setCategories] = useState([]) // [{ nom, count }] — la base est la seule source
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     apiFetch('/categories').then(r => r?.json()).then(d => {
-      if (Array.isArray(d)) setCategories(d.map(c => c.nom))
+      if (Array.isArray(d)) {
+        setCategories(d.map(c => ({ nom: c.nom, count: c._count?.questions ?? 0 }))
+          .sort((a, b) => b.count - a.count))
+      }
     })
   }, [])
 
-  const allThemes = [...new Set([...THEMES_DEFAUT, ...categories])]
-
-  function setNbManches(n) {
-    const nb = Math.max(1, Math.min(10, n))
-    setManches(prev => {
-      const next = [...prev]
-      while (next.length < nb) next.push(defaultManche(next.length))
-      return next.slice(0, nb)
-    })
-    setForm(f => ({ ...f, nbManches: nb }))
+  function addManche() {
+    if (manches.length >= 10) return
+    setManches(prev => [...prev, defaultManche(prev.length)])
   }
-
+  function removeManche(idx) {
+    setManches(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev)
+  }
   function updateManche(idx, field, value) {
     setManches(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m))
+  }
+  function toggleType(idx, type) {
+    setManches(prev => prev.map((m, i) => {
+      if (i !== idx) return m
+      const cur = m.typesAutorises ?? []
+      return { ...m, typesAutorises: cur.includes(type) ? cur.filter(t => t !== type) : [...cur, type] }
+    }))
   }
 
   async function handleCreate() {
     setError('')
     setLoading(true)
     try {
-      // 1. Create the partie.
-      // « Solo » est un préréglage : mode auto + distanciel (énoncé/médias sur
-      // l'écran du joueur, réponses ouvertes vérifiées par correspondance).
+      // « Solo » est un préréglage : mode auto + distanciel.
       const isSolo = form.mode === 'solo'
       const body = {
         nom: form.nom.trim(),
@@ -95,7 +111,6 @@ export default function CreatePartie() {
       }
       const partie = await res.json()
 
-      // 2. Create manches
       for (const m of manches) {
         await apiFetch(`/parties/${partie.id}/manches`, {
           method: 'POST',
@@ -106,6 +121,7 @@ export default function CreatePartie() {
             nbQuestions: m.nbQuestions,
             pointsParQ: m.pointsParQ,
             tempsLimite: m.tempsLimite,
+            typesAutorises: m.typesAutorises ?? [],
             malusEnabled: !!m.malusEnabled,
             malusPenalite: Number(m.malusPenalite) || 50,
             multiplicateurPoints: Number(m.multiplicateurPoints) || 1.0,
@@ -122,62 +138,37 @@ export default function CreatePartie() {
     }
   }
 
-  const steps = [
-    { n: 1, label: 'Paramètres' },
-    { n: 2, label: 'Manches' },
-    { n: 3, label: 'Confirmation' },
-  ]
+  // Récap dynamique (écran Manches) : total questions + durée estimée
+  // (~tempsLimite + 5 s de révélation/transition par question).
+  const totalQuestions = manches.reduce((s, m) => s + (Number(m.nbQuestions) || 0), 0)
+  const dureeMin = Math.max(1, Math.round(manches.reduce((s, m) => s + (Number(m.nbQuestions) || 0) * ((Number(m.tempsLimite) || 30) + 5), 0) / 60))
 
   return (
     <Layout>
-      {/* Colonne CENTRÉE (mx-auto) + en-tête harmonisé avec les autres pages. */}
       <div className="max-w-lg mx-auto w-full">
-        <button onClick={() => step > 1 ? setStep(s => s - 1) : navigate(-1)}
+        <button onClick={() => step > 1 ? setStep(1) : navigate(-1)}
           className="btn-ghost btn-sm mb-4 -ml-2">
           <ChevronLeft size={15} />Retour
         </button>
 
         <div className="mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-            Nouvelle partie
+            {step === 1 ? 'Nouvelle partie' : 'Tes manches'}
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            {step === 1 ? 'Donne un nom, choisis un mode — et c\'est parti.' : step === 2 ? 'Personnalise tes manches.' : 'Vérifie et lance.'}
+            {step === 1
+              ? 'Donne un nom, choisis un mode — et c\'est parti.'
+              : 'Thème, types de questions, difficulté… puis crée directement.'}
           </p>
         </div>
 
-        {/* Le stepper n'apparaît qu'en mode AVANCÉ (étapes 2-3). Le chemin par
-            défaut est la création rapide en 1 écran (plug & play) : afficher
-            3 étapes qu'on ne traverse pas créait une fausse attente. */}
-        {step > 1 && (
-          <div className="flex items-center gap-2 mb-6">
-            {steps.map((s, i) => (
-              <React.Fragment key={s.n}>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all`}
-                    style={{
-                      background: step > s.n ? '#22C55E' : step === s.n ? '#6366F1' : 'var(--border)',
-                      color: step >= s.n ? '#fff' : 'var(--text-dim)',
-                    }}>
-                    {step > s.n ? <Check size={12} /> : s.n}
-                  </div>
-                  <span className="text-sm hidden sm:block" style={{ color: step === s.n ? 'var(--text)' : 'var(--text-dim)' }}>{s.label}</span>
-                </div>
-                {i < steps.length - 1 && (
-                  <div className="flex-1 h-px" style={{ background: step > s.n ? '#22C55E' : 'var(--border)' }} />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        )}
-
-        {/* ── Étape 1 : Paramètres ── */}
+        {/* ── Écran 1 : ESSENTIEL ── */}
         {step === 1 && (
           <div className="space-y-4 animate-fadeUp">
             <div className="card p-5">
               <label className="label">Nom de la partie</label>
               <input
-                type="text" required maxLength={100}
+                type="text" required maxLength={100} autoFocus
                 value={form.nom}
                 onChange={e => setForm(f => ({ ...f, nom: e.target.value }))}
                 placeholder="Quiz du vendredi soir"
@@ -218,109 +209,97 @@ export default function CreatePartie() {
               </div>
             </div>
 
-            {/* Jeu à distance + élimination (party-level). En Solo, ces options
-                sont implicites (distanciel forcé, pas d'élimination) → masquées. */}
-            {form.mode !== 'solo' && (
-              <div className="card p-4 space-y-2">
-                <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                  <span className="flex items-center gap-2"><Globe size={15} style={{ color: '#0EA5E9' }} className="shrink-0" />Jeu à distance (médias + saisie sur téléphone)</span>
-                  <input type="checkbox" checked={!!form.modeDistanciel}
-                    onChange={e => setForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
-                </label>
-                <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-                  <span className="flex items-center gap-2"><UserMinus size={15} style={{ color: '#EF4444' }} className="shrink-0" />Élimination progressive (active par manche ci-après)</span>
-                  <input type="checkbox" checked={!!form.eliminationActive}
-                    onChange={e => setForm(f => ({ ...f, eliminationActive: e.target.checked }))} />
-                </label>
-                <label className="flex items-center justify-between gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-                  <span className="flex items-center gap-2"><Heart size={15} style={{ color: '#F87171' }} className="shrink-0" />Vies par joueur (0 = désactivé · −1 par mauvaise réponse)</span>
-                  <input type="number" min={0} max={10} value={form.viesParJoueur}
-                    onChange={e => setForm(f => ({ ...f, viesParJoueur: Number(e.target.value) }))}
-                    className="input text-center w-16 py-1" />
-                </label>
-              </div>
-            )}
-
-            {/* Affichage des réponses côté animateur (#1). Permet de choisir si
-                l'animateur dispose d'un écran de régie privé (réponses visibles
-                à l'avance) ou s'il projette directement son écran et découvre la
-                réponse en même temps que le public. */}
-            {form.mode === 'animateur' && (
-              <div className="card p-5">
-                <p className="label mb-3">Affichage des réponses côté animateur</p>
-                <div className="space-y-2">
-                  {[
-                    { value: false, label: 'Voir les réponses avant révélation',
-                      desc: 'Vous disposez d\'un écran de régie privé : les réponses s\'affichent à l\'avance pour vous. À utiliser quand l\'écran public est séparé de votre écran.' },
-                    { value: true, label: 'Masquer les réponses jusqu\'à la révélation',
-                      desc: 'Vous projetez directement votre écran : aucune réponse n\'apparaît avant la révélation, vous la découvrez avec le public.' },
-                  ].map(opt => {
-                    const sel = !!form.masquerReponses === opt.value
-                    return (
-                      <label key={String(opt.value)}
-                        className="flex items-start gap-3 p-3.5 rounded-lg cursor-pointer transition-all"
-                        style={{
-                          background: sel ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
-                          border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
-                        }}>
-                        <input type="radio" name="masquerReponses" checked={sel}
-                          onChange={() => setForm(f => ({ ...f, masquerReponses: opt.value }))}
-                          className="mt-0.5 accent-indigo-500" />
-                        <div>
-                          <p className="text-sm font-semibold mb-0.5" style={{ color: sel ? 'var(--text)' : 'var(--text-muted)' }}>{opt.label}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{opt.desc}</p>
-                        </div>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Le rythme réel est gouverné par le « Temps (s) » de chaque manche
-                (étape avancée). Les anciens réglages timerBuzz/timerVote n'étaient
-                pas utilisés par le moteur → retirés pour éviter toute confusion. */}
-
-            <div className="card p-5">
-              <label className="label">Nombre de manches</label>
-              <div className="flex items-center gap-3 mt-2">
-                <button type="button" onClick={() => setNbManches(form.nbManches - 1)}
-                  className="btn-ghost btn-sm w-9 h-9 flex items-center justify-center font-bold text-lg">−</button>
-                <span className="text-2xl font-bold w-10 text-center" style={{ color: 'var(--text)' }}>{form.nbManches}</span>
-                <button type="button" onClick={() => setNbManches(form.nbManches + 1)}
-                  className="btn-ghost btn-sm w-9 h-9 flex items-center justify-center font-bold text-lg">+</button>
-              </div>
-            </div>
-
-            {/* Création RAPIDE (défaut plug & play) : crée directement la partie
-                avec les manches aux réglages standards → salle d'attente. */}
+            {/* CTA PRINCIPAL — tout de suite après le mode (zéro friction). */}
             <button onClick={handleCreate} disabled={!form.nom.trim() || loading}
               className="btn-primary w-full btn-xl gap-2">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <><Rocket size={16} />Créer la partie <ChevronRight size={16} /></>}
             </button>
             <p className="text-2xs text-center -mt-2" style={{ color: 'var(--text-dim)' }}>
-              Prêt à jouer tout de suite : {form.nbManches} manche{form.nbManches > 1 ? 's' : ''} · 10 questions/manche · 30 s · thème mélangé
+              Prêt à jouer tout de suite : 1 manche · 10 questions · 30 s · tous thèmes
             </p>
+
             <button onClick={() => { if (form.nom.trim()) setStep(2) }}
               disabled={!form.nom.trim()}
               className="btn-secondary w-full gap-2">
-              <Layers size={15} />Personnaliser les manches (thèmes, difficulté, points…)
+              <Layers size={15} />Personnaliser les manches (thèmes, types, difficulté…)
             </button>
+
+            {/* Options avancées — REPLIÉES par défaut (progressive disclosure). */}
+            {form.mode !== 'solo' && (
+              <div className="card overflow-hidden">
+                <button type="button" onClick={() => setShowOptions(v => !v)}
+                  className="w-full flex items-center justify-between p-4 text-sm"
+                  style={{ color: 'var(--text-muted)' }}>
+                  <span className="flex items-center gap-2"><Settings2 size={15} />Options avancées</span>
+                  <ChevronDown size={15} className="transition-transform" style={{ transform: showOptions ? 'rotate(180deg)' : 'none' }} />
+                </button>
+                {showOptions && (
+                  <div className="px-4 pb-4 space-y-3 animate-fadeUp">
+                    <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                      <span className="flex items-center gap-2"><Globe size={15} style={{ color: '#0EA5E9' }} className="shrink-0" />Jeu à distance (médias + saisie sur téléphone)</span>
+                      <input type="checkbox" checked={!!form.modeDistanciel}
+                        onChange={e => setForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
+                    </label>
+                    <label className="flex items-center justify-between gap-3 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                      <span className="flex items-center gap-2"><UserMinus size={15} style={{ color: '#EF4444' }} className="shrink-0" />Élimination progressive (par manche)</span>
+                      <input type="checkbox" checked={!!form.eliminationActive}
+                        onChange={e => setForm(f => ({ ...f, eliminationActive: e.target.checked }))} />
+                    </label>
+                    <label className="flex items-center justify-between gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                      <span className="flex items-center gap-2"><Heart size={15} style={{ color: '#F87171' }} className="shrink-0" />Vies par joueur (0 = désactivé)</span>
+                      <input type="number" min={0} max={10} value={form.viesParJoueur}
+                        onChange={e => setForm(f => ({ ...f, viesParJoueur: Number(e.target.value) }))}
+                        className="input text-center w-16 py-1" />
+                    </label>
+
+                    {form.mode === 'animateur' && (
+                      <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                        <p className="text-2xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>Affichage des réponses (animateur)</p>
+                        {[
+                          { value: true, label: 'Masquer jusqu\'à la révélation', desc: 'Vous projetez votre écran : vous découvrez la réponse avec le public.' },
+                          { value: false, label: 'Voir les réponses à l\'avance', desc: 'Écran de régie privé, séparé de l\'écran public.' },
+                        ].map(opt => (
+                          <label key={String(opt.value)} className="flex items-start gap-2.5 py-1.5 cursor-pointer">
+                            <input type="radio" name="masquerReponses" checked={!!form.masquerReponses === opt.value}
+                              onChange={() => setForm(f => ({ ...f, masquerReponses: opt.value }))}
+                              className="mt-0.5 accent-indigo-500" />
+                            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                              {opt.label}
+                              <span className="block text-2xs" style={{ color: 'var(--text-dim)' }}>{opt.desc}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#F87171' }}>
+                <AlertCircle size={14} />{error}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Étape 2 : Manches ── */}
+        {/* ── Écran 2 : MANCHES (avancé) ── */}
         {step === 2 && (
           <div className="space-y-4 animate-fadeUp">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Les questions seront tirées aléatoirement depuis la bibliothèque selon les critères de chaque manche.
-            </p>
-
             {manches.map((m, i) => (
               <div key={m.id} className="card p-5 space-y-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Layers size={14} style={{ color: '#6366F1' }} />
-                  <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Manche {i + 1}</span>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                    <Layers size={14} style={{ color: '#6366F1' }} />Manche {i + 1}
+                  </span>
+                  {manches.length > 1 && (
+                    <button onClick={() => removeManche(i)} className="btn-ghost btn-sm" title="Supprimer la manche"
+                      style={{ color: '#F87171' }}>
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
 
                 <div>
@@ -330,13 +309,17 @@ export default function CreatePartie() {
                     className="input text-sm" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="label">Thème</label>
+                    {/* Thèmes = catégories RÉELLES de la base (avec nb de questions). */}
                     <select value={m.theme} onChange={e => updateManche(i, 'theme', e.target.value)}
                       className="input text-sm">
-                      {allThemes.map(t => (
-                        <option key={t} value={t}>{t === 'MELANGE' ? 'Mélange' : t}</option>
+                      <option value="MELANGE">Mélange (tous les thèmes)</option>
+                      {categories.map(c => (
+                        <option key={c.nom} value={c.nom} disabled={c.count === 0}>
+                          {c.nom} ({c.count})
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -347,6 +330,30 @@ export default function CreatePartie() {
                       {DIFFS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                     </select>
                   </div>
+                </div>
+
+                {/* Filtre par TYPE de question (chips, multi-sélection ; vide = tous). */}
+                <div>
+                  <label className="label">Types de questions</label>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {QUESTION_TYPES.map(t => {
+                      const active = (m.typesAutorises ?? []).includes(t.value)
+                      return (
+                        <button key={t.value} type="button" onClick={() => toggleType(i, t.value)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                          style={{
+                            background: active ? 'rgba(99,102,241,0.18)' : 'var(--hover-overlay)',
+                            color: active ? '#818CF8' : 'var(--text-muted)',
+                            border: `1px solid ${active ? 'rgba(99,102,241,0.45)' : 'var(--border)'}`,
+                          }}>
+                          {active && <Check size={11} className="inline mr-1 -mt-0.5" />}{t.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-2xs mt-1.5" style={{ color: 'var(--text-dim)' }}>
+                    {(m.typesAutorises ?? []).length === 0 ? 'Aucune sélection = tous les types.' : `${m.typesAutorises.length} type(s) sélectionné(s).`}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -401,49 +408,21 @@ export default function CreatePartie() {
               </div>
             ))}
 
-            <button onClick={() => setStep(3)} className="btn-primary w-full btn-xl gap-2">
-              Voir le récapitulatif <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
+            {/* Ajouter une manche — remplace l'ancien compteur de l'écran 1. */}
+            {manches.length < 10 && (
+              <button onClick={addManche} className="btn-secondary w-full gap-2">
+                <Plus size={15} />Ajouter une manche
+              </button>
+            )}
 
-        {/* ── Étape 3 : Confirmation ── */}
-        {step === 3 && (
-          <div className="space-y-4 animate-fadeUp">
-            <div className="card p-5 space-y-3">
-              <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Récapitulatif</h2>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: 'var(--text-muted)' }}>Nom</span>
-                <span className="font-semibold" style={{ color: 'var(--text)' }}>{form.nom}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: 'var(--text-muted)' }}>Mode</span>
-                <span className="font-semibold" style={{ color: 'var(--text)' }}>{MODES.find(m => m.value === form.mode)?.label}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: 'var(--text-muted)' }}>Manches</span>
-                <span className="font-semibold" style={{ color: 'var(--text)' }}>{manches.length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: 'var(--text-muted)' }}>Questions totales</span>
-                <span className="font-semibold" style={{ color: 'var(--text)' }}>{manches.reduce((s, m) => s + m.nbQuestions, 0)}</span>
-              </div>
+            {/* Récap compact intégré (remplace l'ancien écran « Confirmation »). */}
+            <div className="rounded-xl px-4 py-3 flex items-center justify-between text-sm"
+              style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>
+                {manches.length} manche{manches.length > 1 ? 's' : ''} · {totalQuestions} questions
+              </span>
+              <span style={{ color: 'var(--text-dim)' }}>≈ {dureeMin} min</span>
             </div>
-
-            {manches.map((m, i) => (
-              <div key={m.id} className="rounded-xl px-4 py-3 flex items-center justify-between"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
-                <div>
-                  <span className="text-xs font-bold mr-2" style={{ color: '#818CF8' }}>M{i + 1}</span>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{m.nom}</span>
-                </div>
-                <div className="flex gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
-                  <span>{m.theme === 'MELANGE' ? 'Mélange' : m.theme}</span>
-                  <span>{m.difficulte === 'MIXTE' ? 'Mixte' : m.difficulte.toLowerCase()}</span>
-                  <span>{m.nbQuestions} q.</span>
-                </div>
-              </div>
-            ))}
 
             {error && (
               <div className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm"
@@ -453,8 +432,7 @@ export default function CreatePartie() {
             )}
 
             <button onClick={handleCreate} disabled={loading} className="btn-primary w-full btn-xl gap-2">
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-              {loading ? 'Création en cours…' : 'Créer la partie'}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <><Rocket size={16} />Créer la partie</>}
             </button>
           </div>
         )}

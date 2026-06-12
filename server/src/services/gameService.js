@@ -24,38 +24,41 @@ export function flattenManchesServer(manches) {
     )
 }
 
-async function piocherQuestionsParManche(manche) {
-  const { theme, difficulte: diff, nbQuestions } = manche
-
-  const where = { publique: true }
-  if (theme && theme !== 'MELANGE') where.categorie = { nom: theme }
-  if (diff && diff !== 'MIXTE') where.difficulte = diff
-
-  const ids = await prisma.question.findMany({ where, select: { id: true } })
-  if (ids.length === 0) return []
-
-  // Shuffle using Fisher-Yates
-  const arr = ids.map(r => r.id)
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr.slice(0, nbQuestions)
-}
-
+// Tirage des questions d'une PARTIE PERSONNALISÉE. Utilise le même moteur que
+// les packs (pickQuestionsForPack) → mêmes garanties : filtre par thème
+// (catégorie), difficulté ET types de questions, complément si vivier
+// insuffisant, et UNICITÉ sur toute la partie (id + subjectKey partagés entre
+// manches — une question/un sujet ne sort jamais deux fois).
 export async function drawAndStoreQuestions(partieId) {
   const partie = await prisma.partie.findUnique({
     where: { id: partieId },
-    include: { manches: true },
+    include: { manches: { orderBy: { ordre: 'asc' } } },
   })
   if (!partie) return
 
-  for (const manche of partie.manches) {
-    // Ne pas écraser des questions déjà générées (ex: manches d'un pack).
-    const existing = await prisma.mancheQuestion.count({ where: { mancheId: manche.id } })
-    if (existing > 0) continue
+  const used = new Set()
+  const usedSubjects = new Set()
 
-    const questionIds = await piocherQuestionsParManche(manche)
+  for (const manche of partie.manches) {
+    // Ne pas écraser des questions déjà générées (ex: manches d'un pack) —
+    // mais les compter dans l'exclusion pour ne pas les re-tirer ailleurs.
+    const existing = await prisma.mancheQuestion.findMany({
+      where: { mancheId: manche.id },
+      select: { questionId: true, question: { select: { subjectKey: true } } },
+    })
+    if (existing.length > 0) {
+      existing.forEach(e => { used.add(e.questionId); if (e.question?.subjectKey) usedSubjects.add(e.question.subjectKey) })
+      continue
+    }
+
+    const questionIds = await pickQuestionsForPack({
+      categories: manche.theme && manche.theme !== 'MELANGE' ? [manche.theme] : [],
+      difficulte: manche.difficulte,
+      count: manche.nbQuestions,
+      exclude: used,
+      excludeSubjects: usedSubjects,
+      types: manche.typesAutorises ?? [],
+    })
     if (questionIds.length > 0) {
       await prisma.mancheQuestion.createMany({
         data: questionIds.map((qId, i) => ({ mancheId: manche.id, questionId: qId, ordre: i + 1 })),
