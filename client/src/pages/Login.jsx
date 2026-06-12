@@ -130,7 +130,13 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="label">Mot de passe</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="label mb-0">Mot de passe</label>
+                <Link to="/mot-de-passe-oublie" className="text-xs transition-colors"
+                  style={{ color: '#818CF8' }}>
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                 <input

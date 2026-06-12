@@ -335,23 +335,24 @@ export default function Dashboard() {
           <SectionTitle icon={Radio} title="Mes buzzers" inline />
           <div className="flex items-center gap-3">
             <Link to="/buzzer" className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Comment ça marche ?</Link>
-            <Link to="/compte" className="text-xs font-medium" style={{ color: '#818CF8' }}>Gérer →</Link>
+            <Link to="/compte" state={{ tab: 'buzzers' }} className="text-xs font-medium" style={{ color: '#818CF8' }}>Gérer →</Link>
           </div>
         </div>
         {buzzers.length === 0 ? (
           <div className="card p-6 text-center">
             <Radio size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
             <p className="text-sm mb-3" style={{ color: 'var(--text-dim)' }}>Aucun buzzer appairé.</p>
-            <Link to="/compte" className="btn-secondary btn-sm">Ajouter un buzzer</Link>
+            <Link to="/compte" state={{ tab: 'buzzers' }} className="btn-secondary btn-sm">Ajouter un buzzer</Link>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {buzzers.map(b => (
-              <div key={b.id} className="flex items-center gap-2 rounded-lg px-3 py-2"
-                style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)' }}>
+              <Link key={b.id} to="/compte" state={{ tab: 'buzzers' }}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
+                style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)', textDecoration: 'none' }}>
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: b.status === 'OFFLINE' ? 'var(--text-dim)' : b.status === 'IN_GAME' ? '#F59E0B' : '#22C55E' }} />
                 <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{b.nom ?? b.mac.slice(-5)}</span>
-              </div>
+              </Link>
             ))}
           </div>
         )}

@@ -77,3 +77,60 @@ Si tu n'es pas à l'origine de cette inscription, ignore ce message.
   </div>`
   return send({ to, subject, html, text })
 }
+
+// ── Email de réinitialisation de mot de passe ─────────────────────────────────
+export async function sendPasswordResetEmail({ to, prenom, code }) {
+  const subject = 'Réinitialisation de ton mot de passe — Gbairai'
+  const text =
+`Salut ${prenom || ''},
+
+Tu as demandé à réinitialiser ton mot de passe Gbairai.
+Ton code de réinitialisation est : ${code}
+(valable 15 minutes)
+
+Si tu n'as pas fait cette demande, ignore ce message.
+— L'équipe Gbairai`
+  const html = `
+  <div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:480px;margin:auto;color:#18181B">
+    <div style="text-align:center;padding:24px 0">
+      <div style="display:inline-flex;width:40px;height:40px;border-radius:10px;background:#6366F1;color:#fff;font-weight:800;font-size:20px;align-items:center;justify-content:center;line-height:40px">G</div>
+      <h1 style="font-size:20px;margin:12px 0 4px">Réinitialise ton mot de passe</h1>
+      <p style="color:#52525B;font-size:14px;margin:0">Salut ${prenom || ''} 👋</p>
+    </div>
+    <div style="background:#F4F4F7;border-radius:14px;padding:24px;text-align:center">
+      <p style="color:#52525B;font-size:13px;margin:0 0 8px">Ton code de réinitialisation</p>
+      <p style="font-size:34px;font-weight:800;letter-spacing:8px;margin:0;color:#6366F1">${code}</p>
+      <p style="color:#A1A1AA;font-size:12px;margin:8px 0 0">valable 15 minutes</p>
+    </div>
+    <p style="color:#A1A1AA;font-size:12px;text-align:center;margin-top:24px">Si tu n'as pas demandé cette réinitialisation, ignore ce message.</p>
+  </div>`
+  return send({ to, subject, html, text })
+}
+
+// ── Email OTP de confirmation de changement de mot de passe ───────────────────
+export async function sendPasswordChangeOtpEmail({ to, prenom, code }) {
+  const subject = 'Confirmation de changement de mot de passe — Gbairai'
+  const text =
+`Salut ${prenom || ''},
+
+Tu as demandé à changer ton mot de passe.
+Ton code de confirmation est : ${code}
+(valable 15 minutes)
+
+Si ce n'est pas toi, ignore ce message et sécurise ton compte.
+— L'équipe Gbairai`
+  const html = `
+  <div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:480px;margin:auto;color:#18181B">
+    <div style="text-align:center;padding:24px 0">
+      <div style="display:inline-flex;width:40px;height:40px;border-radius:10px;background:#6366F1;color:#fff;font-weight:800;font-size:20px;align-items:center;justify-content:center;line-height:40px">G</div>
+      <h1 style="font-size:20px;margin:12px 0 4px">Confirme le changement</h1>
+    </div>
+    <div style="background:#F4F4F7;border-radius:14px;padding:24px;text-align:center">
+      <p style="color:#52525B;font-size:13px;margin:0 0 8px">Code de confirmation</p>
+      <p style="font-size:34px;font-weight:800;letter-spacing:8px;margin:0;color:#6366F1">${code}</p>
+      <p style="color:#A1A1AA;font-size:12px;margin:8px 0 0">valable 15 minutes</p>
+    </div>
+    <p style="color:#A1A1AA;font-size:12px;text-align:center;margin-top:24px">Si ce n'est pas toi, ignore ce message et sécurise ton compte.</p>
+  </div>`
+  return send({ to, subject, html, text })
+}

@@ -106,6 +106,9 @@ model User {
   verifyCode    String?   // code à 6 chiffres
   verifyToken   String?   @unique // jeton du lien de confirmation
   verifyExpiry  DateTime? // expiration du code/lien
+  // Réinitialisation de mot de passe (forgot-password + OTP de changement en compte)
+  resetCode     String?   // OTP à 6 chiffres
+  resetExpiry   DateTime? // expiration 15 min
   createdAt    DateTime  @default(now())
 
   isAdmin         Boolean        @default(false)

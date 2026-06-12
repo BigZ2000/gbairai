@@ -57,3 +57,11 @@ export async function sendSms(to, body) {
 export async function sendVerificationSms({ to, code }) {
   return sendSms(to, `Gbairai : ton code de verification est ${code} (valable 15 min).`)
 }
+
+export async function sendPasswordResetSms({ to, code }) {
+  return sendSms(to, `Gbairai : code reinitialisation mot de passe : ${code} (15 min). Si ce n'est pas vous, ignorez.`)
+}
+
+export async function sendPasswordChangeOtpSms({ to, code }) {
+  return sendSms(to, `Gbairai : code confirmation changement mot de passe : ${code} (15 min).`)
+}
