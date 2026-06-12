@@ -612,6 +612,8 @@ const MancheSchema = z.object({
   theme: z.string().max(100).default('MELANGE'),
   difficulte: z.string().max(20).default('MIXTE'),
   nbQuestions: z.number().int().min(1).max(100).default(10),
+  // Types de questions autorisés pour la manche (vide = tous).
+  typesAutorises: z.array(z.enum(['BUZZER', 'QCM', 'VRAI_FAUX', 'IMAGE', 'AUDIO', 'VIDEO'])).default([]),
   // Mécaniques avancées (manches inspirées des jeux TV).
   malusEnabled: z.boolean().default(false),
   malusPenalite: z.number().int().min(0).max(100).default(50),

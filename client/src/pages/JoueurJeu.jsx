@@ -33,6 +33,11 @@ export default function JoueurJeu() {
   const [textAnswer, setTextAnswer] = useState('')  // A4 : saisie libre BUZZER distanciel
   const [endConfirm, setEndConfirm] = useState(false) // confirmation Fin (hôte)
   const [toast, setToast] = useState(null)
+  // ANO-1 — Chronomètre JOUEUR : échéance (ms) + tic. Sans lui, en téléphone-only
+  // les questions expirent sans aucun signal (le chrono géant n'est que sur
+  // l'écran public). Alimenté par question_display.remainingMs (horloge serveur).
+  const [deadline, setDeadline] = useState(null)
+  const [nowTick, setNowTick] = useState(Date.now())
 
   const code = partieCode.toUpperCase()
   const myParticipant = participants.find(p => p.userId === user?.id)
@@ -70,6 +75,11 @@ export default function JoueurJeu() {
   }, [code])
 
   useEffect(() => {
+    // ANO-2 — Changement de partie sans démontage (navigation /jeu → /jeu) :
+    // réinitialise l'état de fin et de question, sinon l'écran « Partie
+    // terminée » de la partie précédente reste affiché.
+    setClassement(null); setQuestion(null); setRevealed(false); setWinner(null)
+    setMyAnswer(null); setTextAnswer(''); setDeadline(null); setIsEliminated(false)
     load()
     joinRoom(code)
     const unsub = subscribe('joueur_jeu', (msg) => {
@@ -79,11 +89,13 @@ export default function JoueurJeu() {
           setArmed(true); setWinner(null); setRevealed(false); setRevealReponse(null)
           setRevealCorrectIndex(-1)
           setVoted(null); setMyAnswer(null); setTextAnswer(''); setMediaState(null)
-          setAnimateurOffline(false); break
+          setAnimateurOffline(false)
+          setDeadline(msg.remainingMs != null ? Date.now() + msg.remainingMs : null)
+          break
         case 'buzzer_winner':
-          setWinner(msg); setArmed(false); break
+          setWinner(msg); setArmed(false); setDeadline(null); break
         case 'question_reveal':
-          setRevealed(true); setArmed(false); setWinner(null)
+          setRevealed(true); setArmed(false); setWinner(null); setDeadline(null)
           setRevealReponse(msg.reponse ?? null); setRevealCorrectIndex(msg.correctIndex ?? -1); break
         case 'buzz_reopened':
           // Mauvaise réponse : le buzz rouvre pour tout le monde (« vol »).
@@ -125,6 +137,14 @@ export default function JoueurJeu() {
     })
     return () => { unsub(); leaveRoom(code) }
   }, [code])
+
+  // Tic du chronomètre joueur (tant qu'une échéance est active).
+  useEffect(() => {
+    if (deadline == null) return
+    const t = setInterval(() => setNowTick(Date.now()), 500)
+    return () => clearInterval(t)
+  }, [deadline])
+  const secondsLeft = deadline != null ? Math.max(0, Math.ceil((deadline - nowTick) / 1000)) : null
 
   function buzz() {
     if (!armed || !myParticipant) return
@@ -204,6 +224,16 @@ export default function JoueurJeu() {
           {totalQuestions ? `Question ${questionIndex + 1}/${totalQuestions}` : `Question ${questionIndex + 1}`}
         </span>
         <div className="flex items-center gap-2">
+          {/* Chronomètre de la question (rouge sous 6 s) — stoppe au buzz/révélation. */}
+          {secondsLeft != null && !revealed && (
+            <span className="text-sm font-bold px-2 py-1 rounded-lg tabular-nums"
+              style={{
+                background: secondsLeft <= 5 ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.05)',
+                color: secondsLeft <= 5 ? '#F87171' : secondsLeft <= 10 ? '#F59E0B' : '#9090A0',
+              }}>
+              {secondsLeft}s
+            </span>
+          )}
           {/* Source de buzz active (informatif) : matériel ou téléphone. */}
           <span className="text-2xs px-2 py-1 rounded-lg" title="Ta source de buzz"
             style={{ background: 'rgba(255,255,255,0.04)', color: buzzerLive ? '#A5B4FC' : '#9090A0' }}>
