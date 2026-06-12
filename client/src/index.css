@@ -20,6 +20,8 @@
     --hover-overlay: rgba(255,255,255,0.05);
     --shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
     --scrollbar: rgba(255,255,255,0.1);
+    /* Fin de dégradé des cartes colorées (packs, offres) — s'adapte au thème. */
+    --card-tint: rgba(20,20,24,0.7);
   }
   html[data-theme="light"] {
     --bg: #F4F4F7;
@@ -35,6 +37,7 @@
     --hover-overlay: rgba(0,0,0,0.04);
     --shadow: 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
     --scrollbar: rgba(0,0,0,0.18);
+    --card-tint: rgba(255,255,255,0.92);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
