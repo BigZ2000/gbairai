@@ -601,7 +601,7 @@ export default function SalleAttente() {
             )}
             {/* D5/A4 — Mode distanciel */}
             <label className="flex items-center gap-2 mb-3 cursor-pointer select-none text-sm" style={{ color: 'var(--text-muted)' }}>
-              <input type="checkbox" checked={!!editForm.modeDistanciel}
+              <input type="checkbox" className="check" checked={!!editForm.modeDistanciel}
                 onChange={e => setEditForm(f => ({ ...f, modeDistanciel: e.target.checked }))} />
               <Globe size={13} className="inline mr-1.5 -mt-0.5" />Jeu à distance (médias + saisie sur téléphone)
             </label>
@@ -625,7 +625,7 @@ export default function SalleAttente() {
             {editForm.mode === 'animateur' && (
               <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none rounded-lg p-3"
                 style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)' }}>
-                <input type="checkbox" checked={!!editForm.masquerReponses} className="mt-0.5"
+                <input type="checkbox" checked={!!editForm.masquerReponses} className="check mt-0.5"
                   onChange={e => setEditForm(f => ({ ...f, masquerReponses: e.target.checked }))} />
                 <span>
                   <span className="text-sm font-medium block" style={{ color: 'var(--text)' }}>

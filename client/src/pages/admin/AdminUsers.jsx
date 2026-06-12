@@ -222,7 +222,7 @@ function CreateUserModal({ apiFetch, onClose, onCreated, onError }) {
             <select className="input" value={form.plan} onChange={e => set('plan', e.target.value)}>{PLANS.map(p => <option key={p}>{p}</option>)}</select>
           </div>
           <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer" style={{ color: 'var(--text)' }}>
-            <input type="checkbox" checked={form.isAdmin} onChange={e => set('isAdmin', e.target.checked)} />Administrateur
+            <input type="checkbox" className="check" checked={form.isAdmin} onChange={e => set('isAdmin', e.target.checked)} />Administrateur
           </label>
         </div>
         {err && <p className="text-xs" style={{ color: '#F87171' }}>{err}</p>}
