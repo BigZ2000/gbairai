@@ -647,11 +647,12 @@ function PackGrid({ packs, launching, onPick, highlight }) {
 function FilterChips({ value, onChange, options, placeholder }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="text-xs font-medium rounded-lg px-2.5 py-1.5 cursor-pointer outline-none"
+      className="input text-xs font-medium cursor-pointer"
       style={{
-        background: value ? 'rgba(99,102,241,0.15)' : 'var(--hover-overlay)',
+        padding: '0.375rem 2rem 0.375rem 0.625rem',
+        background: value ? 'rgba(99,102,241,0.15)' : 'var(--input-bg)',
         color: value ? '#818CF8' : 'var(--text-muted)',
-        border: '1px solid var(--border)',
+        border: `1px solid ${value ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
       }}>
       <option value="">{placeholder}</option>
       {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
