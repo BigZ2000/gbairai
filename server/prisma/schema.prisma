@@ -97,6 +97,9 @@ model User {
   plan          Plan      @default(FREE)
   planStartedAt DateTime?
   planExpireAt  DateTime?
+  // Crédits de jeu : parties multijoueurs prépayées (au-delà des 10 gratuites/mois).
+  // Dormant au lancement (Temps 1) ; alimenté par l'achat (Temps 2). Solo non concerné.
+  credits       Int       @default(0)
   isActive      Boolean   @default(true)
   // Compte invité : créé sans mot de passe pour rejoindre une partie en 1 clic.
   isGuest       Boolean   @default(false)
@@ -124,6 +127,8 @@ model User {
   medias          Media[]        @relation("MediasCrees")
   orgsPossedees   Organisation[]       @relation("OrgOwner")
   orgMemberships  OrganisationMembre[]
+  userPacks          UserPack[]
+  creditTransactions CreditTransaction[]
 }
 
 // Médiathèque centrale — fichiers uploadés réutilisables (dédupliqués par hash).
@@ -163,6 +168,9 @@ model Partie {
   creatorId   String?
   modeAuto    Boolean      @default(false)
   modeVote    Boolean      @default(false)
+  // Partie solo (joueur seul) : toujours gratuite et illimitée, NON décomptée du
+  // quota mensuel. Les parties multijoueurs (solo=false) sont seules décomptées.
+  solo        Boolean      @default(false)
   // Masquer les réponses à l'animateur jusqu'à la révélation (projection directe).
   masquerReponses Boolean  @default(false)
   // Jeu à distance (en ligne) : les joueurs voient les médias sur leur téléphone
@@ -498,7 +506,10 @@ model Pack {
 
   // Monétisation
   tier  PackTier @default(GRATUIT) // niveau / condition d'accès
-  prix  Int      @default(0)       // FCFA (achat unitaire ; 0 = inclus / gratuit)
+  prix  Int      @default(0)       // FCFA (achat unitaire = jeu illimité ; 0 = gratuit)
+  // Pack financé par une marque (sponsoring) : gratuit et illimité pour tous.
+  // Dormant au lancement (Temps 1). Renseigné en Temps 2 via les campagnes.
+  sponsorId String?
 
   // Notation (dénormalisé pour l'affichage et le tri)
   noteMoyenne Float? // moyenne des notes
@@ -515,10 +526,41 @@ model Pack {
 
   questions PackQuestion[]
   ratings   PackRating[]
+  userPacks UserPack[]
 
   @@index([statut])
   @@index([priorite])
   @@index([tier])
+}
+
+// Propriété d'un pack : achat unique = droit de jeu ILLIMITÉ de ce pack
+// (exempté du quota mensuel). Cœur du modèle « achète une fois, joue toujours ».
+// Créé à la confirmation du paiement (Temps 2). Vide au lancement (Temps 1).
+model UserPack {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packId     String
+  pack       Pack     @relation(fields: [packId], references: [id], onDelete: Cascade)
+  paiementId String?  // paiement à l'origine de l'acquisition
+  acquisAt   DateTime @default(now())
+
+  @@unique([userId, packId])
+  @@index([userId])
+}
+
+// Journal des mouvements de crédits de jeu (achat, consommation, bonus).
+// Le solde courant est dénormalisé sur User.credits. Dormant au lancement.
+model CreditTransaction {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta      Int      // +N (achat/bonus), -1 (partie multijoueur consommée)
+  raison     String   // 'ACHAT' | 'PARTIE' | 'BONUS' | 'REMBOURSEMENT'
+  paiementId String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
 }
 
 // Sélection manuelle de questions pour un pack (mode MANUEL).

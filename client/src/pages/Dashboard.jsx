@@ -132,7 +132,8 @@ export default function Dashboard() {
     setLaunching(packId)
     try {
       const dist = distanciel ?? modeDistanciel
-      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false, modeDistanciel: dist } })
+      // « Jouer maintenant » (autostart) = partie solo : gratuite, non décomptée.
+      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false, modeDistanciel: dist, solo: autostart } })
       if (!res?.ok) {
         const err = await res?.json().catch(() => ({}))
         setLaunching(null); setSelectedPack(null)
@@ -461,15 +462,25 @@ export default function Dashboard() {
               {paywall.quota ? <Gauge size={26} style={{ color: '#818CF8' }} /> : <Lock size={24} style={{ color: '#818CF8' }} />}
             </div>
             <h3 className="text-lg font-bold mb-1.5" style={{ color: 'var(--text)' }}>
-              {paywall.quota ? 'Limite atteinte' : 'Pack réservé'}
+              {paywall.quota ? 'Tu as fait le plein ce mois-ci 🎉' : 'Pack réservé'}
             </h3>
             <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{paywall.reason}</p>
-            <div className="flex flex-col gap-2">
-              <Link to="/abonnement" className="btn-primary w-full gap-2">
-                <Crown size={15} />{paywall.quota ? 'Passer à PRO' : 'Découvrir les offres'}
-              </Link>
-              <button onClick={() => setPaywall(null)} className="btn-ghost w-full">Plus tard</button>
-            </div>
+            {paywall.quota ? (
+              // Temps 1 : pas de paiement. Message doux + le solo reste illimité.
+              <div className="flex flex-col gap-2">
+                <button onClick={() => { setPaywall(null); navigate('/parties/new') }} className="btn-primary w-full gap-2">
+                  <Play size={15} />Jouer en solo (illimité)
+                </button>
+                <button onClick={() => setPaywall(null)} className="btn-ghost w-full">Compris</button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Link to="/abonnement" className="btn-primary w-full gap-2">
+                  <Crown size={15} />Découvrir les offres
+                </Link>
+                <button onClick={() => setPaywall(null)} className="btn-ghost w-full">Plus tard</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -483,6 +494,7 @@ function QuotaBanner({ quota }) {
   const illimite = quota.limites.partiesParMois == null
   const used = quota.usage.partiesCeMois
   const max = quota.limites.partiesParMois
+  const credits = quota.credits ?? 0
   const pct = illimite ? 0 : Math.min(100, Math.round((used / max) * 100))
   const presduMax = !illimite && used / max >= 0.8
   const renouvellement = org?.expireAt ?? quota.expireAt
@@ -525,20 +537,21 @@ function QuotaBanner({ quota }) {
         ) : (
           <>
             <div className="flex items-center justify-between text-2xs mb-1">
-              <span style={{ color: 'var(--text-muted)' }}>Parties ce mois</span>
+              <span style={{ color: 'var(--text-muted)' }}>Parties à plusieurs ce mois</span>
               <span style={{ color: presduMax ? '#F59E0B' : 'var(--text-muted)' }}>{illimite ? `${used} · illimité` : `${used} / ${max}`}</span>
             </div>
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--hover-overlay)' }}>
               <div className="h-full rounded-full transition-all"
                 style={{ width: illimite ? '100%' : `${pct}%`, background: illimite ? '#22C55E' : presduMax ? '#F59E0B' : '#6366F1' }} />
             </div>
+            <p className="text-2xs mt-1.5" style={{ color: 'var(--text-dim)' }}>
+              Le solo est toujours gratuit et illimité{credits > 0 ? ` · ${credits} crédit${credits > 1 ? 's' : ''} de jeu` : ''}.
+            </p>
           </>
         )}
       </div>
       {org ? (
         <Link to="/organisation" className="btn-secondary btn-sm gap-1.5 shrink-0"><Crown size={13} />Mon Organisation</Link>
-      ) : quota.plan === 'FREE' ? (
-        <Link to="/abonnement" className="btn-primary btn-sm gap-1.5 shrink-0"><Crown size={13} />Passer à PRO</Link>
       ) : null}
     </div>
   )
