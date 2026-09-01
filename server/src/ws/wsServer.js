@@ -128,5 +128,7 @@ export function sendToBuzzer(mac, message) {
   const ws = buzzerSockets.get(mac?.toUpperCase())
   if (ws?.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message))
+    return true
   }
+  return false
 }

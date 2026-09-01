@@ -6,7 +6,7 @@ import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { getFirmwareConfig, setFirmwareConfig } from '../config/firmware.js'
-import { offerOtaToAllIdle } from '../services/buzzerService.js'
+import { offerOtaToAllIdle, adminFactoryReset, adminReleaseBuzzer, adminForgetBuzzer } from '../services/buzzerService.js'
 
 const router = Router()
 router.use(requireAuth, requireAdmin)
@@ -39,6 +39,30 @@ router.put('/', async (req, res) => {
 router.post('/push', async (_req, res) => {
   const pushed = await offerOtaToAllIdle()
   res.json({ ok: true, pushed })
+})
+
+// ── Actions sur un buzzer précis (parc) ───────────────────────────────────────
+const macParam = (req) => (req.params.mac ?? '').toUpperCase()
+
+// POST /api/admin/firmware/buzzers/:mac/factory-reset — reset d'usine à distance.
+router.post('/buzzers/:mac/factory-reset', async (req, res) => {
+  const r = await adminFactoryReset(macParam(req))
+  if (!r.success) return res.status(r.error?.includes('introuvable') ? 404 : 409).json({ error: r.error })
+  res.json({ ok: true, delivered: r.delivered })
+})
+
+// POST /api/admin/firmware/buzzers/:mac/release — libération forcée (retire l'owner).
+router.post('/buzzers/:mac/release', async (req, res) => {
+  const r = await adminReleaseBuzzer(macParam(req))
+  if (!r.success) return res.status(r.error?.includes('introuvable') ? 404 : 409).json({ error: r.error })
+  res.json({ ok: true })
+})
+
+// DELETE /api/admin/firmware/buzzers/:mac — oublier (supprimer) l'enregistrement.
+router.delete('/buzzers/:mac', async (req, res) => {
+  const r = await adminForgetBuzzer(macParam(req))
+  if (!r.success) return res.status(r.error?.includes('introuvable') ? 404 : 409).json({ error: r.error })
+  res.json({ ok: true })
 })
 
 export default router
