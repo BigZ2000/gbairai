@@ -41,6 +41,7 @@ import Paiements from './pages/Paiements.jsx'
 import MonOrganisation from './pages/MonOrganisation.jsx'
 import InvitationAccept from './pages/InvitationAccept.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
+import PwaInstallPrompt from './components/PwaInstallPrompt.jsx'
 
 function AdminRoute({ children }) {
   const { user, loading } = useAuth()
@@ -112,6 +113,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        <PwaInstallPrompt />
       </WsProvider>
     </AuthProvider>
   )
