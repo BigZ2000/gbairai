@@ -28,17 +28,34 @@
 #include <WebSocketsClient.h>     // https://github.com/Links2004/arduinoWebSockets
 #include <Adafruit_NeoPixel.h>
 #include <Preferences.h>
-#include <HTTPUpdate.h>           // OTA (mise à jour par HTTP)
+#include <HTTPUpdate.h>           // OTA (mise à jour par HTTP/HTTPS)
 #include <WiFiClient.h>
+#include <WiFiClientSecure.h>     // OTA en HTTPS (binaire servi par le serveur Gbairai)
 
 // ── Brochage (adapter selon ton câblage) ────────────────────────────────────
-#define BUTTON_PIN   13          // bouton arcade entre GPIO13 et GND
-#define LED_PIN      5           // entrée DATA d'une LED WS2812 (NeoPixel)
-#define LED_COUNT    1
-#define BUZZER_PIN   12          // piézo (sortie son) — mêmes déclencheurs que le simulateur
-#define BATTERY_PIN  34          // mesure batterie via pont diviseur (entrée ADC)
+// Bouton arcade 4 broches : COM + NO = microswitch, LED+ / LED− = anneau lumineux.
+//   COM → GND            |  NO → GPIO13 (BUTTON_PIN, INPUT_PULLUP)
+//   LED− → GND           |  LED+ → via transistor commandé par GPIO14 (voir §Câblage)
+// ⚠️ La LED de l'anneau (5 V, souvent 20–40 mA) ne doit JAMAIS être branchée en
+// direct sur un GPIO (3,3 V / 12 mA conseillés) : passer par un transistor
+// (NPN 2N2222 / BC547, ou MOSFET 2N7000) en commutation « côté bas ».
+#define BUTTON_PIN     13        // microswitch : NO → GPIO13, COM → GND
+#define BUTTON_LED_PIN 14        // anneau du bouton (via transistor). -1 pour désactiver.
+#define LED_PIN        5         // entrée DATA d'une LED WS2812 (NeoPixel)
+#define LED_COUNT      1
+#define BUZZER_PIN     12        // piézo (sortie son) — mêmes déclencheurs que le simulateur
+#define BATTERY_PIN    34        // mesure batterie via pont diviseur (entrée ADC)
 #define FIRMWARE_VERSION "esp32-1.2"
 #define TELEMETRY_MS 30000UL     // télémétrie toutes les 30 s
+
+// Canaux PWM (LEDC) — le piézo utilise tone() qui réserve le canal 0.
+#define BTN_LED_CHANNEL 4
+#define BTN_LED_FREQ    5000
+#define BTN_LED_RES     8        // 8 bits → 0..255
+
+// Reset d'usine par appui long EN FONCTIONNEMENT (plus découvrable que le
+// « bouton tenu au démarrage », qui reste supporté).
+#define LONG_PRESS_RESET_MS 10000UL
 
 // ── Objets globaux ──────────────────────────────────────────────────────────
 WebSocketsClient webSocket;
@@ -70,6 +87,11 @@ WiFiClient gOtaClient;
 // lu une fois depuis les prefs au démarrage, annoncé au hello puis consommé.
 bool gJustFactoryReset = false;
 
+// Appui long en fonctionnement (reset d'usine) : instant du début d'appui.
+uint32_t gPressStartMs = 0;
+// Progression OTA (0..100, -1 = pas de MAJ en cours) → retour visuel dédié.
+int gOtaProgress = -1;
+
 bool inGame() { return gLed == L_ARMED || gLed == L_WINNER || gLed == L_LOCKED || gLed == L_REVEAL; }
 
 // Niveau de batterie en % (à calibrer selon ton pont diviseur).
@@ -87,14 +109,57 @@ int readBatteryPercent() {
 // ============================================================================
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) { return pixel.Color(r, g, b); }
 
+// Anneau lumineux du bouton arcade (LED simple, donc uniquement une intensité).
+// Piloté en PWM pour reproduire les mêmes rythmes que la NeoPixel : le joueur
+// voit le BOUTON lui-même s'allumer, ce qui est bien plus lisible à distance.
+// NB : l'API LEDC diffère entre les cores ESP32 2.x (canal) et 3.x (broche).
+// La garde ci-dessous évite une casse silencieuse si le core est mis à jour.
+void setButtonLed(uint8_t level) {
+#if BUTTON_LED_PIN >= 0
+  #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+    ledcWrite(BUTTON_LED_PIN, level);
+  #else
+    ledcWrite(BTN_LED_CHANNEL, level);
+  #endif
+#endif
+}
+
 void renderLed() {
   uint32_t now = millis();
+
+  // Mise à jour OTA en cours : priorité absolue, la barre de progression se lit
+  // sur l'intensité de l'anneau et la NeoPixel passe en bleu clignotant.
+  if (gOtaProgress >= 0) {
+    bool tick = (now / 200) % 2;
+    pixel.setPixelColor(0, tick ? rgb(0, 80, 255) : rgb(0, 10, 40));
+    pixel.show();
+    setButtonLed((uint8_t)(gOtaProgress * 255 / 100)); // s'éclaire au fil du téléchargement
+    return;
+  }
+
   // Flash blanc prioritaire (retour tactile immédiat à l'appui).
-  if (now < gFlashUntil) { pixel.setPixelColor(0, rgb(255, 255, 255)); pixel.show(); return; }
+  if (now < gFlashUntil) {
+    pixel.setPixelColor(0, rgb(255, 255, 255)); pixel.show();
+    setButtonLed(255);
+    return;
+  }
 
   // Respiration : 0..255 sinusoïdal lent.
   float phase = (sin(now / 350.0) + 1.0) / 2.0;     // 0..1
   uint8_t breath = 40 + (uint8_t)(phase * 180);
+
+  // L'anneau reprend le rythme de l'état courant (allumé/pulsé/éteint).
+  switch (gLed) {
+    case L_OFFLINE:  setButtonLed(breath / 6); break;   // très faible, respire
+    case L_PORTAL:   setButtonLed(breath); break;       // pulse franchement (à configurer)
+    case L_AWAITING: setButtonLed(breath); break;       // pulse (à appairer)
+    case L_READY:    setButtonLed(30); break;           // veilleuse discrète
+    case L_ARMED:    setButtonLed(255); break;          // PLEIN FEU : « tu peux buzzer »
+    case L_WINNER:   setButtonLed(255); break;
+    case L_LOCKED:   setButtonLed(0); break;            // éteint : verrouillé
+    case L_REVEAL:   setButtonLed(120); break;
+    case L_PRESSED:  setButtonLed(255); break;
+  }
 
   switch (gLed) {
     case L_OFFLINE:  pixel.setPixelColor(0, rgb(breath/3, 0, 0)); break;            // rouge sombre lent
@@ -179,15 +244,62 @@ void sendTelemetry() {
 
 // Mise à jour OTA : télécharge et flashe le firmware depuis l'URL fournie.
 // Refusée en cours de partie (on ne coupe jamais un buzzer en plein jeu).
-void doOta(const String& url) {
+// Remonte au serveur le résultat d'une MAJ (journalisé côté admin).
+void sendOtaResult(bool ok, const String& version, const String& err) {
+  String m = "{\"type\":\"ota_result\",\"mac\":\"" + gMac + "\",\"ok\":" + (ok ? "true" : "false")
+             + ",\"version\":\"" + version + "\"";
+  if (!ok) { String e = err; e.replace("\"", "'"); m += ",\"error\":\"" + e + "\""; }
+  m += "}";
+  webSocket.sendTXT(m);
+  webSocket.loop();       // laisse la trame partir avant un éventuel redémarrage
+  delay(120);
+}
+
+// Mise à jour OTA. Supporte HTTP **et HTTPS** : le binaire est servi par le
+// serveur Gbairai lui-même (https://<host>/uploads/firmware/xxx.bin), donc une
+// liaison TLS est indispensable — l'ancien WiFiClient simple échouait sur https.
+// TLS sans validation de CA (setInsecure) : le flux est chiffré ; l'intégrité est
+// garantie par le contrôle de somme/magic byte du bootloader ESP32.
+void doOta(const String& url, const String& version) {
   if (url.isEmpty() || inGame()) return;
   Serial.printf("[OTA] mise à jour depuis %s\n", url.c_str());
-  gLed = L_PORTAL;                          // LED blanche pulsée pendant la MAJ
-  httpUpdate.rebootOnUpdate(true);
-  t_httpUpdate_return ret = httpUpdate.update(gOtaClient, url);
-  if (ret == HTTP_UPDATE_FAILED)
-    Serial.printf("[OTA] échec (%d) %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
-  // En cas de succès, l'ESP32 redémarre automatiquement sur le nouveau firmware.
+
+  gOtaProgress = 0;                          // active le retour visuel dédié
+  renderLed();
+
+  httpUpdate.rebootOnUpdate(false);          // on veut rendre compte AVANT de redémarrer
+  httpUpdate.onProgress([](int cur, int total) {
+    if (total > 0) gOtaProgress = (cur * 100) / total;
+    renderLed();                             // barre de progression sur l'anneau
+  });
+
+  t_httpUpdate_return ret;
+  if (url.startsWith("https://")) {
+    WiFiClientSecure secure;
+    secure.setInsecure();                    // pas d'épinglage de CA sur l'appareil
+    secure.setTimeout(20000);
+    ret = httpUpdate.update(secure, url);
+  } else {
+    ret = httpUpdate.update(gOtaClient, url);
+  }
+
+  gOtaProgress = -1;
+
+  if (ret == HTTP_UPDATE_OK) {
+    Serial.println("[OTA] succès → redémarrage");
+    sendOtaResult(true, version, "");
+    // 3 clignotements verts : succès visible sans câble série.
+    for (int i = 0; i < 3; i++) { pixel.setPixelColor(0, rgb(0, 220, 60)); pixel.show(); setButtonLed(255); delay(150);
+                                  pixel.setPixelColor(0, 0); pixel.show(); setButtonLed(0); delay(150); }
+    ESP.restart();
+  } else {
+    String err = httpUpdate.getLastErrorString();
+    Serial.printf("[OTA] échec (%d) %s\n", httpUpdate.getLastError(), err.c_str());
+    sendOtaResult(false, version, err);
+    // 3 clignotements rouges : échec identifiable d'un coup d'œil.
+    for (int i = 0; i < 3; i++) { pixel.setPixelColor(0, rgb(200, 0, 0)); pixel.show(); delay(150);
+                                  pixel.setPixelColor(0, 0); pixel.show(); delay(150); }
+  }
 }
 
 // ============================================================================
@@ -221,7 +333,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
         Serial.printf("[WS] led ← %s\n", s.c_str());
       }
       else if (jsonHas(p, "\"type\":\"ota\"")) {  // mise à jour proposée par le serveur
-        doOta(jsonField(p, "\"url\":\""));
+        doOta(jsonField(p, "\"url\":\""), jsonField(p, "\"version\":\""));
       }
       else if (jsonHas(p, "\"type\":\"factory_reset\"")) { // reset distant (admin)
         Serial.println("[WS] reset d'usine demandé par le serveur");
@@ -243,9 +355,29 @@ void handleButton() {
     gLastBtnMs = now;
     gLastBtn = b;
     if (b == LOW) {                                 // appui (pull-up → LOW = pressé)
+      gPressStartMs = now;                          // départ du chrono d'appui long
       gFlashUntil = now + 180;                      // flash blanc local immédiat
       sndPress();
       if (gConnected) { sendBuzz(); Serial.println("→ BUZZ"); }
+    } else {
+      gPressStartMs = 0;                            // relâché avant le seuil → rien
+    }
+  }
+
+  // Reset d'usine par APPUI LONG (10 s) en fonctionnement : bien plus découvrable
+  // que « tenir le bouton au démarrage ». L'anneau et la NeoPixel virent au rouge
+  // pendant le décompte, pour que l'utilisateur comprenne ce qui va se passer.
+  if (gPressStartMs && b == LOW) {
+    uint32_t held = now - gPressStartMs;
+    if (held > 3000) {                              // à partir de 3 s : avertissement visuel
+      bool tick = (now / 150) % 2;
+      pixel.setPixelColor(0, tick ? rgb(220, 0, 0) : rgb(20, 0, 0));
+      pixel.show();
+      setButtonLed(tick ? 255 : 0);
+    }
+    if (held >= LONG_PRESS_RESET_MS) {
+      Serial.println("[RESET] appui long → reset d'usine");
+      doFactoryReset();                             // efface, puis redémarre
     }
   }
 }
@@ -269,7 +401,6 @@ void startPortalIfNeeded() {
   // ne prend pas effet si le pilote Wi-Fi n'était pas déjà démarré au moment du reset.
   prefs.begin("gbairai", false);
   bool forcePortal = prefs.getBool("force_portal", false);
-  if (forcePortal) prefs.putBool("force_portal", false); // consommé une seule fois
   prefs.end();
   gJustFactoryReset = forcePortal;
 
@@ -282,8 +413,17 @@ void startPortalIfNeeded() {
     ok = wm.autoConnect(ap.c_str());
   }
   if (!ok) {
+    // Le drapeau n'est PAS consommé ici : si l'utilisateur n'a pas eu le temps de
+    // configurer (ou coupe le courant), le prochain boot rouvrira bien le portail.
     Serial.println("[WiFi] échec portail → redémarrage");
     delay(2000); ESP.restart();
+  }
+
+  // Configuration réussie → on peut consommer le drapeau en toute sécurité.
+  if (forcePortal) {
+    prefs.begin("gbairai", false);
+    prefs.putBool("force_portal", false);
+    prefs.end();
   }
   Serial.printf("[WiFi] connecté. Serveur = %s:%u\n", GBAIRAI_HOST, GBAIRAI_PORT);
 }
@@ -332,6 +472,17 @@ void setup() {
   Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pixel.begin(); pixel.setBrightness(160); pixel.show();
+
+  // Anneau lumineux du bouton arcade (4 broches) piloté en PWM via transistor.
+#if BUTTON_LED_PIN >= 0
+  #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+    ledcAttach(BUTTON_LED_PIN, BTN_LED_FREQ, BTN_LED_RES);
+  #else
+    ledcSetup(BTN_LED_CHANNEL, BTN_LED_FREQ, BTN_LED_RES);
+    ledcAttachPin(BUTTON_LED_PIN, BTN_LED_CHANNEL);
+  #endif
+  setButtonLed(0);
+#endif
 
   gMac = WiFi.macAddress();           // "AA:BB:CC:DD:EE:FF" (majuscules)
   gMac.toUpperCase();

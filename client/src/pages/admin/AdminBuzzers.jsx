@@ -19,8 +19,20 @@ const FILTRES = [
   ['AWAITING_CLAIM', 'À appairer'], ['OFFLINE', 'Hors ligne'],
 ]
 
+// Horodatage relatif : « il y a 2 min » se lit bien plus vite qu'une date, et
+// permet de repérer d'un coup d'œil un buzzer qui vient de tomber.
+function tempsRelatif(iso) {
+  if (!iso) return '—'
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000)
+  if (s < 60) return "à l'instant"
+  if (s < 3600) return `il y a ${Math.floor(s / 60)} min`
+  if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`
+  const j = Math.floor(s / 86400)
+  return j > 30 ? new Date(iso).toLocaleDateString('fr-FR') : `il y a ${j} j`
+}
+
 export default function AdminBuzzers() {
-  const { apiFetch } = useAuth()
+  const { apiFetch, apiUpload } = useAuth()
   const [tab, setTab] = useState('parc') // 'parc' | 'journal'
   const [data, setData] = useState(null)
   const [filtre, setFiltre] = useState('ALL')
@@ -30,6 +42,7 @@ export default function AdminBuzzers() {
   const [confirm, setConfirm] = useState(null) // { mac, nom, action, ... }
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [uploading, setUploading] = useState(false)
 
   const load = useCallback(async () => {
     const res = await apiFetch('/admin/firmware')
@@ -56,7 +69,30 @@ export default function AdminBuzzers() {
   }
   async function pushOta() {
     const res = await apiFetch('/admin/firmware/push', { method: 'POST' })
-    if (res?.ok) { const d = await res.json(); setPushed(d.pushed); setTimeout(() => setPushed(null), 4000) }
+    if (res?.ok) { const d = await res.json(); setPushed(d.pushed); setTimeout(() => setPushed(null), 4000); load() }
+  }
+
+  // Téléverse le .bin sur CE serveur : il sera servi en HTTPS sous
+  // /uploads/firmware/… et l'URL est appliquée automatiquement à la cible OTA.
+  async function uploadBin(file) {
+    if (!file) return
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    if (cfg.version) fd.append('version', cfg.version)
+    const res = await apiUpload('/admin/firmware/upload', fd)
+    setUploading(false)
+    if (res?.ok) {
+      const d = await res.json()
+      setCfg(c => ({ ...c, url: d.url }))
+      setFlash(`Firmware téléversé (${Math.round(d.taille / 1024)} Ko)`)
+      setTimeout(() => setFlash(null), 4000)
+      load()
+    } else {
+      const e = await res?.json().catch(() => ({}))
+      setFlash(e?.error ?? 'Téléversement impossible')
+      setTimeout(() => setFlash(null), 4000)
+    }
   }
 
   // Exécute l'action confirmée (reset distant / libération / suppression).
@@ -144,8 +180,23 @@ export default function AdminBuzzers() {
           </div>
           <div>
             <label className="label">URL du firmware (.bin)</label>
-            <input value={cfg.url ?? ''} onChange={e => setCfg(c => ({ ...c, url: e.target.value }))} className="input w-full" placeholder="https://…/gbairai_buzzer.bin" />
+            <input value={cfg.url ?? ''} onChange={e => setCfg(c => ({ ...c, url: e.target.value }))} className="input w-full" placeholder="https://…/uploads/firmware/gbairai_buzzer.bin" />
           </div>
+        </div>
+
+        {/* Téléversement du binaire sur CE serveur (servi ensuite en HTTPS) */}
+        <div className="mt-3 rounded-lg p-3" style={{ background: 'rgba(99,102,241,0.05)', border: '1px dashed rgba(99,102,241,0.25)' }}>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <span className="btn-secondary btn-sm gap-1.5 shrink-0">
+              {uploading ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
+              Téléverser un .bin
+            </span>
+            <input type="file" accept=".bin" className="hidden" disabled={uploading}
+              onChange={e => { uploadBin(e.target.files?.[0]); e.target.value = '' }} />
+            <span className="text-2xs" style={{ color: 'var(--text-dim)' }}>
+              Hébergé sur ce serveur en HTTPS — l'URL ci-dessus est remplie automatiquement.
+            </span>
+          </label>
         </div>
         <div className="flex items-center gap-4 mt-4 flex-wrap">
           <button onClick={() => setCfg(c => ({ ...c, enabled: !c.enabled }))} className="flex items-center gap-2">
@@ -157,13 +208,18 @@ export default function AdminBuzzers() {
           <button onClick={saveCfg} disabled={saving} className="btn-primary gap-2">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}Enregistrer
           </button>
-          <button onClick={pushOta} disabled={!cfg.enabled} className="btn-secondary gap-2">
-            <UploadCloud size={14} />Pousser maintenant
+          <button onClick={pushOta} disabled={!cfg.enabled || !data.otaEligible} className="btn-secondary gap-2">
+            <UploadCloud size={14} />
+            Pousser maintenant{data.otaEligible ? ` (${data.otaEligible})` : ''}
           </button>
           {pushed != null && <span className="text-sm" style={{ color: '#22C55E' }}>OTA poussé à {pushed} buzzer(s)</span>}
         </div>
         <p className="text-2xs mt-3" style={{ color: 'var(--text-dim)' }}>
-          L'OTA n'est proposé qu'aux buzzers <strong>en ligne, au repos et obsolètes</strong> (jamais en pleine partie).
+          {data.otaEligible > 0
+            ? <><strong style={{ color: '#F59E0B' }}>{data.otaEligible} buzzer(s) obsolète(s)</strong> recevront la mise à jour. </>
+            : <>Aucun buzzer obsolète connecté pour l'instant. </>}
+          L'OTA n'est proposé qu'aux buzzers <strong>connectés, au repos et obsolètes</strong> (jamais en pleine partie).
+          Le résultat de chaque MAJ apparaît dans l'onglet <strong>Journal</strong>.
         </p>
       </div>
 
@@ -206,8 +262,9 @@ export default function AdminBuzzers() {
                   <td className="px-3 py-3 text-xs">
                     <span style={{ color: outdated ? '#F59E0B' : 'var(--text-muted)' }}>{b.firmware ?? '—'}{outdated ? ' ⟳' : ''}</span>
                   </td>
-                  <td className="px-3 py-3 text-2xs" style={{ color: 'var(--text-dim)' }}>
-                    {b.lastSeenAt ? new Date(b.lastSeenAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                  <td className="px-3 py-3 text-2xs" title={b.lastSeenAt ? new Date(b.lastSeenAt).toLocaleString('fr-FR') : ''}
+                    style={{ color: 'var(--text-dim)' }}>
+                    {tempsRelatif(b.lastSeenAt)}
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1">
@@ -288,6 +345,8 @@ const EVENT_TYPE = {
   RELEASE:              { l: 'Libéré (utilisateur)',   c: '#38BDF8', Icon: Unlink2 },
   RELEASE_ADMIN:        { l: 'Libéré (admin)',         c: '#38BDF8', Icon: Unlink2 },
   FORGET:               { l: 'Supprimé (admin)',       c: '#F87171', Icon: Ban },
+  OTA_SUCCESS:          { l: 'MAJ réussie',            c: '#22C55E', Icon: UploadCloud },
+  OTA_FAILED:           { l: 'MAJ échouée',            c: '#F87171', Icon: AlertTriangle },
 }
 
 function JournalTab({ apiFetch }) {
@@ -349,6 +408,9 @@ function JournalTab({ apiFetch }) {
                         style={{ background: t.c + '22', color: t.c }}>
                         <Icon size={11} />{t.l}
                       </span>
+                      {ev.meta?.error && (
+                        <div className="text-2xs mt-1 font-mono" style={{ color: '#F87171' }}>{ev.meta.error}</div>
+                      )}
                     </td>
                     <td className="px-3 py-3 font-mono text-xs" style={{ color: 'var(--text)' }}>{ev.mac}</td>
                     <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>

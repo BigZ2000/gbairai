@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import jwt from 'jsonwebtoken'
 import { handleGameMessage, sendSnapshot, sendLedSnapshot } from './gameHandler.js'
-import { onBuzzerConnect, onBuzzerDisconnect, onTelemetry } from '../services/buzzerService.js'
+import { onBuzzerConnect, onBuzzerDisconnect, onTelemetry, onOtaResult } from '../services/buzzerService.js'
 import { prisma } from '../utils/prisma.js'
 
 // Map<partieCode, Set<WebSocket>>
@@ -70,6 +70,14 @@ export function initWsServer(httpServer) {
         // S'il est déjà assigné à une partie EN_COURS, on lui pousse l'état
         // courant de sa LED (reprise transparente après (re)connexion).
         await sendLedSnapshot(ws._gbairai.mac)
+        return
+      }
+
+      // Résultat d'une mise à jour OTA (firmware ≥ esp32-1.2) : succès ou échec.
+      // Journalisé côté admin — sans ça, une MAJ ratée passait totalement inaperçue.
+      if (msg.type === 'ota_result') {
+        const mac = ws._gbairai.mac ?? msg.mac?.toUpperCase()
+        if (mac) await onOtaResult(mac, { ok: !!msg.ok, version: msg.version, error: msg.error })
         return
       }
 

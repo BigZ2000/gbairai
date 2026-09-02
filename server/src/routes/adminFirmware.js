@@ -2,16 +2,51 @@
 // Supervision du parc (batterie, signal, firmware) + cible OTA + déclenchement.
 import { Router } from 'express'
 import { z } from 'zod'
+import path from 'path'
+import fs from 'fs'
+import multer from 'multer'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { getFirmwareConfig, setFirmwareConfig } from '../config/firmware.js'
-import { offerOtaToAllIdle, adminFactoryReset, adminReleaseBuzzer, adminForgetBuzzer, getBuzzerJournal } from '../services/buzzerService.js'
+import {
+  offerOtaToAllIdle, adminFactoryReset, adminReleaseBuzzer, adminForgetBuzzer,
+  getBuzzerJournal, countOtaEligible,
+} from '../services/buzzerService.js'
 
 const router = Router()
 router.use(requireAuth, requireAdmin)
 
-// GET /api/admin/firmware — config OTA + état du parc.
+// ── Hébergement des binaires firmware ─────────────────────────────────────────
+// Les .bin sont servis par CE serveur, en HTTPS, sous /uploads/firmware/.
+// C'est le même domaine que celui auquel les buzzers se connectent déjà
+// (api.gbairai.robotechci.com) → aucun hébergement tiers à prévoir.
+const FIRMWARE_DIR = path.join(process.cwd(), 'uploads', 'firmware')
+fs.mkdirSync(FIRMWARE_DIR, { recursive: true })
+
+const uploadBin = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, FIRMWARE_DIR),
+    // Nom lisible et versionné : gbairai_buzzer-<version>-<horodatage>.bin
+    filename: (req, _file, cb) => {
+      const v = String(req.body?.version || 'firmware').replace(/[^a-zA-Z0-9._-]/g, '')
+      cb(null, `gbairai_buzzer-${v}-${Date.now()}.bin`)
+    },
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8 Mo : très large pour un ESP32
+  fileFilter: (_req, file, cb) => cb(null, file.originalname.toLowerCase().endsWith('.bin')),
+}).single('file')
+
+// Base publique utilisée pour construire l'URL du .bin donnée aux buzzers.
+// Priorité à API_PUBLIC_URL ; sinon on la déduit des en-têtes (proxy Caddy inclus).
+function publicBase(req) {
+  const configured = process.env.API_PUBLIC_URL
+  if (configured) return configured.replace(/\/$/, '')
+  const proto = req.headers['x-forwarded-proto']?.toString().split(',')[0] || req.protocol || 'https'
+  return `${proto}://${req.get('host')}`
+}
+
+// GET /api/admin/firmware — config OTA + état du parc + éligibles à la MAJ.
 router.get('/', async (_req, res) => {
   const buzzers = await prisma.buzzer.findMany({
     orderBy: { lastSeenAt: 'desc' },
@@ -21,7 +56,25 @@ router.get('/', async (_req, res) => {
       owner: { select: { email: true, prenom: true } },
     },
   })
-  res.json({ config: getFirmwareConfig(), buzzers })
+  res.json({ config: getFirmwareConfig(), buzzers, otaEligible: await countOtaEligible() })
+})
+
+// POST /api/admin/firmware/upload — téléverser un .bin, servi ensuite en HTTPS.
+// Renvoie l'URL publique à coller (ou déjà appliquée) dans la config OTA.
+router.post('/upload', (req, res) => {
+  uploadBin(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message })
+    if (!req.file) return res.status(400).json({ error: 'Fichier .bin manquant (ou extension invalide)' })
+
+    const url = `${publicBase(req)}/uploads/firmware/${req.file.filename}`
+    // Confort : si une version est fournie, on applique directement la cible OTA.
+    const version = String(req.body?.version || '').trim()
+    const config = version
+      ? await setFirmwareConfig({ version, url })
+      : await setFirmwareConfig({ url })
+
+    res.status(201).json({ ok: true, url, taille: req.file.size, config })
+  })
 })
 
 // PUT /api/admin/firmware — définir la cible OTA (version, url, activation).
@@ -32,7 +85,7 @@ router.put('/', async (req, res) => {
     url: z.string().max(500).optional(),
   }).safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Paramètres invalides' })
-  res.json(setFirmwareConfig(parsed.data))
+  res.json(await setFirmwareConfig(parsed.data))
 })
 
 // POST /api/admin/firmware/push — pousser l'OTA à tous les buzzers en ligne/au repos.
