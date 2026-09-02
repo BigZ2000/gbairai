@@ -32,7 +32,7 @@ export default function AdminLayout({ children }) {
       <aside className="w-56 flex flex-col shrink-0 h-screen"
         style={{ background: 'var(--surface-2)', borderRight: '1px solid var(--border)' }}>
         <div className="px-5 py-5 flex items-center gap-2.5"
-          style={{ borderBottom: '1px solid var(--border)' }}>
+          style={{ borderBottom: '1px solid var(--border)', paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 0px))' }}>
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white"
             style={{ background: '#EF4444' }}>A</div>
           <div>

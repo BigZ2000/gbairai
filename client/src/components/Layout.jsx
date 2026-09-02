@@ -20,7 +20,11 @@ export default function Layout({ children, maxWidth = 'max-w-5xl' }) {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <header className="sticky top-0 z-40"
-        style={{ background: 'var(--surface-2)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)' }}>
+        style={{
+          background: 'var(--surface-2)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)',
+          // PWA iOS : décale l'en-tête sous la barre d'état (encoche / Dynamic Island).
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+        }}>
         <div className={`${maxWidth} mx-auto px-5 h-14 flex items-center justify-between gap-4`}>
 
           <Link to={user?.isGuest ? '/invite' : '/dashboard'} className="flex items-center gap-2.5 group">
