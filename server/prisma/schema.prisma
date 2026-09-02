@@ -695,6 +695,25 @@ model OrganisationGroupe {
   @@index([organisationId])
 }
 
+// Journal d'exploitation des buzzers (ADMIN uniquement — jamais exposé aux users).
+// `mac` n'est PAS une clé étrangère vers Buzzer : le journal doit survivre à la
+// suppression (« oublier »), au reset d'usine (admin ou physique) et au
+// re-appairage, pour garder une traçabilité complète du parc dans le temps.
+model BuzzerEvent {
+  id        String   @id @default(cuid())
+  mac       String
+  type      String   // CONNECT | DISCONNECT | FACTORY_RESET_ADMIN | FACTORY_RESET_DEVICE | CLAIM | RELEASE | RELEASE_ADMIN | FORGET
+  ip        String?
+  ville     String?  // résolu par géolocalisation IP (best-effort, peut être null)
+  pays      String?
+  firmware  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([mac])
+  @@index([createdAt])
+}
+
 model Invitation {
   id              String       @id @default(cuid())
   organisationId  String

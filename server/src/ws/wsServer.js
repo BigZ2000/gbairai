@@ -13,11 +13,36 @@ const userSockets = new Map()
 // Map<mac, WebSocket>
 const buzzerSockets = new Map()
 
+// Adresse IP publique du client, même derrière un proxy (Caddy/CloudFront).
+// Même convention que storeRefreshToken (auth.js) — cohérence dans tout le code.
+function clientIp(req) {
+  return req?.headers?.['x-forwarded-for']?.toString().split(',')[0]?.trim()
+    || req?.socket?.remoteAddress || null
+}
+
 export function initWsServer(httpServer) {
   const wss = new WebSocketServer({ server: httpServer })
 
+  // ── Heartbeat (détecte les pertes d'alimentation / coupures réseau brutales) ──
+  // Sans ping/pong actif, une coupure d'alimentation ne ferme jamais proprement
+  // la connexion TCP (pas de FIN) : le buzzer resterait "ONLINE" indéfiniment
+  // côté serveur, admin ET utilisateur (même statut affiché partout). On sonde
+  // chaque client toutes les 20 s ; s'il n'a pas répondu au ping précédent, on
+  // force la fermeture — ce qui déclenche naturellement `ws.on('close', …)` et
+  // donc `onBuzzerDisconnect` (statut OFFLINE + notification propriétaire).
+  const HEARTBEAT_MS = 20000
+  const heartbeat = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws._gbairai?.isAlive === false) { ws.terminate(); return }
+      if (ws._gbairai) ws._gbairai.isAlive = false
+      ws.ping()
+    })
+  }, HEARTBEAT_MS)
+  wss.on('close', () => clearInterval(heartbeat))
+
   wss.on('connection', (ws, req) => {
-    ws._gbairai = {}
+    ws._gbairai = { isAlive: true, ip: clientIp(req) }
+    ws.on('pong', () => { if (ws._gbairai) ws._gbairai.isAlive = true })
 
     ws.on('message', async (raw) => {
       let msg
@@ -38,10 +63,10 @@ export function initWsServer(httpServer) {
 
       // Authentification d'un buzzer physique
       if (msg.type === 'buzzer_hello') {
-        const { mac, firmware } = msg
+        const { mac, firmware, resetReason } = msg
         ws._gbairai.mac = mac?.toUpperCase()
         buzzerSockets.set(ws._gbairai.mac, ws)
-        await onBuzzerConnect(ws._gbairai.mac, firmware)
+        await onBuzzerConnect(ws._gbairai.mac, firmware, { ip: ws._gbairai.ip, resetReason })
         // S'il est déjà assigné à une partie EN_COURS, on lui pousse l'état
         // courant de sa LED (reprise transparente après (re)connexion).
         await sendLedSnapshot(ws._gbairai.mac)

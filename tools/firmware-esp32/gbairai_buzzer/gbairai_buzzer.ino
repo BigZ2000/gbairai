@@ -37,7 +37,7 @@
 #define LED_COUNT    1
 #define BUZZER_PIN   12          // piézo (sortie son) — mêmes déclencheurs que le simulateur
 #define BATTERY_PIN  34          // mesure batterie via pont diviseur (entrée ADC)
-#define FIRMWARE_VERSION "esp32-1.1"
+#define FIRMWARE_VERSION "esp32-1.2"
 #define TELEMETRY_MS 30000UL     // télémétrie toutes les 30 s
 
 // ── Objets globaux ──────────────────────────────────────────────────────────
@@ -65,6 +65,10 @@ uint32_t gLastBtnMs = 0;
 // ── Télémétrie ──────────────────────────────────────────────────────────────
 uint32_t gLastTelemetryMs = 0;
 WiFiClient gOtaClient;
+
+// Vrai si CE boot suit un reset d'usine (bouton tenu OU commande serveur) —
+// lu une fois depuis les prefs au démarrage, annoncé au hello puis consommé.
+bool gJustFactoryReset = false;
 
 bool inGame() { return gLed == L_ARMED || gLed == L_WINNER || gLed == L_LOCKED || gLed == L_REVEAL; }
 
@@ -155,8 +159,12 @@ String jsonField(const char* p, const char* keyQuoted) {
 //  Envois
 // ============================================================================
 void sendHello() {
-  String m = "{\"type\":\"buzzer_hello\",\"mac\":\"" + gMac + "\",\"firmware\":\"" + FIRMWARE_VERSION + "\"}";
+  // Signale au serveur que ce boot suit un reset d'usine (traçabilité admin) —
+  // annoncé une seule fois, puis on ne le répète pas aux hello suivants.
+  String m = "{\"type\":\"buzzer_hello\",\"mac\":\"" + gMac + "\",\"firmware\":\"" + FIRMWARE_VERSION + "\""
+             + (gJustFactoryReset ? ",\"resetReason\":\"factory\"" : "") + "}";
   webSocket.sendTXT(m);
+  gJustFactoryReset = false;
 }
 void sendBuzz() {
   String m = "{\"type\":\"buzz\",\"source\":\"device\",\"mac\":\"" + gMac + "\"}";
@@ -253,9 +261,27 @@ void startPortalIfNeeded() {
   // Nom du point d'accès de configuration : "Gbairai-Buzzer-XXXX".
   String ap = "Gbairai-Buzzer-" + gMac.substring(gMac.length() - 5);
   ap.replace(":", "");
-  // autoConnect : reconnecte au Wi-Fi connu, sinon ouvre le portail (bloquant).
   wm.setConfigPortalTimeout(180);                   // 3 min puis re-tentative
-  if (!wm.autoConnect(ap.c_str())) {
+
+  // Drapeau posé par doFactoryReset() : garantit l'ouverture du portail même si
+  // l'effacement des identifiants Wi-Fi (NVS) avait échoué silencieusement —
+  // bug connu de certaines combinaisons ESP32 core / WiFiManager où resetSettings()
+  // ne prend pas effet si le pilote Wi-Fi n'était pas déjà démarré au moment du reset.
+  prefs.begin("gbairai", false);
+  bool forcePortal = prefs.getBool("force_portal", false);
+  if (forcePortal) prefs.putBool("force_portal", false); // consommé une seule fois
+  prefs.end();
+  gJustFactoryReset = forcePortal;
+
+  bool ok;
+  if (forcePortal) {
+    Serial.println("[WiFi] reset récent → portail forcé (identifiants connus ignorés)");
+    ok = wm.startConfigPortal(ap.c_str());
+  } else {
+    // autoConnect : reconnecte au Wi-Fi connu, sinon ouvre le portail (bloquant).
+    ok = wm.autoConnect(ap.c_str());
+  }
+  if (!ok) {
     Serial.println("[WiFi] échec portail → redémarrage");
     delay(2000); ESP.restart();
   }
@@ -266,8 +292,25 @@ void startPortalIfNeeded() {
 // Appelé soit par le bouton tenu au boot, soit par la commande serveur (admin).
 void doFactoryReset() {
   Serial.println("[RESET] effacement Wi-Fi/config");
+
+  // Ceinture ET bretelles : sur certaines combinaisons ESP32 core / WiFiManager,
+  // wm.resetSettings() seul peut échouer à effacer les identifiants en NVS si le
+  // pilote Wi-Fi n'a pas encore été démarré à cet instant (ex. reset physique au
+  // tout premier boot). On force explicitement le driver puis l'effacement NVS
+  // AVANT d'appeler resetSettings(), qui repasse derrière en confirmation.
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true, true);        // (wifioff, eraseAP) → efface les identifiants NVS
+  delay(300);
   WiFiManager wm; wm.resetSettings();
-  prefs.begin("gbairai", false); prefs.clear(); prefs.end();
+  delay(200);
+
+  // Drapeau "portail forcé" : même si l'effacement ci-dessus échouait malgré
+  // tout, le prochain boot ouvrira le portail sans tenter l'ancien Wi-Fi.
+  prefs.begin("gbairai", false);
+  prefs.clear();
+  prefs.putBool("force_portal", true);
+  prefs.end();
+
   // clignotement rouge de confirmation
   for (int i = 0; i < 6; i++) { pixel.setPixelColor(0, rgb(180,0,0)); pixel.show(); delay(120);
                                 pixel.setPixelColor(0, 0); pixel.show(); delay(120); }
