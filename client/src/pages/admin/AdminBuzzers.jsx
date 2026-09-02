@@ -4,7 +4,8 @@ import Pagination, { usePagination } from '../../components/Pagination.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import {
   Loader2, Radio, BatteryLow, Battery, Wifi, UploadCloud, Check,
-  RotateCcw, Unlink, Trash2, X, AlertTriangle,
+  RotateCcw, Unlink, Trash2, X, AlertTriangle, ScrollText, MapPin,
+  LogIn, LogOut, RefreshCw, Link2, Unlink2, Ban, Search,
 } from 'lucide-react'
 
 const STATUT = {
@@ -20,6 +21,7 @@ const FILTRES = [
 
 export default function AdminBuzzers() {
   const { apiFetch } = useAuth()
+  const [tab, setTab] = useState('parc') // 'parc' | 'journal'
   const [data, setData] = useState(null)
   const [filtre, setFiltre] = useState('ALL')
   const [cfg, setCfg] = useState({ enabled: false, version: '', url: '' })
@@ -97,6 +99,19 @@ export default function AdminBuzzers() {
           </span>
         )}
       </div>
+
+      {/* Onglets */}
+      <div className="flex gap-1 mb-6 p-1 rounded-lg w-fit" style={{ background: 'var(--input-bg)' }}>
+        {[['parc', 'Parc', Radio], ['journal', 'Journal', ScrollText]].map(([k, l, Icon]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+            style={{ background: tab === k ? 'var(--surface)' : 'transparent', color: tab === k ? 'var(--text)' : 'var(--text-dim)', boxShadow: tab === k ? 'var(--shadow)' : 'none' }}>
+            <Icon size={13} />{l}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'journal' ? <JournalTab apiFetch={apiFetch} /> : <>
 
       {/* Résumé par statut */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
@@ -227,6 +242,7 @@ export default function AdminBuzzers() {
         </div>
       </div>
       <Pagination page={pg.page} pages={pg.pages} total={pg.total} perPage={pg.perPage} onPage={pg.setPage} />
+      </>}
 
       {/* Modale de confirmation */}
       {confirm && (
@@ -256,5 +272,107 @@ export default function AdminBuzzers() {
         </div>
       )}
     </AdminLayout>
+  )
+}
+
+// ── Onglet Journal ────────────────────────────────────────────────────────────
+// Historique persistant des évènements buzzer (connexion, déconnexion, resets,
+// appairage…). Survit à la suppression/réinitialisation d'un buzzer — ADMIN
+// uniquement, jamais exposé aux users. IP + localité (best-effort) par évènement.
+const EVENT_TYPE = {
+  CONNECT:              { l: 'Connecté',              c: '#22C55E', Icon: LogIn },
+  DISCONNECT:           { l: 'Déconnecté',             c: 'var(--text-dim)', Icon: LogOut },
+  FACTORY_RESET_ADMIN:  { l: "Reset demandé (admin)",  c: '#F59E0B', Icon: RefreshCw },
+  FACTORY_RESET_DEVICE: { l: "Reset confirmé (appareil)", c: '#EF4444', Icon: RotateCcw },
+  CLAIM:                { l: 'Appairé',                c: '#818CF8', Icon: Link2 },
+  RELEASE:              { l: 'Libéré (utilisateur)',   c: '#38BDF8', Icon: Unlink2 },
+  RELEASE_ADMIN:        { l: 'Libéré (admin)',         c: '#38BDF8', Icon: Unlink2 },
+  FORGET:               { l: 'Supprimé (admin)',       c: '#F87171', Icon: Ban },
+}
+
+function JournalTab({ apiFetch }) {
+  const [data, setData] = useState(null)
+  const [mac, setMac] = useState('')
+  const [page, setPage] = useState(1)
+
+  const load = useCallback(async (m, p) => {
+    const qs = new URLSearchParams({ page: String(p) })
+    if (m) qs.set('mac', m)
+    const res = await apiFetch(`/admin/firmware/journal?${qs}`)
+    if (res?.ok) setData(await res.json())
+  }, [])
+  useEffect(() => { load(mac, page) }, [load, mac, page])
+
+  function onSearch(e) {
+    e.preventDefault()
+    setPage(1)
+    load(mac, 1)
+  }
+
+  return (
+    <div>
+      <form onSubmit={onSearch} className="flex gap-2 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+          <input value={mac} onChange={e => setMac(e.target.value.toUpperCase())}
+            placeholder="Filtrer par MAC (AA:BB:CC:DD:EE:FF)"
+            className="input pl-8 font-mono text-xs" />
+        </div>
+        <button type="submit" className="btn-secondary btn-sm">Filtrer</button>
+        {mac && <button type="button" onClick={() => { setMac(''); setPage(1); load('', 1) }} className="btn-ghost btn-sm">Effacer</button>}
+      </form>
+
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ minWidth: 640 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['Évènement', 'MAC', 'Origine', 'Firmware', 'Date'].map((h, i) => (
+                  <th key={i} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!data ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center"><Loader2 size={18} className="animate-spin mx-auto" style={{ color: 'var(--text-dim)' }} /></td></tr>
+              ) : data.events.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
+                  <ScrollText size={22} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />Aucun évènement journalisé
+                </td></tr>
+              ) : data.events.map(ev => {
+                const t = EVENT_TYPE[ev.type] ?? { l: ev.type, c: 'var(--text-dim)', Icon: ScrollText }
+                const Icon = t.Icon
+                return (
+                  <tr key={ev.id} style={{ borderBottom: '1px solid var(--input-bg)' }}>
+                    <td className="px-3 py-3">
+                      <span className="inline-flex items-center gap-1.5 text-2xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: t.c + '22', color: t.c }}>
+                        <Icon size={11} />{t.l}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 font-mono text-xs" style={{ color: 'var(--text)' }}>{ev.mac}</td>
+                    <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {ev.ip ? (
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin size={11} style={{ color: 'var(--text-dim)' }} />
+                          {ev.ville || ev.pays ? `${ev.ville ?? ''}${ev.ville && ev.pays ? ', ' : ''}${ev.pays ?? ''}` : ev.ip}
+                        </span>
+                      ) : <span style={{ color: 'var(--text-dim)' }}>—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{ev.firmware ?? '—'}</td>
+                    <td className="px-3 py-3 text-2xs" style={{ color: 'var(--text-dim)' }}>
+                      {new Date(ev.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {data && data.pages > 1 && (
+        <Pagination page={data.page} pages={data.pages} total={data.total} perPage={data.perPage} onPage={setPage} />
+      )}
+    </div>
   )
 }

@@ -6,7 +6,7 @@ import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { getFirmwareConfig, setFirmwareConfig } from '../config/firmware.js'
-import { offerOtaToAllIdle, adminFactoryReset, adminReleaseBuzzer, adminForgetBuzzer } from '../services/buzzerService.js'
+import { offerOtaToAllIdle, adminFactoryReset, adminReleaseBuzzer, adminForgetBuzzer, getBuzzerJournal } from '../services/buzzerService.js'
 
 const router = Router()
 router.use(requireAuth, requireAdmin)
@@ -63,6 +63,15 @@ router.delete('/buzzers/:mac', async (req, res) => {
   const r = await adminForgetBuzzer(macParam(req))
   if (!r.success) return res.status(r.error?.includes('introuvable') ? 404 : 409).json({ error: r.error })
   res.json({ ok: true })
+})
+
+// GET /api/admin/firmware/journal — journal d'exploitation (survit aux resets/
+// suppressions). Paginé, filtrable par MAC. ADMIN uniquement, jamais exposé aux users.
+router.get('/journal', async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+  const mac = typeof req.query.mac === 'string' && req.query.mac.trim() ? req.query.mac.trim() : null
+  const result = await getBuzzerJournal({ mac, page, perPage: 30 })
+  res.json(result)
 })
 
 export default router

@@ -1,8 +1,24 @@
 import { prisma } from '../utils/prisma.js'
 import { sendToBuzzer, sendToUser as notifyUser, broadcast } from '../ws/wsServer.js'
 import { getFirmwareConfig, otaAvailableFor } from '../config/firmware.js'
+import { lookupGeo } from './geoService.js'
 
 const LOW_BATTERY = 15 // seuil d'alerte batterie faible (%)
+
+// ── JOURNAL (ADMIN uniquement) ────────────────────────────────────────────────
+// `mac` n'est jamais une FK : le journal doit survivre à la suppression du
+// buzzer, à un reset d'usine (admin ou physique) et à un re-appairage.
+// La géolocalisation est résolue en tâche de fond (non-bloquant) : l'évènement
+// est écrit immédiatement, puis mis à jour si l'IP se résout à une localité.
+export async function logBuzzerEvent(mac, type, { ip = null, firmware = null, meta = null } = {}) {
+  const event = await prisma.buzzerEvent.create({ data: { mac, type, ip, firmware, meta } })
+  if (ip) {
+    lookupGeo(ip)
+      .then(geo => { if (geo) return prisma.buzzerEvent.update({ where: { id: event.id }, data: geo }) })
+      .catch(() => {})
+  }
+  return event
+}
 
 // Propose une mise à jour OTA à un buzzer s'il est appairé, au repos et obsolète.
 function maybeOfferOta(buzzer, reportedFirmware) {
@@ -87,7 +103,11 @@ async function autoAssignToOwner(buzzer) {
   return enCours
 }
 
-export async function onBuzzerConnect(mac, firmware) {
+export async function onBuzzerConnect(mac, firmware, { ip = null, resetReason = null } = {}) {
+  // Journal : CONNECT normal, ou FACTORY_RESET_DEVICE si l'appareil signale qu'il
+  // vient de subir un reset d'usine (annoncé une seule fois, au 1er hello après reboot).
+  logBuzzerEvent(mac, resetReason === 'factory' ? 'FACTORY_RESET_DEVICE' : 'CONNECT', { ip, firmware }).catch(() => {})
+
   let buzzer = await prisma.buzzer.findUnique({ where: { mac } })
 
   if (!buzzer) {
@@ -166,6 +186,8 @@ export async function releaseBuzzerToOnline(buzzerId) {
 }
 
 export async function onBuzzerDisconnect(mac) {
+  logBuzzerEvent(mac, 'DISCONNECT').catch(() => {})
+
   const buzzer = await prisma.buzzer.findUnique({ where: { mac } })
   if (!buzzer) return
 
@@ -205,6 +227,7 @@ export async function claimBuzzer(mac, userId) {
   })
 
   sendToBuzzer(mac, { type: 'pairing_success' })
+  logBuzzerEvent(mac, 'CLAIM', { meta: { userId } }).catch(() => {})
   // Si le propriétaire est déjà dans une partie sans buzzer, on l'associe.
   await autoAssignToOwner(updated)
   return { success: true, buzzer: updated }
@@ -222,6 +245,7 @@ export async function adminFactoryReset(mac) {
     return { success: false, error: 'Le buzzer doit être en ligne pour recevoir un reset distant' }
   }
   const delivered = sendToBuzzer(mac, { type: 'factory_reset' })
+  logBuzzerEvent(mac, 'FACTORY_RESET_ADMIN', { meta: { delivered: !!delivered } }).catch(() => {})
   return { success: !!delivered, delivered: !!delivered }
 }
 
@@ -240,6 +264,7 @@ export async function adminReleaseBuzzer(mac) {
   if (ancienOwner) notifyUser(ancienOwner, { type: 'buzzer_released_by_admin', mac, nom: buzzer.nom })
   if (buzzer.status === 'ONLINE') sendToBuzzer(mac, { type: 'awaiting_claim' })
   await emitBuzzerStatus(updated, updated.status)
+  logBuzzerEvent(mac, 'RELEASE_ADMIN', { meta: { ancienOwner } }).catch(() => {})
   return { success: true }
 }
 
@@ -252,6 +277,7 @@ export async function adminForgetBuzzer(mac) {
 
   await prisma.participant.updateMany({ where: { buzzerId: buzzer.id }, data: { buzzerId: null } })
   await prisma.buzzer.delete({ where: { id: buzzer.id } })
+  logBuzzerEvent(mac, 'FORGET').catch(() => {})
   return { success: true }
 }
 
@@ -272,5 +298,20 @@ export async function releaseBuzzer(mac, userId) {
     sendToBuzzer(mac, { type: 'awaiting_claim' })
   }
 
+  logBuzzerEvent(mac, 'RELEASE', { meta: { userId } }).catch(() => {})
   return { success: true }
+}
+
+// GET journal (ADMIN) — paginé, filtrable par MAC. Survit à la suppression du
+// buzzer (aucune jointure requise, `mac` est une simple chaîne).
+export async function getBuzzerJournal({ mac = null, page = 1, perPage = 30 } = {}) {
+  const where = mac ? { mac: mac.toUpperCase() } : {}
+  const [total, events] = await Promise.all([
+    prisma.buzzerEvent.count({ where }),
+    prisma.buzzerEvent.findMany({
+      where, orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * perPage, take: perPage,
+    }),
+  ])
+  return { events, total, page, perPage, pages: Math.max(1, Math.ceil(total / perPage)) }
 }
