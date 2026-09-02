@@ -22,6 +22,8 @@ import organisationsRoutes from './routes/organisations.js'
 import adminOffresRoutes from './routes/adminOffres.js'
 import adminFirmwareRoutes from './routes/adminFirmware.js'
 import { initWsServer } from './ws/wsServer.js'
+import { loadFirmwareConfig } from './config/firmware.js'
+import { startJournalPurge } from './services/buzzerService.js'
 
 // Filet de sécurité : une promesse rejetée non capturée (ex. minuteur de jeu sur
 // une partie supprimée) ne doit jamais faire tomber le serveur.
@@ -81,6 +83,12 @@ function lanIp() {
 app.get('/api/net', (_req, res) => res.json({ ip: lanIp() }))
 
 initWsServer(httpServer)
+
+// Config OTA persistée (table AppSetting) + purge périodique du journal buzzers.
+loadFirmwareConfig()
+  .then(cfg => console.log(`[firmware] OTA ${cfg.enabled ? 'activé' : 'désactivé'} — cible ${cfg.version}`))
+  .catch(() => {})
+startJournalPurge()
 
 const PORT = process.env.PORT || 4000
 httpServer.listen(PORT, () => {

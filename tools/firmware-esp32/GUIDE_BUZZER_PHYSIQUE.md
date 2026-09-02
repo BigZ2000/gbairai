@@ -101,7 +101,8 @@ Constantes en haut de [`gbairai_buzzer.ino`](gbairai_buzzer/gbairai_buzzer.ino) 
 
 | Signal | Broche ESP32 | Vers… | Remarque |
 |---|---|---|---|
-| **Bouton** (microswitch, contact NO) | **GPIO 13** | autre borne → **GND** | `INPUT_PULLUP` → appui = niveau bas. Pas de résistance externe. |
+| **Bouton — NO** (microswitch) | **GPIO 13** | **COM** → **GND** | `INPUT_PULLUP` → appui = niveau bas. Pas de résistance externe. |
+| **Bouton — LED+** (anneau) | **GPIO 14** *via transistor* | **LED−** → **GND** | ⚠️ jamais en direct — voir §3 bis |
 | **NeoPixel DIN** | **GPIO 5** | via **330 Ω** en série | protège l'entrée data |
 | **NeoPixel VCC** | **3V3** (ou 5V) | — | 1 pixel : 3V3 suffit |
 | **NeoPixel GND** | **GND** | — | masse commune |
@@ -111,6 +112,59 @@ Constantes en haut de [`gbairai_buzzer.ino`](gbairai_buzzer/gbairai_buzzer.ino) 
 
 > ⚠️ **GPIO 34 = entrée uniquement** (pas de pull-up interne) : parfait pour l'ADC,
 > ne pas y câbler de sortie. Le diviseur /2 ramène 4,2 V → 2,1 V (< 3,3 V, sûr).
+
+---
+
+## 3 bis. Bouton arcade **4 broches** (avec anneau lumineux)
+
+Un bouton arcade illuminé expose **4 cosses**, à ne pas confondre :
+
+| Cosse | Rôle | Câblage |
+|---|---|---|
+| **COM** | commun du microswitch | → **GND** |
+| **NO** | contact « normalement ouvert » | → **GPIO 13** |
+| **LED+** | anode de l'anneau | → **collecteur/drain du transistor** (voir schéma) |
+| **LED−** | cathode de l'anneau | → **GND** |
+
+### ⚠️ Ne branche JAMAIS LED+ directement sur un GPIO
+L'anneau est prévu pour **5 V** et consomme souvent **20–40 mA**, alors qu'un GPIO
+ESP32 sort **3,3 V** et ne doit pas dépasser **~12 mA**. En direct : anneau très
+faible (voire éteint) et **GPIO en danger**. On commute donc par un transistor.
+
+### Montage (commutation « côté bas ») — 3 composants
+```
+        +5V (VIN)
+           │
+        [ LED+ ]  anneau du bouton
+           │
+        [ LED− ]
+           │
+           ├──────────── collecteur (C)   ← 2N2222 / BC547  (ou drain d'un 2N7000)
+GPIO14 ──[1 kΩ]── base (B)
+           │
+        émetteur (E) ──── GND
+```
+- **Transistor** : NPN **2N2222** ou **BC547** (ou MOSFET **2N7000** / **AO3400**).
+- **Résistance de base** : **1 kΩ** entre GPIO14 et la base *(inutile avec un MOSFET)*.
+- Si ton bouton n'a **pas** de résistance intégrée, ajoute **220 Ω** en série sur LED+.
+- Masse commune obligatoire entre l'ESP32, le transistor et l'alimentation.
+
+### Ce que fait le firmware avec cet anneau
+Piloté en **PWM** (LEDC), il reprend le rythme de l'état — le **bouton lui-même**
+s'allume, bien plus lisible à distance qu'une petite LED interne :
+
+| État | Anneau |
+|---|---|
+| Hors ligne | très faible, respire |
+| Portail de config / à appairer | pulse franchement |
+| Prêt | veilleuse discrète |
+| **Armé** | **plein feu** — « tu peux buzzer » |
+| Verrouillé | éteint |
+| Mise à jour OTA | s'éclaire progressivement (barre de progression) |
+| Appui long ≥ 3 s | clignote rouge (décompte avant reset d'usine) |
+
+> Pas d'anneau lumineux ? Mets `#define BUTTON_LED_PIN -1` en haut du `.ino` :
+> tout le code correspondant est neutralisé à la compilation.
 
 ---
 

@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import jwt from 'jsonwebtoken'
 import { handleGameMessage, sendSnapshot, sendLedSnapshot } from './gameHandler.js'
-import { onBuzzerConnect, onBuzzerDisconnect, onTelemetry } from '../services/buzzerService.js'
+import { onBuzzerConnect, onBuzzerDisconnect, onTelemetry, onOtaResult } from '../services/buzzerService.js'
 import { prisma } from '../utils/prisma.js'
 
 // Map<partieCode, Set<WebSocket>>
@@ -73,6 +73,14 @@ export function initWsServer(httpServer) {
         return
       }
 
+      // Résultat d'une mise à jour OTA (firmware ≥ esp32-1.2) : succès ou échec.
+      // Journalisé côté admin — sans ça, une MAJ ratée passait totalement inaperçue.
+      if (msg.type === 'ota_result') {
+        const mac = ws._gbairai.mac ?? msg.mac?.toUpperCase()
+        if (mac) await onOtaResult(mac, { ok: !!msg.ok, version: msg.version, error: msg.error })
+        return
+      }
+
       // Télémétrie d'un buzzer (batterie / signal Wi-Fi).
       if (msg.type === 'device_telemetry') {
         const mac = ws._gbairai.mac ?? msg.mac?.toUpperCase()
@@ -100,23 +108,33 @@ export function initWsServer(httpServer) {
     ws.on('close', async () => {
       const { partieCode, userId, mac } = ws._gbairai
 
+      // GARDE D'IDENTITÉ — indispensable depuis l'ajout du heartbeat.
+      // Un appareil qui perd le réseau se reconnecte (nouveau socket) AVANT que
+      // l'ancien socket mort ne soit détecté et terminé (jusqu'à 40 s plus tard).
+      // Sans cette garde, la fermeture tardive de l'ANCIEN socket supprimerait
+      // l'enregistrement du NOUVEAU et marquerait à tort l'appareil hors ligne
+      // (buzzer injoignable, LED non pilotée). On ne nettoie donc que si le
+      // socket encore enregistré est bien celui qui se ferme.
+      const estSocketCourant = (map, cle) => map.get(cle) === ws
+
       // Nettoyage salle
       if (partieCode) {
         rooms.get(partieCode)?.delete(ws)
       }
       // Nettoyage user
-      if (userId) {
+      if (userId && estSocketCourant(userSockets, userId)) {
         userSockets.delete(userId)
       }
       // Nettoyage buzzer
-      if (mac) {
+      if (mac && estSocketCourant(buzzerSockets, mac)) {
         buzzerSockets.delete(mac)
         await onBuzzerDisconnect(mac)
       }
 
       // A3 — si l'animateur quitte une partie EN_COURS, les joueurs sont notifiés
       // (la partie se met en pause automatiquement — reprise à la reconnexion).
-      if (userId && partieCode) {
+      // Même garde : une reconnexion plus récente ne doit pas déclencher la pause.
+      if (userId && partieCode && !userSockets.has(userId)) {
         try {
           const p = await prisma.partie.findUnique({
             where: { code: partieCode },

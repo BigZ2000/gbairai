@@ -11,6 +11,18 @@ const LOW_BATTERY = 15 // seuil d'alerte batterie faible (%)
 // La géolocalisation est résolue en tâche de fond (non-bloquant) : l'évènement
 // est écrit immédiatement, puis mis à jour si l'IP se résout à une localité.
 export async function logBuzzerEvent(mac, type, { ip = null, firmware = null, meta = null } = {}) {
+  // ANTI-REBOND : un buzzer au Wi-Fi instable peut se reconnecter toutes les 3 s,
+  // ce qui écrirait ~57 000 lignes/jour pour un seul appareil. On ignore donc un
+  // CONNECT/DISCONNECT identique survenu il y a moins de 60 s. Les évènements
+  // rares et importants (resets, appairage, OTA…) ne sont jamais filtrés.
+  if (type === 'CONNECT' || type === 'DISCONNECT') {
+    const recent = await prisma.buzzerEvent.findFirst({
+      where: { mac, type, createdAt: { gte: new Date(Date.now() - 60_000) } },
+      select: { id: true },
+    })
+    if (recent) return null
+  }
+
   const event = await prisma.buzzerEvent.create({ data: { mac, type, ip, firmware, meta } })
   if (ip) {
     lookupGeo(ip)
@@ -20,9 +32,44 @@ export async function logBuzzerEvent(mac, type, { ip = null, firmware = null, me
   return event
 }
 
+// RÉTENTION : le journal est un outil d'exploitation, pas une archive légale.
+// On purge au-delà de 90 jours (au démarrage puis une fois par jour) pour éviter
+// une croissance illimitée de la table.
+const JOURNAL_RETENTION_DAYS = Number(process.env.JOURNAL_RETENTION_DAYS || 90)
+
+export async function purgeOldJournal() {
+  const avant = new Date(Date.now() - JOURNAL_RETENTION_DAYS * 24 * 60 * 60 * 1000)
+  const { count } = await prisma.buzzerEvent.deleteMany({ where: { createdAt: { lt: avant } } })
+  if (count > 0) console.log(`[journal] ${count} évènement(s) de plus de ${JOURNAL_RETENTION_DAYS} j purgés`)
+  return count
+}
+
+export function startJournalPurge() {
+  purgeOldJournal().catch(() => {})
+  const timer = setInterval(() => purgeOldJournal().catch(() => {}), 24 * 60 * 60 * 1000)
+  timer.unref?.() // n'empêche pas le process de s'arrêter
+  return timer
+}
+
+// Résultat d'une mise à jour OTA remonté par le buzzer (firmware ≥ esp32-1.2).
+// Sans ça, l'admin ne savait jamais si une MAJ avait réussi ou échoué.
+export async function onOtaResult(mac, { ok, version, error } = {}) {
+  logBuzzerEvent(mac, ok ? 'OTA_SUCCESS' : 'OTA_FAILED', {
+    firmware: version ?? null,
+    meta: error ? { error } : null,
+  }).catch(() => {})
+  // En cas de succès le buzzer redémarre et réannoncera sa version au hello ;
+  // on l'enregistre tout de suite pour que l'admin voie l'état à jour sans délai.
+  if (ok && version) {
+    await prisma.buzzer.update({ where: { mac }, data: { firmware: version } }).catch(() => {})
+  }
+}
+
 // Propose une mise à jour OTA à un buzzer s'il est appairé, au repos et obsolète.
 function maybeOfferOta(buzzer, reportedFirmware) {
-  if (!buzzer?.ownerId || buzzer.status === 'IN_GAME') return
+  // Un buzzer NON appairé est éligible : sinon un appareil neuf resterait bloqué
+  // sur son firmware d'usine tant que personne ne l'a réclamé.
+  if (!buzzer || buzzer.status === 'IN_GAME') return
   if (!otaAvailableFor(reportedFirmware)) return
   const fw = getFirmwareConfig()
   sendToBuzzer(buzzer.mac, { type: 'ota', url: fw.url, version: fw.version })
@@ -47,14 +94,26 @@ export async function onTelemetry(mac, { battery, rssi } = {}) {
 }
 
 // Pousse une offre OTA à tous les buzzers en ligne et au repos (déclenchement admin).
+// AWAITING_CLAIM inclus : un buzzer neuf, encore non appairé, doit pouvoir être
+// mis à jour (auparavant il en était exclu et restait bloqué sur son firmware d'usine).
 export async function offerOtaToAllIdle() {
-  const buzzers = await prisma.buzzer.findMany({ where: { status: 'ONLINE' } })
+  const buzzers = await prisma.buzzer.findMany({ where: { status: { in: ['ONLINE', 'AWAITING_CLAIM'] } } })
   const fw = getFirmwareConfig()
   let count = 0
   for (const b of buzzers) {
     if (otaAvailableFor(b.firmware)) { sendToBuzzer(b.mac, { type: 'ota', url: fw.url, version: fw.version }); count++ }
   }
   return count
+}
+
+// Combien de buzzers recevraient l'OTA si on le poussait maintenant ?
+// Permet à l'admin de savoir AVANT de cliquer (« 3 buzzers obsolètes »).
+export async function countOtaEligible() {
+  const buzzers = await prisma.buzzer.findMany({
+    where: { status: { in: ['ONLINE', 'AWAITING_CLAIM'] } },
+    select: { firmware: true },
+  })
+  return buzzers.filter(b => otaAvailableFor(b.firmware)).length
 }
 
 // Diffuse le statut d'un buzzer en temps réel :
@@ -305,7 +364,8 @@ export async function releaseBuzzer(mac, userId) {
 // GET journal (ADMIN) — paginé, filtrable par MAC. Survit à la suppression du
 // buzzer (aucune jointure requise, `mac` est une simple chaîne).
 export async function getBuzzerJournal({ mac = null, page = 1, perPage = 30 } = {}) {
-  const where = mac ? { mac: mac.toUpperCase() } : {}
+  // Recherche PARTIELLE (ex. les 4 derniers caractères d'une MAC suffisent).
+  const where = mac ? { mac: { contains: mac.toUpperCase() } } : {}
   const [total, events] = await Promise.all([
     prisma.buzzerEvent.count({ where }),
     prisma.buzzerEvent.findMany({
