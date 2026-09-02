@@ -100,23 +100,33 @@ export function initWsServer(httpServer) {
     ws.on('close', async () => {
       const { partieCode, userId, mac } = ws._gbairai
 
+      // GARDE D'IDENTITÉ — indispensable depuis l'ajout du heartbeat.
+      // Un appareil qui perd le réseau se reconnecte (nouveau socket) AVANT que
+      // l'ancien socket mort ne soit détecté et terminé (jusqu'à 40 s plus tard).
+      // Sans cette garde, la fermeture tardive de l'ANCIEN socket supprimerait
+      // l'enregistrement du NOUVEAU et marquerait à tort l'appareil hors ligne
+      // (buzzer injoignable, LED non pilotée). On ne nettoie donc que si le
+      // socket encore enregistré est bien celui qui se ferme.
+      const estSocketCourant = (map, cle) => map.get(cle) === ws
+
       // Nettoyage salle
       if (partieCode) {
         rooms.get(partieCode)?.delete(ws)
       }
       // Nettoyage user
-      if (userId) {
+      if (userId && estSocketCourant(userSockets, userId)) {
         userSockets.delete(userId)
       }
       // Nettoyage buzzer
-      if (mac) {
+      if (mac && estSocketCourant(buzzerSockets, mac)) {
         buzzerSockets.delete(mac)
         await onBuzzerDisconnect(mac)
       }
 
       // A3 — si l'animateur quitte une partie EN_COURS, les joueurs sont notifiés
       // (la partie se met en pause automatiquement — reprise à la reconnexion).
-      if (userId && partieCode) {
+      // Même garde : une reconnexion plus récente ne doit pas déclencher la pause.
+      if (userId && partieCode && !userSockets.has(userId)) {
         try {
           const p = await prisma.partie.findUnique({
             where: { code: partieCode },
