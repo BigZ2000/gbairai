@@ -7,12 +7,14 @@ function startOfMonth(d = new Date()) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
 }
 
-// Usage du mois en cours pour un utilisateur.
+// Usage du mois en cours pour un utilisateur. SEULES les parties MULTIJOUEURS
+// (solo=false) sont décomptées ; les parties solo sont gratuites et illimitées.
 export async function getUsage(userId) {
   const since = startOfMonth()
   const partiesCeMois = await prisma.partie.count({
     where: {
       createdAt: { gte: since },
+      solo: false,
       OR: [{ creatorId: userId }, { animateurId: userId }],
     },
   })
@@ -30,6 +32,8 @@ export async function getQuotaState(user) {
     plan: offre.id,
     planNom: offre.nom,
     expireAt: user.planExpireAt ?? null,
+    // Crédits de jeu (multijoueur). Dormant au lancement (0 partout).
+    credits: user.credits ?? 0,
     limites: {
       partiesParMois: limites.partiesParMois === INF ? null : limites.partiesParMois,
       joueursMax: limites.joueursMax === INF ? null : limites.joueursMax,
@@ -40,6 +44,7 @@ export async function getQuotaState(user) {
       packTiers: limites.packTiers,
     },
     usage: {
+      // « parties à plusieurs » consommées ce mois (le solo n'est jamais compté).
       partiesCeMois: usage.partiesCeMois,
       partiesRestantes: limites.partiesParMois === INF || isAdmin
         ? null
@@ -48,24 +53,52 @@ export async function getQuotaState(user) {
   }
 }
 
-// Vérifie si l'utilisateur peut lancer une nouvelle partie.
-// Renvoie { allowed, reason, code, limite, usage }.
-export async function canCreatePartie(user) {
+// Un pack acheté (UserPack) ou financé par une marque (sponsorId) est jouable de
+// façon ILLIMITÉE → exempté du quota mensuel. Dormant au lancement (aucun UserPack).
+async function packEstIllimite(userId, pack) {
+  if (!pack) return false
+  if (pack.sponsorId) return true
+  const owned = await prisma.userPack.findUnique({
+    where: { userId_packId: { userId, packId: pack.id } },
+    select: { id: true },
+  }).catch(() => null)
+  return !!owned
+}
+
+// Vérifie si l'utilisateur peut lancer une partie.
+// options : { solo: bool, pack: Pack|null }
+// Renvoie { allowed, reason, code, limite, usage, useCredit? }.
+//  - solo                → toujours autorisé (gratuit, illimité, non décompté)
+//  - pack illimité        → autorisé (acheté ou sponsorisé)
+//  - sous le plafond      → autorisé (sera décompté)
+//  - au-dessus + crédits  → autorisé via crédit (useCredit=true → débit après création)
+//  - au-dessus sans crédit→ bloqué (QUOTA_PARTIES)
+export async function canCreatePartie(user, { solo = false, pack = null } = {}) {
   if (user.isAdmin) return { allowed: true }
+  if (solo) return { allowed: true, solo: true }
+
+  if (await packEstIllimite(user.id, pack)) return { allowed: true, illimite: true }
+
   const limites = getLimites(user.plan)
   if (limites.partiesParMois === INF) return { allowed: true }
 
   const { partiesCeMois } = await getUsage(user.id)
-  if (partiesCeMois >= limites.partiesParMois) {
-    return {
-      allowed: false,
-      code: 'QUOTA_PARTIES',
-      reason: `Vous avez atteint votre limite mensuelle (${limites.partiesParMois} parties).`,
-      limite: limites.partiesParMois,
-      usage: partiesCeMois,
-    }
+  if (partiesCeMois < limites.partiesParMois) {
+    return { allowed: true, usage: partiesCeMois, limite: limites.partiesParMois }
   }
-  return { allowed: true, usage: partiesCeMois, limite: limites.partiesParMois }
+
+  // Plafond atteint : on bascule sur les crédits de jeu si disponibles.
+  if ((user.credits ?? 0) > 0) {
+    return { allowed: true, useCredit: true, usage: partiesCeMois, limite: limites.partiesParMois }
+  }
+
+  return {
+    allowed: false,
+    code: 'QUOTA_PARTIES',
+    reason: `Tu as utilisé tes ${limites.partiesParMois} parties à plusieurs ce mois-ci. Le solo reste illimité.`,
+    limite: limites.partiesParMois,
+    usage: partiesCeMois,
+  }
 }
 
 // Vérifie une capacité booléenne (exports, statsAvancees, branding…).

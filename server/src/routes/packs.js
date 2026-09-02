@@ -9,6 +9,7 @@ import { generateCode } from '../utils/codeGen.js'
 import { pickQuestionsForPack } from '../services/gameService.js'
 import { canAccessPack, isLockedForPlan } from '../services/accessService.js'
 import { canCreatePartie } from '../services/quotaService.js'
+import { debitOne } from '../services/creditService.js'
 import { recomputePackRating } from '../services/ratingService.js'
 import { TIER_REQUIRED_PLAN } from '../config/plans.js'
 
@@ -101,6 +102,7 @@ const StartSchema = z.object({
   nom: z.string().min(1).max(100).optional(),
   animateurJoue: z.boolean().optional(),
   modeDistanciel: z.boolean().optional(), // A4/D5 : jeu en ligne vs présentiel
+  solo: z.boolean().optional(),           // lancement solo (gratuit, non décompté)
 })
 
 function buildDynamicPlan(pack, modeId) {
@@ -130,7 +132,7 @@ function buildDynamicPlan(pack, modeId) {
   })
 }
 
-async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animateurJoue = false, modeDistanciel = false }) {
+async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animateurJoue = false, modeDistanciel = false, solo = false }) {
   let code
   for (let i = 0; i < 10; i++) {
     code = generateCode()
@@ -146,6 +148,7 @@ async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animate
     data: {
       nom, code, animateurId, creatorId: userId,
       modeAuto: gameMode === 'auto', modeVote: gameMode === 'vote',
+      solo: !!solo,
       modeDistanciel,
       eliminationActive: pack.eliminationActive ?? false,
       // Masquage des réponses (régie) : défaut du pack, seulement en mode animateur.
@@ -231,10 +234,12 @@ async function findPlayablePack(idOrSlug) {
 }
 
 // Contrôle d'accès + quota commun aux lancements.
-async function guardLaunch(req, res, pack) {
+// `solo` : lancement solo (gratuit, illimité, non décompté). Renvoie le user
+// enrichi de `_quota` (pour déclencher le débit de crédit après création).
+async function guardLaunch(req, res, pack, { solo = false } = {}) {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
-    select: { id: true, plan: true, isAdmin: true },
+    select: { id: true, plan: true, isAdmin: true, credits: true },
   })
   // 1. Droits d'accès au pack (plan / achat).
   const access = await canAccessPack(user, pack)
@@ -242,12 +247,13 @@ async function guardLaunch(req, res, pack) {
     res.status(403).json({ error: access.reason, code: access.code, requiredPlan: access.requiredPlan, requiredTier: access.requiredTier })
     return null
   }
-  // 2. Quota freemium (parties / mois).
-  const quota = await canCreatePartie(user)
+  // 2. Quota : solo illimité ; multijoueur décompté ; pack acheté/sponsorisé exempté.
+  const quota = await canCreatePartie(user, { solo, pack })
   if (!quota.allowed) {
     res.status(402).json({ error: quota.reason, code: quota.code, limite: quota.limite, usage: quota.usage })
     return null
   }
+  user._quota = quota
   return user
 }
 
@@ -260,17 +266,19 @@ router.post('/:packId/start', requireAuth, async (req, res) => {
   const parsed = StartSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const user = await guardLaunch(req, res, pack)
+  const { mode, gameMode, nom, animateurJoue, modeDistanciel, solo } = parsed.data
+  const user = await guardLaunch(req, res, pack, { solo: !!solo })
   if (!user) return
 
-  const { mode, gameMode, nom, animateurJoue, modeDistanciel } = parsed.data
   const partie = await createPartieFromPack({
-    userId: req.userId, pack, animateurJoue,
+    userId: req.userId, pack, animateurJoue, solo: !!solo,
     modeDistanciel: modeDistanciel ?? pack.modeDistanciel ?? false,
     gameMode: gameMode ?? pack.modeRecommande ?? 'animateur',
     nom: nom?.trim() || `${pack.emoji ?? ''} ${pack.nom}`.trim(),
     mode: mode ?? null,
   })
+  // Débit d'un crédit si le quota mensuel est dépassé (dormant au lancement).
+  if (user._quota?.useCredit) await debitOne(req.userId).catch(() => {})
   res.status(201).json(partie)
 })
 

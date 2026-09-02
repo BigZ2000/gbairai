@@ -99,6 +99,7 @@ export default function CreatePartie() {
       const body = {
         nom: form.nom.trim(),
         mode: isSolo ? 'auto' : form.mode,
+        solo: isSolo, // solo = gratuit, illimité, non décompté du quota mensuel
         masquerReponses: form.mode === 'animateur' ? form.masquerReponses : false,
         modeDistanciel: isSolo ? true : !!form.modeDistanciel,
         eliminationActive: isSolo ? false : !!form.eliminationActive,

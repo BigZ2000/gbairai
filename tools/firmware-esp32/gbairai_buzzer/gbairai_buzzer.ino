@@ -37,7 +37,7 @@
 #define LED_COUNT    1
 #define BUZZER_PIN   12          // piézo (sortie son) — mêmes déclencheurs que le simulateur
 #define BATTERY_PIN  34          // mesure batterie via pont diviseur (entrée ADC)
-#define FIRMWARE_VERSION "esp32-1.0"
+#define FIRMWARE_VERSION "esp32-1.1"
 #define TELEMETRY_MS 30000UL     // télémétrie toutes les 30 s
 
 // ── Objets globaux ──────────────────────────────────────────────────────────
@@ -215,6 +215,10 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
       else if (jsonHas(p, "\"type\":\"ota\"")) {  // mise à jour proposée par le serveur
         doOta(jsonField(p, "\"url\":\""));
       }
+      else if (jsonHas(p, "\"type\":\"factory_reset\"")) { // reset distant (admin)
+        Serial.println("[WS] reset d'usine demandé par le serveur");
+        doFactoryReset();
+      }
       break;
     }
     default: break;
@@ -258,16 +262,23 @@ void startPortalIfNeeded() {
   Serial.printf("[WiFi] connecté. Serveur = %s:%u\n", GBAIRAI_HOST, GBAIRAI_PORT);
 }
 
+// Effacement Wi-Fi + config puis redémarrage (rouvre le portail au reboot).
+// Appelé soit par le bouton tenu au boot, soit par la commande serveur (admin).
+void doFactoryReset() {
+  Serial.println("[RESET] effacement Wi-Fi/config");
+  WiFiManager wm; wm.resetSettings();
+  prefs.begin("gbairai", false); prefs.clear(); prefs.end();
+  // clignotement rouge de confirmation
+  for (int i = 0; i < 6; i++) { pixel.setPixelColor(0, rgb(180,0,0)); pixel.show(); delay(120);
+                                pixel.setPixelColor(0, 0); pixel.show(); delay(120); }
+  ESP.restart();
+}
+
 // Reset d'usine : bouton maintenu enfoncé au démarrage → efface Wi-Fi + config.
 void maybeFactoryReset() {
   if (digitalRead(BUTTON_PIN) == LOW) {
-    Serial.println("[RESET] bouton maintenu → effacement Wi-Fi/config");
-    WiFiManager wm; wm.resetSettings();
-    prefs.begin("gbairai", false); prefs.clear(); prefs.end();
-    // clignotement rouge de confirmation
-    for (int i = 0; i < 6; i++) { pixel.setPixelColor(0, rgb(180,0,0)); pixel.show(); delay(120);
-                                  pixel.setPixelColor(0, 0); pixel.show(); delay(120); }
-    ESP.restart();
+    Serial.println("[RESET] bouton maintenu au boot");
+    doFactoryReset();
   }
 }
 

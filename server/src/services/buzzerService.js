@@ -210,6 +210,51 @@ export async function claimBuzzer(mac, userId) {
   return { success: true, buzzer: updated }
 }
 
+// ── ACTIONS ADMIN (parc de buzzers) ───────────────────────────────────────────
+
+// Reset d'usine À DISTANCE : le buzzer efface son Wi-Fi/config et redémarre
+// (rouvre le portail). Nécessite le firmware ≥ esp32-1.1. Ne modifie pas la DB :
+// à sa reconnexion, le buzzer réapparaîtra (appairé s'il a encore un owner).
+export async function adminFactoryReset(mac) {
+  const buzzer = await prisma.buzzer.findUnique({ where: { mac } })
+  if (!buzzer) return { success: false, error: 'Buzzer introuvable' }
+  if (buzzer.status !== 'ONLINE' && buzzer.status !== 'IN_GAME') {
+    return { success: false, error: 'Le buzzer doit être en ligne pour recevoir un reset distant' }
+  }
+  const delivered = sendToBuzzer(mac, { type: 'factory_reset' })
+  return { success: !!delivered, delivered: !!delivered }
+}
+
+// Libération FORCÉE par l'admin : retire le propriétaire (le buzzer redevient
+// « à appairer »). Le propriétaire est notifié. Bloqué en pleine partie.
+export async function adminReleaseBuzzer(mac) {
+  const buzzer = await prisma.buzzer.findUnique({ where: { mac } })
+  if (!buzzer) return { success: false, error: 'Buzzer introuvable' }
+  if (buzzer.status === 'IN_GAME') return { success: false, error: 'Impossible de libérer un buzzer en cours de partie' }
+
+  const ancienOwner = buzzer.ownerId
+  const updated = await prisma.buzzer.update({
+    where: { mac },
+    data: { ownerId: null, claimedAt: null, nom: null, status: buzzer.status === 'ONLINE' ? 'AWAITING_CLAIM' : 'OFFLINE' },
+  })
+  if (ancienOwner) notifyUser(ancienOwner, { type: 'buzzer_released_by_admin', mac, nom: buzzer.nom })
+  if (buzzer.status === 'ONLINE') sendToBuzzer(mac, { type: 'awaiting_claim' })
+  await emitBuzzerStatus(updated, updated.status)
+  return { success: true }
+}
+
+// Oublier (supprimer) un enregistrement de buzzer. Détache d'abord les
+// participations qui le référencent. Bloqué en pleine partie.
+export async function adminForgetBuzzer(mac) {
+  const buzzer = await prisma.buzzer.findUnique({ where: { mac } })
+  if (!buzzer) return { success: false, error: 'Buzzer introuvable' }
+  if (buzzer.status === 'IN_GAME') return { success: false, error: 'Impossible de supprimer un buzzer en cours de partie' }
+
+  await prisma.participant.updateMany({ where: { buzzerId: buzzer.id }, data: { buzzerId: null } })
+  await prisma.buzzer.delete({ where: { id: buzzer.id } })
+  return { success: true }
+}
+
 export async function releaseBuzzer(mac, userId) {
   const buzzer = await prisma.buzzer.findUnique({ where: { mac } })
   if (!buzzer) return { success: false, error: 'Buzzer introuvable' }

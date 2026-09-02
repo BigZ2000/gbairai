@@ -5,7 +5,8 @@ import { requireAuth, isAnimateurDePartie, isHostDePartie } from '../middleware/
 import { generateCode } from '../utils/codeGen.js'
 import { broadcast } from '../ws/wsServer.js'
 import { drawAndStoreQuestions, flattenManchesServer } from '../services/gameService.js'
-import { joueursMax } from '../services/quotaService.js'
+import { joueursMax, canCreatePartie } from '../services/quotaService.js'
+import { debitOne } from '../services/creditService.js'
 import { markBuzzersInGame, releaseBuzzerToOnline } from '../services/buzzerService.js'
 import { setGameQuestions, startAutoQuestion, mediaStateMessage, questionDisplayMessage, pushLedToBuzzers } from '../ws/gameHandler.js'
 
@@ -66,6 +67,8 @@ const CreatePartieSchema = z.object({
   modeDistanciel: z.boolean().default(false),
   eliminationActive: z.boolean().default(false),
   viesParJoueur: z.number().int().min(0).max(10).default(0),
+  // Partie solo (joueur seul) : gratuite, illimitée, non décomptée du quota.
+  solo: z.boolean().default(false),
 })
 
 // ── Routes statiques AVANT /:partieId ───────────────────────────────────────
@@ -74,7 +77,18 @@ router.post('/', requireAuth, async (req, res) => {
   const parsed = CreatePartieSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, eliminationActive, viesParJoueur } = parsed.data
+  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, eliminationActive, viesParJoueur, solo } = parsed.data
+
+  // Quota : seules les parties MULTIJOUEURS sont décomptées. Le solo est illimité.
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId },
+    select: { id: true, prenom: true, plan: true, isAdmin: true, credits: true },
+  })
+  const quota = await canCreatePartie(user, { solo })
+  if (!quota.allowed) {
+    return res.status(402).json({ error: quota.reason, code: quota.code, limite: quota.limite, usage: quota.usage })
+  }
+
   let code
   let attempts = 0
   do {
@@ -91,6 +105,7 @@ router.post('/', requireAuth, async (req, res) => {
       creatorId: req.userId,
       modeAuto: mode === 'auto',
       modeVote: mode === 'vote',
+      solo: !!solo,
       // Le masquage des réponses n'a de sens qu'en mode animateur.
       masquerReponses: mode === 'animateur' ? masquerReponses : false,
       modeDistanciel: !!modeDistanciel,
@@ -100,7 +115,9 @@ router.post('/', requireAuth, async (req, res) => {
     },
   })
 
-  const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { prenom: true } })
+  // Consommation d'un crédit si le quota mensuel est dépassé (dormant au lancement).
+  if (quota.useCredit) await debitOne(req.userId).catch(() => {})
+
   await prisma.participant.create({
     data: {
       partieId: partie.id,

@@ -9,12 +9,14 @@ export const PLANS = {
   FREE: {
     id: 'FREE',
     nom: 'Free',
-    description: 'Pour découvrir Gbairai et animer de petites parties.',
-    prix: 0,                 // FCFA / mois
+    description: 'Solo illimité et gratuit. 10 parties à plusieurs par mois.',
+    prix: 0,                 // FCFA
     couleur: '#9090A0',
     public: 'Particuliers',
     limites: {
-      partiesParMois: 5,
+      // Plafond des parties MULTIJOUEURS / mois. Les parties solo ne sont pas
+      // décomptées (toujours gratuites et illimitées). Au-delà : crédits ou pack.
+      partiesParMois: 10,
       joueursMax: 20,
       buzzersVirtuels: 1,
       packTiers: ['GRATUIT'],
@@ -25,10 +27,10 @@ export const PLANS = {
       classes: false,
     },
     avantages: [
-      '5 parties par mois',
+      'Parties solo illimitées',
+      '10 parties à plusieurs / mois',
       "Jusqu'à 20 joueurs",
-      '1 buzzer virtuel',
-      'Packs gratuits uniquement',
+      'Packs gratuits',
     ],
   },
   PRO: {
