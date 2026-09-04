@@ -171,7 +171,6 @@ void renderLed() {
     case L_PRESSED:  setButtonLed(255); break;
   }
 
-  switch (gLed) {
   // Couleurs calibrées pour rester DISTINCTES à la luminosité réduite d'un
   // bandeau (90/255) : les états volontairement discrets (prêt, hors ligne)
   // étaient quasi invisibles avec les anciennes valeurs très basses.
