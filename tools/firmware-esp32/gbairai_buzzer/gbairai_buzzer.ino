@@ -72,6 +72,11 @@ bool gConnected = false;
 
 // ── États de LED (miroir exact du simulateur) ───────────────────────────────
 enum LedState { L_OFFLINE, L_PORTAL, L_AWAITING, L_READY, L_ARMED, L_WINNER, L_LOCKED, L_REVEAL, L_PRESSED };
+
+// Une note du séquenceur audio. freq = 0 → silence (articulation entre deux notes).
+// Défini ici, avant toute fonction, pour que les prototypes générés par Arduino
+// (qui référencent `const Note*`) voient bien le type.
+struct Note { uint16_t freq; uint16_t ms; };
 LedState  gLed = L_OFFLINE;
 uint32_t  gFlashUntil = 0;        // flash blanc local lors de l'appui
 
@@ -89,6 +94,7 @@ bool gJustFactoryReset = false;
 
 // Appui long en fonctionnement (reset d'usine) : instant du début d'appui.
 uint32_t gPressStartMs = 0;
+uint8_t  gLastResetTickSec = 0;   // dernière seconde « tictée » du décompte sonore
 // Progression OTA (0..100, -1 = pas de MAJ en cours) → retour visuel dédié.
 int gOtaProgress = -1;
 
@@ -187,24 +193,105 @@ void renderLed() {
   }
 }
 
-// ── Son piézo (mêmes déclencheurs que le simulateur Web Audio) ──────────────
-// `tone(pin, freq, durée)` (Arduino-ESP32) ; non bloquant pour des bips courts.
-void sndBeep(int freq, int dur) { tone(BUZZER_PIN, freq, dur); }
-void sndConnect() { sndBeep(660, 90); }
-void sndAwaiting(){ sndBeep(500, 90); }
-void sndPaired()  { sndBeep(700, 90); delay(110); sndBeep(950, 130); }
-void sndArmed()   { sndBeep(880, 60); }
-void sndWinner()  { sndBeep(660,140); delay(120); sndBeep(880,140); delay(120); sndBeep(1175,180); }
-void sndLocked()  { sndBeep(160, 260); }
-void sndReveal()  { sndBeep(520, 180); }
-void sndPress()   { sndBeep(1000, 50); }
+// ============================================================================
+//  SON — séquenceur de mélodies NON BLOQUANT
+// ----------------------------------------------------------------------------
+//  Les anciennes mélodies enchaînaient des `delay()` : jusqu'à 240 ms pendant
+//  lesquelles webSocket.loop(), le bouton et la LED étaient gelés — inacceptable
+//  sur un buzzer où le temps de réaction est l'essence du jeu. Le séquenceur
+//  ci-dessous avance à chaque tour de loop() via millis().
+//
+//  Deux modes :
+//    • playMelody()    → non bloquant, pour tout ce qui arrive EN JEU.
+//    • playMelodyNow() → bloquant, réservé aux phases où loop() ne tourne pas
+//                        de toute façon (démarrage, portail Wi-Fi, OTA, reset).
+// ============================================================================
+
+// Gamme de do majeur — les mélodies partagent le même vocabulaire pour former
+// une famille sonore cohérente plutôt qu'une collection de bips au hasard.
+#define N_C4  262
+#define N_F4  349
+#define N_G4  392
+#define N_A4  440
+#define N_G3  196
+#define N_A3  220
+#define N_C5  523
+#define N_E5  659
+#define N_F5  698
+#define N_G5  784
+#define N_A5  880
+#define N_C6 1047
+#define N_E6 1319
+#define N_G6 1568
+#define SIL     0        // silence
+
+#define MEL(x) x, (uint8_t)(sizeof(x) / sizeof((x)[0]))
+
+// ── Palette : une intention par évènement ───────────────────────────────────
+static const Note melBoot[]     = {{N_C5,60},{N_E5,60},{N_G5,80}};                              // réveil
+static const Note melPortal[]   = {{N_G5,100},{SIL,60},{N_C6,170}};                             // « configure-moi »
+static const Note melWifiOk[]   = {{N_C5,70},{N_G5,120}};                                       // Wi-Fi obtenu
+static const Note melWsConnect[]= {{N_E5,60},{N_A5,90}};                                        // serveur joint
+static const Note melOffline[]  = {{N_G5,100},{N_E5,100},{N_C5,190}};                           // liaison perdue
+static const Note melAwaiting[] = {{N_E5,90},{SIL,50},{N_A5,110}};                              // question : « appaire-moi ? »
+static const Note melPaired[]   = {{N_C5,70},{N_E5,70},{N_G5,70},{N_C6,150}};                   // résolution joyeuse
+static const Note melReady[]    = {{N_G4,45}};                                                  // veilleuse, très discret
+static const Note melArmed[]    = {{N_A5,45},{SIL,35},{N_C6,60}};                               // double tic : « à toi ! »
+static const Note melPress[]    = {{N_C6,40}};                                                  // impact sec de l'appui
+static const Note melWinner[]   = {{N_G5,110},{N_C6,110},{N_E6,110},{SIL,40},{N_G6,230}};       // fanfare
+static const Note melLocked[]   = {{N_A3,120},{SIL,40},{N_G3,230}};                             // grave, « trop tard »
+static const Note melReveal[]   = {{N_F5,90},{SIL,50},{N_F5,130}};                              // notification neutre
+static const Note melOtaStart[] = {{N_C5,70},{N_E5,70},{N_G5,70},{N_C6,70}};                    // « travaux en cours »
+static const Note melOtaOk[]    = {{N_C6,90},{N_E6,90},{N_G6,210}};                             // MAJ réussie
+static const Note melOtaFail[]  = {{N_E5,140},{SIL,40},{N_C5,140},{SIL,40},{N_A4,260}};         // MAJ échouée
+static const Note melResetDone[]= {{N_C5,90},{N_A4,90},{N_F4,90},{N_C4,260}};                   // effacement
+
+// ── Moteur ──────────────────────────────────────────────────────────────────
+const Note* gMel = nullptr;
+uint8_t  gMelLen = 0, gMelIdx = 0;
+uint32_t gNoteUntil = 0;
+
+void updateMelody() {
+  if (!gMel) return;
+  uint32_t now = millis();
+  if (gNoteUntil && now < gNoteUntil) return;          // note en cours
+  if (gMelIdx >= gMelLen) { noTone(BUZZER_PIN); gMel = nullptr; return; }
+  const Note& n = gMel[gMelIdx++];
+  if (n.freq) tone(BUZZER_PIN, n.freq); else noTone(BUZZER_PIN);
+  gNoteUntil = now + n.ms;
+}
+
+// Non bloquant. La 1re note est attaquée immédiatement → aucune latence perçue
+// sur l'appui du bouton, qui doit rester le retour le plus instantané possible.
+void playMelody(const Note* m, uint8_t len) {
+  gMel = m; gMelLen = len; gMelIdx = 0; gNoteUntil = 0;
+  updateMelody();
+}
+
+// Bloquant — uniquement là où loop() est de toute façon à l'arrêt.
+void playMelodyNow(const Note* m, uint8_t len) {
+  for (uint8_t i = 0; i < len; i++) {
+    if (m[i].freq) tone(BUZZER_PIN, m[i].freq); else noTone(BUZZER_PIN);
+    delay(m[i].ms);
+  }
+  noTone(BUZZER_PIN);
+}
+
+// Un simple tic ponctuel (décompte du reset d'usine).
+void sndTick(uint16_t freq) { tone(BUZZER_PIN, freq, 45); }
+
+// Évite de rejouer la même mélodie si le serveur renvoie deux fois le même état.
+LedState gLastSoundState = L_OFFLINE;
 
 void playSoundForState(LedState s) {
+  if (s == gLastSoundState) return;
+  gLastSoundState = s;
   switch (s) {
-    case L_ARMED:  sndArmed();  break;
-    case L_WINNER: sndWinner(); break;
-    case L_LOCKED: sndLocked(); break;
-    case L_REVEAL: sndReveal(); break;
+    case L_ARMED:  playMelody(MEL(melArmed));  break;
+    case L_WINNER: playMelody(MEL(melWinner)); break;
+    case L_LOCKED: playMelody(MEL(melLocked)); break;
+    case L_REVEAL: playMelody(MEL(melReveal)); break;
+    case L_READY:  playMelody(MEL(melReady));  break;
     default: break;
   }
 }
@@ -278,6 +365,7 @@ void doOta(const String& url, const String& version) {
 
   gOtaProgress = 0;                          // active le retour visuel dédié
   renderLed();
+  playMelodyNow(MEL(melOtaStart));           // « travaux en cours »
 
   httpUpdate.rebootOnUpdate(false);          // on veut rendre compte AVANT de redémarrer
   httpUpdate.onProgress([](int cur, int total) {
@@ -300,6 +388,7 @@ void doOta(const String& url, const String& version) {
   if (ret == HTTP_UPDATE_OK) {
     Serial.println("[OTA] succès → redémarrage");
     sendOtaResult(true, version, "");
+    playMelodyNow(MEL(melOtaOk));
     // 3 clignotements verts : succès visible sans câble série.
     for (int i = 0; i < 3; i++) { setAll(rgb(0, 220, 60)); setButtonLed(255); delay(150);
                                   setAll(0); setButtonLed(0); delay(150); }
@@ -308,6 +397,7 @@ void doOta(const String& url, const String& version) {
     String err = httpUpdate.getLastErrorString();
     Serial.printf("[OTA] échec (%d) %s\n", httpUpdate.getLastError(), err.c_str());
     sendOtaResult(false, version, err);
+    playMelodyNow(MEL(melOtaFail));
     // 3 clignotements rouges : échec identifiable d'un coup d'œil.
     for (int i = 0; i < 3; i++) { setAll(rgb(200, 0, 0)); delay(150);
                                   setAll(0); delay(150); }
@@ -324,20 +414,23 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
       gLed = L_READY;
       sendHello();                              // annonce de l'appareil au boot
       sendTelemetry();                          // 1re télémétrie immédiate
-      sndConnect();
+      playMelody(MEL(melWsConnect));
+      gLastSoundState = L_READY;                // évite un doublon si un 'idle' suit
       Serial.println("[WS] connecté → buzzer_hello");
       break;
 
     case WStype_DISCONNECTED:
       gConnected = false;
       gLed = L_OFFLINE;
+      gLastSoundState = L_OFFLINE;
+      playMelody(MEL(melOffline));              // motif descendant : liaison perdue
       Serial.println("[WS] déconnecté");
       break;
 
     case WStype_TEXT: {
       const char* p = (const char*)payload;
-      if (jsonHas(p, "\"awaiting_claim\""))       { gLed = L_AWAITING; sndAwaiting(); Serial.println("[WS] à appairer"); }
-      else if (jsonHas(p, "\"pairing_success\"")) { gLed = L_READY;    sndPaired();   Serial.println("[WS] appairé"); }
+      if (jsonHas(p, "\"awaiting_claim\""))       { gLed = L_AWAITING; gLastSoundState = L_AWAITING; playMelody(MEL(melAwaiting)); Serial.println("[WS] à appairer"); }
+      else if (jsonHas(p, "\"pairing_success\"")) { gLed = L_READY;    gLastSoundState = L_READY;    playMelody(MEL(melPaired));   Serial.println("[WS] appairé"); }
       else if (jsonHas(p, "\"type\":\"led\"")) {
         String s = jsonField(p, "\"state\":\"");
         setLedFromState(s);
@@ -369,10 +462,11 @@ void handleButton() {
     if (b == LOW) {                                 // appui (pull-up → LOW = pressé)
       gPressStartMs = now;                          // départ du chrono d'appui long
       gFlashUntil = now + 180;                      // flash blanc local immédiat
-      sndPress();
+      playMelody(MEL(melPress));                    // impact sec, latence nulle
       if (gConnected) { sendBuzz(); Serial.println("→ BUZZ"); }
     } else {
       gPressStartMs = 0;                            // relâché avant le seuil → rien
+      gLastResetTickSec = 0;                        // réarme le décompte sonore
     }
   }
 
@@ -385,6 +479,14 @@ void handleButton() {
       bool tick = (now / 150) % 2;
       setAll(tick ? rgb(220, 0, 0) : rgb(20, 0, 0));
       setButtonLed(tick ? 255 : 0);
+
+      // Décompte SONORE : un tic par seconde, de plus en plus aigu à mesure que
+      // l'effacement approche. On entend le reset arriver — et on peut relâcher.
+      uint8_t sec = held / 1000;                    // 3,4,5… jusqu'à 10
+      if (sec != gLastResetTickSec) {
+        gLastResetTickSec = sec;
+        sndTick(400 + (uint16_t)sec * 90);
+      }
     }
     if (held >= LONG_PRESS_RESET_MS) {
       Serial.println("[RESET] appui long → reset d'usine");
@@ -409,6 +511,7 @@ void startPortalIfNeeded() {
   // démarre réellement (setAPCallback), seul moment où WiFiManager nous rend la main.
   setAll(rgb(255, 255, 255));
   setButtonLed(255);
+  playMelodyNow(MEL(melPortal));   // bloquant : loop() ne tourne pas pendant le portail
 
   // Nom du point d'accès de configuration : "Gbairai-Buzzer-XXXX".
   String ap = "Gbairai-Buzzer-" + gMac.substring(gMac.length() - 5);
@@ -457,6 +560,7 @@ void startPortalIfNeeded() {
   // joueurs, et surface d'attaque inutile). On force donc le mode station seule.
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
+  playMelodyNow(MEL(melWifiOk));    // « Wi-Fi obtenu » avant de rendre la main à loop()
 
   Serial.printf("[WiFi] connecté (%s) — point d'accès éteint. Serveur = %s:%u\n",
                 WiFi.localIP().toString().c_str(), GBAIRAI_HOST, GBAIRAI_PORT);
@@ -485,6 +589,7 @@ void doFactoryReset() {
   prefs.putBool("force_portal", true);
   prefs.end();
 
+  playMelodyNow(MEL(melResetDone));          // motif descendant : effacement
   // clignotement rouge de confirmation
   for (int i = 0; i < 6; i++) { setAll(rgb(180,0,0)); delay(120);
                                 setAll(0); delay(120); }
@@ -527,6 +632,8 @@ void setup() {
   gMac.toUpperCase();
   Serial.printf("\nGbairai Buzzer — MAC %s\n", gMac.c_str());
 
+  playMelodyNow(MEL(melBoot));        // petit réveil sonore : « je suis vivant »
+
   maybeFactoryReset();                // reset d'usine si bouton tenu au boot
   startPortalIfNeeded();              // Wi-Fi (captive portal au 1er démarrage)
 
@@ -549,6 +656,7 @@ void loop() {
   webSocket.loop();
   handleButton();
   renderLed();
+  updateMelody();          // fait avancer la mélodie en cours (jamais de delay)
   // Télémétrie périodique (batterie + signal Wi-Fi).
   if (millis() - gLastTelemetryMs > TELEMETRY_MS) { gLastTelemetryMs = millis(); sendTelemetry(); }
 }

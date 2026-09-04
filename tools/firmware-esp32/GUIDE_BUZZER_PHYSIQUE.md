@@ -373,6 +373,39 @@ l'attribue à un joueur → au lancement, le serveur **pilote la LED tout seul**
 | 🔴 rouge | verrouillé |
 | 🟠 orange | réponse révélée |
 
+## 8 bis. Palette sonore (piézo)
+
+Chaque transition a **sa propre mélodie**, construite sur la gamme de do majeur
+pour former une famille cohérente plutôt qu'une collection de bips au hasard.
+
+| Évènement | Motif | Intention |
+|---|---|---|
+| Démarrage | do–mi–sol montant, très court | « je suis vivant » |
+| Portail de configuration | sol → do aigu | « configure-moi » |
+| Wi-Fi obtenu | do → sol | validation |
+| Serveur joint | mi → la | liaison établie |
+| Liaison perdue | sol–mi–do **descendant** | alerte douce |
+| À appairer | mi … la (montant, suspendu) | question ouverte |
+| Appairé | do–mi–sol–do aigu | résolution joyeuse |
+| Prêt | sol grave très bref | veilleuse discrète |
+| **Armé** | la–do aigu, double tic sec | « à toi de jouer ! » |
+| **Appui** | do aigu, 40 ms | impact instantané |
+| Gagné | sol–do–mi–**sol aigu** | fanfare |
+| Verrouillé | la–sol **graves** | « trop tard » |
+| Réponse révélée | fa–fa | notification neutre |
+| Début de MAJ | do–mi–sol–do montant | « travaux en cours » |
+| MAJ réussie | do–mi–sol aigus | succès |
+| MAJ échouée | mi–do–la descendant | échec |
+| Décompte du reset | 1 tic/seconde, **de plus en plus aigu** | on entend l'effacement approcher |
+| Reset effectué | do–la–fa–do descendant | effacement |
+
+> ⚙️ **Non bloquant.** Les mélodies de jeu sont jouées par un séquenceur avancé à
+> chaque tour de `loop()` via `millis()` — **aucun `delay()`**. C'est essentiel :
+> l'ancienne version figeait la boucle jusqu'à 240 ms sur le son « gagné »
+> (plus de WebSocket, plus de bouton, plus de LED). Seules les phases où `loop()`
+> est de toute façon à l'arrêt (démarrage, portail, OTA, reset) utilisent la
+> variante bloquante `playMelodyNow()`.
+
 **Reset d'usine** : maintenir le bouton enfoncé **à la mise sous tension** → efface
 Wi-Fi/config (clignotement rouge), rouvre le portail.
 
