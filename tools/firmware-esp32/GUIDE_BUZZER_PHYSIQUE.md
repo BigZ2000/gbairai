@@ -399,6 +399,35 @@ pour former une famille cohérente plutôt qu'une collection de bips au hasard.
 | Décompte du reset | 1 tic/seconde, **de plus en plus aigu** | on entend l'effacement approcher |
 | Reset effectué | do–la–fa–do descendant | effacement |
 
+### Transitions lumineuses
+
+Aucun changement d'état n'est brutal : la lumière **fond** toujours depuis ce qui
+est réellement affiché, avec une durée et une courbe choisies selon l'intention.
+
+| État | Durée | Courbe | Intention |
+|---|---|---|---|
+| Armé | 130 ms | *ease-out* | arrivée franche, presque un ordre |
+| Gagné | 260 ms | *ease-out* + éclosion | la victoire s'épanouit |
+| Verrouillé | 420 ms | *ease-in* | on se dégonfle, la chute s'accélère |
+| Révélé | 280 ms | *ease-in-out* | annonce posée |
+| Prêt | 520 ms | *ease-in-out* | on se pose doucement |
+| À appairer | 380 ms | *ease-in-out* | attente calme mais insistante |
+| Hors ligne | 650 ms | *ease-in-out* | extinction lente |
+
+**Synchronisation lumière ↔ son.** La mélodie et le changement d'état démarrent au
+même instant : il suffit donc de chronométrer l'animation depuis ce point pour que
+la lumière **frappe pile sur la note**. Deux exemples :
+
+- **Armé** — deux éclats calés sur le double tic (0 ms et 80 ms).
+- **Gagné** — trois frappes légères sur les trois premières notes, puis une
+  **éclosion** qui culmine à 370 ms, exactement sur le sol aigu final de la fanfare.
+
+**Respiration perceptuelle.** Une rampe linéaire paraît saccadée, car l'œil perçoit
+la luminosité de façon logarithmique. Le souffle passe donc par une courbe de type
+gamma (`puissance 1,7`), et chaque état a sa propre période : 5,2 s hors ligne
+(presque endormi), 2,4 s en attente d'appairage (plus insistant), 1,5 s une fois
+armé (tendu). C'est ce détail qui distingue un rendu « produit » d'un clignotement.
+
 > ⚙️ **Non bloquant.** Les mélodies de jeu sont jouées par un séquenceur avancé à
 > chaque tour de `loop()` via `millis()` — **aucun `delay()`**. C'est essentiel :
 > l'ancienne version figeait la boucle jusqu'à 240 ms sur le son « gagné »

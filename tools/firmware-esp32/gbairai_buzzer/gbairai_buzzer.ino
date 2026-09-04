@@ -138,59 +138,184 @@ void setButtonLed(uint8_t level) {
 #endif
 }
 
+// ============================================================================
+//  MOTEUR DE TRANSITION — « rien ne claque »
+// ----------------------------------------------------------------------------
+//  Trois couches composées à chaque image :
+//    1. COULEUR CIBLE de l'état (avec sa respiration propre)
+//    2. FONDU depuis la couleur RÉELLEMENT AFFICHÉE au moment du changement,
+//       avec une durée et une courbe choisies selon l'INTENTION de l'état
+//       (le verrouillage retombe, la victoire éclôt, le repos se pose).
+//    3. ACCENT synchronisé au son : la mélodie et le changement d'état partent
+//       au même instant, donc chronométrer depuis gStateSince suffit à faire
+//       « frapper » la lumière exactement sur la note.
+// ============================================================================
+
+// ── Courbes d'accélération ──────────────────────────────────────────────────
+float easeOutCubic (float t) { float u = 1.0f - t; return 1.0f - u * u * u; }   // arrivée franche
+float easeInCubic  (float t) { return t * t * t; }                              // départ mou, chute
+float easeInOutCubic(float t) { return t < 0.5f ? 4*t*t*t : 1 - powf(-2*t + 2, 3) / 2; }
+float smoothstep   (float t) { return t * t * (3.0f - 2.0f * t); }
+
+// Respiration perceptuelle. Une rampe linéaire paraît saccadée car l'œil perçoit
+// la luminosité de façon logarithmique : la puissance ci-dessous creuse les bas
+// et rend le souffle organique. `periode` en ms (plus long = plus calme/premium).
+float breathe(uint32_t now, uint16_t periode) {
+  float phase = (sinf(6.2832f * (now % periode) / (float)periode) + 1.0f) * 0.5f;
+  return powf(phase, 1.7f);
+}
+
+// Durée du fondu selon l'intention de l'état.
+uint16_t transitionMs(LedState s) {
+  switch (s) {
+    case L_ARMED:   return 130;   // assertif : on doit sentir l'ordre « à toi »
+    case L_WINNER:  return 260;   // éclosion
+    case L_LOCKED:  return 420;   // on se dégonfle
+    case L_REVEAL:  return 280;
+    case L_READY:   return 520;   // on se pose doucement
+    case L_AWAITING:return 380;
+    case L_PORTAL:  return 320;
+    case L_OFFLINE: return 650;   // extinction lente
+    default:        return 250;
+  }
+}
+
+// Courbe associée à l'intention.
+float transitionCurve(LedState s, float t) {
+  switch (s) {
+    case L_ARMED:
+    case L_WINNER:  return easeOutCubic(t);    // impact immédiat puis stabilisation
+    case L_LOCKED:  return easeInCubic(t);     // chute qui s'accélère
+    default:        return easeInOutCubic(t);  // calme des deux côtés
+  }
+}
+
+// Couleur « au repos » d'un état, respiration comprise.
+void stateColor(LedState s, uint32_t now, float& r, float& g, float& b) {
+  float br;
+  switch (s) {
+    case L_OFFLINE:                                   // souffle très lent, presque éteint
+      br = breathe(now, 5200); r = 25 + br * 70; g = 0; b = 0; break;
+    case L_PORTAL:                                    // blanc calme : « configure-moi »
+      br = breathe(now, 3600); r = g = b = 45 + br * 175; break;
+    case L_AWAITING:                                  // ambre plus insistant
+      br = breathe(now, 2400); r = 50 + br * 190; g = (50 + br * 190) * 0.5f; b = 0; break;
+    case L_READY:    r = 0;   g = 90;  b = 35; break; // veilleuse stable
+    case L_ARMED:                                     // bleu vif qui respire vite
+      br = breathe(now, 1500); r = 0; g = 40 + br * 90; b = 120 + br * 135; break;
+    case L_WINNER:   r = 0;   g = 235; b = 70; break;
+    case L_LOCKED:   r = 190; g = 0;   b = 0;  break;
+    case L_REVEAL:   r = 245; g = 130; b = 0;  break;
+    default:         r = g = b = 255; break;
+  }
+}
+
+// Niveau « au repos » de l'anneau du bouton.
+float stateRing(LedState s, uint32_t now) {
+  switch (s) {
+    case L_OFFLINE:  return breathe(now, 5200) * 40;
+    case L_PORTAL:   return 40 + breathe(now, 3600) * 200;
+    case L_AWAITING: return 40 + breathe(now, 2400) * 200;
+    case L_READY:    return 30;
+    case L_ARMED:    return 255;                       // plein feu
+    case L_WINNER:   return 255;
+    case L_LOCKED:   return 0;                         // éteint
+    case L_REVEAL:   return 120;
+    default:         return 255;
+  }
+}
+
+// Enveloppe d'accent : attaque instantanée, extinction douce.
+float pulseEnv(uint32_t e, uint32_t start, uint32_t dur) {
+  if (e < start || e >= start + dur) return 0.0f;
+  return 1.0f - (float)(e - start) / (float)dur;
+}
+// Enveloppe d'éclosion : montée puis retombée (final de la fanfare).
+float bloomEnv(uint32_t e, uint32_t start, uint32_t rise, uint32_t fall) {
+  if (e < start || e >= start + rise + fall) return 0.0f;
+  uint32_t d = e - start;
+  if (d < rise) return smoothstep((float)d / rise);
+  return 1.0f - smoothstep((float)(d - rise) / fall);
+}
+
+// ACCENT SYNCHRONISÉ AU SON. Les instants ci-dessous correspondent NOTE À NOTE
+// aux mélodies définies plus haut — la lumière frappe donc pile sur l'accent.
+float accentFor(LedState s, uint32_t e) {
+  switch (s) {
+    // melArmed = la(45) + silence(35) + do aigu(60) → deux tics : 0 et 80 ms.
+    case L_ARMED:  return fmaxf(pulseEnv(e, 0, 110), pulseEnv(e, 80, 130));
+    // melWinner = sol(110) do(110) mi(110) silence(40) SOL(230) → final à 370 ms.
+    case L_WINNER: return fmaxf(fmaxf(pulseEnv(e, 0, 90), pulseEnv(e, 110, 90)),
+                          fmaxf(pulseEnv(e, 220, 90), bloomEnv(e, 370, 90, 320)));
+    // melReveal = fa(90) + silence(50) + fa(130) → deux frappes douces.
+    case L_REVEAL: return fmaxf(pulseEnv(e, 0, 90), pulseEnv(e, 140, 130)) * 0.55f;
+    default:       return 0.0f;
+  }
+}
+
+// État affiché (float) : c'est de LUI que part chaque fondu, jamais de la cible
+// théorique — sinon une transition interrompue produirait un saut visible.
+float gCurR = 0, gCurG = 0, gCurB = 0, gCurRing = 0;
+float gFromR = 0, gFromG = 0, gFromB = 0, gFromRing = 0;
+uint32_t gStateSince = 0;
+
+// Point d'entrée unique pour changer d'état : mémorise ce qui est à l'écran et
+// démarre le fondu. Toute affectation directe de gLed court-circuiterait ça.
+void setLedState(LedState s) {
+  if (s == gLed) return;
+  gFromR = gCurR; gFromG = gCurG; gFromB = gCurB; gFromRing = gCurRing;
+  gLed = s;
+  gStateSince = millis();
+}
+
 void renderLed() {
   uint32_t now = millis();
 
-  // Mise à jour OTA en cours : priorité absolue, la barre de progression se lit
-  // sur l'intensité de l'anneau et la NeoPixel passe en bleu clignotant.
+  // Mise à jour OTA : priorité absolue. Le bandeau se remplit progressivement,
+  // et le pixel de tête pulse pour montrer que le téléchargement vit.
   if (gOtaProgress >= 0) {
-    // Le bandeau se remplit au fil du téléchargement : N pixels allumés sur 7.
-    uint16_t remplis = (uint16_t)((uint32_t)gOtaProgress * LED_COUNT / 100);
-    for (uint16_t i = 0; i < LED_COUNT; i++)
-      pixel.setPixelColor(i, i < remplis ? rgb(0, 80, 255) : rgb(0, 8, 30));
+    float remplis = (float)gOtaProgress * LED_COUNT / 100.0f;
+    float tete = breathe(now, 700);
+    for (uint16_t i = 0; i < LED_COUNT; i++) {
+      float f = constrain(remplis - i, 0.0f, 1.0f);          // remplissage partiel = dégradé
+      if (i == (uint16_t)remplis) f = 0.35f + tete * 0.65f;  // le pixel en cours respire
+      pixel.setPixelColor(i, rgb((uint8_t)(0), (uint8_t)(f * 90), (uint8_t)(20 + f * 235)));
+    }
     pixel.show();
-    setButtonLed((uint8_t)(gOtaProgress * 255 / 100)); // l'anneau suit aussi la progression
+    setButtonLed((uint8_t)(gOtaProgress * 255 / 100));
+    gCurR = 0; gCurG = 60; gCurB = 200; gCurRing = gOtaProgress * 2.55f;
     return;
   }
 
-  // Flash blanc prioritaire (retour tactile immédiat à l'appui).
-  if (now < gFlashUntil) {
-    setAll(rgb(255, 255, 255));
-    setButtonLed(255);
-    return;
-  }
+  // 1. Cible de l'état courant.
+  float tr, tg, tb;
+  stateColor(gLed, now, tr, tg, tb);
+  float tring = stateRing(gLed, now);
 
-  // Respiration : 0..255 sinusoïdal lent.
-  float phase = (sin(now / 350.0) + 1.0) / 2.0;     // 0..1
-  uint8_t breath = 40 + (uint8_t)(phase * 180);
+  // 2. Fondu depuis ce qui était affiché, avec la courbe de l'intention.
+  uint16_t dur = transitionMs(gLed);
+  uint32_t e = now - gStateSince;
+  float t = (dur == 0 || e >= dur) ? 1.0f : transitionCurve(gLed, (float)e / dur);
+  gCurR = gFromR + (tr - gFromR) * t;
+  gCurG = gFromG + (tg - gFromG) * t;
+  gCurB = gFromB + (tb - gFromB) * t;
+  gCurRing = gFromRing + (tring - gFromRing) * t;
 
-  // L'anneau reprend le rythme de l'état courant (allumé/pulsé/éteint).
-  switch (gLed) {
-    case L_OFFLINE:  setButtonLed(breath / 6); break;   // très faible, respire
-    case L_PORTAL:   setButtonLed(breath); break;       // pulse franchement (à configurer)
-    case L_AWAITING: setButtonLed(breath); break;       // pulse (à appairer)
-    case L_READY:    setButtonLed(30); break;           // veilleuse discrète
-    case L_ARMED:    setButtonLed(255); break;          // PLEIN FEU : « tu peux buzzer »
-    case L_WINNER:   setButtonLed(255); break;
-    case L_LOCKED:   setButtonLed(0); break;            // éteint : verrouillé
-    case L_REVEAL:   setButtonLed(120); break;
-    case L_PRESSED:  setButtonLed(255); break;
+  // 3. Accent calé sur la mélodie + retour tactile de l'appui, tous deux fondus
+  //    en blanc plutôt qu'en bascule brutale.
+  float accent = accentFor(gLed, e);
+  if (now < gFlashUntil) {                                   // appui : attaque immédiate
+    accent = fmaxf(accent, (float)(gFlashUntil - now) / 180.0f);
   }
+  float r = gCurR + (255.0f - gCurR) * accent;
+  float g = gCurG + (255.0f - gCurG) * accent;
+  float b = gCurB + (255.0f - gCurB) * accent;
+  float ring = gCurRing + (255.0f - gCurRing) * accent;
 
-  // Couleurs calibrées pour rester DISTINCTES à la luminosité réduite d'un
-  // bandeau (90/255) : les états volontairement discrets (prêt, hors ligne)
-  // étaient quasi invisibles avec les anciennes valeurs très basses.
-  switch (gLed) {
-    case L_OFFLINE:  setAll(rgb(breath/2, 0, 0)); break;                            // rouge sombre pulsé
-    case L_PORTAL:   setAll(rgb(breath, breath, breath)); break;                    // blanc pulsé (config)
-    case L_AWAITING: setAll(rgb(breath, (uint8_t)(breath*0.55), 0)); break;         // ambre pulsé
-    case L_READY:    setAll(rgb(0, 90, 35)); break;                                 // vert doux stable (prêt)
-    case L_ARMED:    setAll(rgb(0, (uint8_t)(breath*0.45), breath)); break;         // bleu pulsé
-    case L_WINNER:   setAll(rgb(0, 235, 70)); break;                                // vert vif
-    case L_LOCKED:   setAll(rgb(190, 0, 0)); break;                                 // rouge franc
-    case L_REVEAL:   setAll(rgb(245, 130, 0)); break;                               // orange
-    case L_PRESSED:  setAll(rgb(255, 255, 255)); break;
-  }
+  setAll(rgb((uint8_t)constrain(r, 0.0f, 255.0f),
+             (uint8_t)constrain(g, 0.0f, 255.0f),
+             (uint8_t)constrain(b, 0.0f, 255.0f)));
+  setButtonLed((uint8_t)constrain(ring, 0.0f, 255.0f));
 }
 
 // ============================================================================
@@ -297,11 +422,11 @@ void playSoundForState(LedState s) {
 }
 
 void setLedFromState(const String& s) {
-  if      (s == "armed")  gLed = L_ARMED;
-  else if (s == "winner") gLed = L_WINNER;
-  else if (s == "locked") gLed = L_LOCKED;
-  else if (s == "reveal") gLed = L_REVEAL;
-  else                    gLed = L_READY;   // 'idle' ou inconnu
+  if      (s == "armed")  setLedState(L_ARMED);
+  else if (s == "winner") setLedState(L_WINNER);
+  else if (s == "locked") setLedState(L_LOCKED);
+  else if (s == "reveal") setLedState(L_REVEAL);
+  else                    setLedState(L_READY);   // 'idle' ou inconnu
 }
 
 // ============================================================================
@@ -411,7 +536,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch (type) {
     case WStype_CONNECTED:
       gConnected = true;
-      gLed = L_READY;
+      setLedState(L_READY);
       sendHello();                              // annonce de l'appareil au boot
       sendTelemetry();                          // 1re télémétrie immédiate
       playMelody(MEL(melWsConnect));
@@ -421,7 +546,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
 
     case WStype_DISCONNECTED:
       gConnected = false;
-      gLed = L_OFFLINE;
+      setLedState(L_OFFLINE);
       gLastSoundState = L_OFFLINE;
       playMelody(MEL(melOffline));              // motif descendant : liaison perdue
       Serial.println("[WS] déconnecté");
@@ -429,8 +554,8 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
 
     case WStype_TEXT: {
       const char* p = (const char*)payload;
-      if (jsonHas(p, "\"awaiting_claim\""))       { gLed = L_AWAITING; gLastSoundState = L_AWAITING; playMelody(MEL(melAwaiting)); Serial.println("[WS] à appairer"); }
-      else if (jsonHas(p, "\"pairing_success\"")) { gLed = L_READY;    gLastSoundState = L_READY;    playMelody(MEL(melPaired));   Serial.println("[WS] appairé"); }
+      if (jsonHas(p, "\"awaiting_claim\""))       { setLedState(L_AWAITING); gLastSoundState = L_AWAITING; playMelody(MEL(melAwaiting)); Serial.println("[WS] à appairer"); }
+      else if (jsonHas(p, "\"pairing_success\"")) { setLedState(L_READY);    gLastSoundState = L_READY;    playMelody(MEL(melPaired));   Serial.println("[WS] appairé"); }
       else if (jsonHas(p, "\"type\":\"led\"")) {
         String s = jsonField(p, "\"state\":\"");
         setLedFromState(s);
@@ -502,7 +627,7 @@ void startPortalIfNeeded() {
   WiFiManager wm;
   // Le portail ne demande QUE le Wi-Fi (SSID + mot de passe). Le serveur Gbairai
   // est codé en dur (GBAIRAI_HOST/PORT) → aucune saisie technique pour l'utilisateur.
-  gLed = L_PORTAL;
+  setLedState(L_PORTAL);
   // ⚠️ autoConnect()/startConfigPortal() sont BLOQUANTS : loop() — et donc
   // renderLed() — ne tourne pas tant que le Wi-Fi n'est pas configuré. Sans le
   // rendu explicite ci-dessous, le bandeau restait ÉTEINT pendant toute la
