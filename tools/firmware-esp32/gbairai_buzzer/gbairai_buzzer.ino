@@ -172,14 +172,18 @@ void renderLed() {
   }
 
   switch (gLed) {
-    case L_OFFLINE:  setAll(rgb(breath/3, 0, 0)); break;                            // rouge sombre lent
+  // Couleurs calibrées pour rester DISTINCTES à la luminosité réduite d'un
+  // bandeau (90/255) : les états volontairement discrets (prêt, hors ligne)
+  // étaient quasi invisibles avec les anciennes valeurs très basses.
+  switch (gLed) {
+    case L_OFFLINE:  setAll(rgb(breath/2, 0, 0)); break;                            // rouge sombre pulsé
     case L_PORTAL:   setAll(rgb(breath, breath, breath)); break;                    // blanc pulsé (config)
-    case L_AWAITING: setAll(rgb(breath, (uint8_t)(breath*0.7), 0)); break;          // ambre pulsé
-    case L_READY:    setAll(rgb(10, 40, 20)); break;                                // vert très doux (prêt)
-    case L_ARMED:    setAll(rgb(0, (uint8_t)(breath*0.5), breath)); break;          // bleu pulsé
-    case L_WINNER:   setAll(rgb(0, 220, 60)); break;                                // vert vif
-    case L_LOCKED:   setAll(rgb(160, 0, 0)); break;                                 // rouge
-    case L_REVEAL:   setAll(rgb(230, 140, 0)); break;                               // orange
+    case L_AWAITING: setAll(rgb(breath, (uint8_t)(breath*0.55), 0)); break;         // ambre pulsé
+    case L_READY:    setAll(rgb(0, 90, 35)); break;                                 // vert doux stable (prêt)
+    case L_ARMED:    setAll(rgb(0, (uint8_t)(breath*0.45), breath)); break;         // bleu pulsé
+    case L_WINNER:   setAll(rgb(0, 235, 70)); break;                                // vert vif
+    case L_LOCKED:   setAll(rgb(190, 0, 0)); break;                                 // rouge franc
+    case L_REVEAL:   setAll(rgb(245, 130, 0)); break;                               // orange
     case L_PRESSED:  setAll(rgb(255, 255, 255)); break;
   }
 }
@@ -447,7 +451,16 @@ void startPortalIfNeeded() {
     prefs.putBool("force_portal", false);
     prefs.end();
   }
-  Serial.printf("[WiFi] connecté. Serveur = %s:%u\n", GBAIRAI_HOST, GBAIRAI_PORT);
+
+  // EXTINCTION EXPLICITE DU POINT D'ACCÈS. WiFiManager laisse parfois la carte en
+  // mode AP_STA après une configuration réussie : le réseau « Gbairai-Buzzer-XXXX »
+  // resterait alors visible et connectable en permanence (confusion pour les
+  // joueurs, et surface d'attaque inutile). On force donc le mode station seule.
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_STA);
+
+  Serial.printf("[WiFi] connecté (%s) — point d'accès éteint. Serveur = %s:%u\n",
+                WiFi.localIP().toString().c_str(), GBAIRAI_HOST, GBAIRAI_PORT);
 }
 
 // Effacement Wi-Fi + config puis redémarrage (rouvre le portail au reboot).

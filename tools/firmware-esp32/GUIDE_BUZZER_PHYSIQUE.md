@@ -113,6 +113,40 @@ Constantes en haut de [`gbairai_buzzer.ino`](gbairai_buzzer/gbairai_buzzer.ino) 
 > ⚠️ **GPIO 34 = entrée uniquement** (pas de pull-up interne) : parfait pour l'ADC,
 > ne pas y câbler de sortie. Le diviseur /2 ramène 4,2 V → 2,1 V (< 3,3 V, sûr).
 
+### Carte **D1 Mini ESP32** (format compact)
+
+Le firmware cible le module **ESP32-WROOM-32**, donc il fonctionne tel quel sur une
+carte au format *D1 Mini ESP32* (LOLIN/Wemos et clones type ZaDelivery). Seule
+l'**implantation physique** des broches change — les numéros GPIO, eux, sont identiques.
+
+| Signal | GPIO | Sérigraphie D1 Mini ESP32 | Disponibilité |
+|---|---|---|---|
+| Bouton (NO) | **13** | `13` (rangée interne) | ✅ |
+| Anneau du bouton | **14** | `14` (rangée interne) | ✅ |
+| NeoPixel DIN | **5** | `D8` / `5` | ✅ |
+| Piézo | **12** | `12` (rangée interne) | ⚠️ voir ci-dessous |
+| Mesure batterie | **34** | `34` (entrée seule) | ✅ (sinon 35/36/39) |
+| Alimentation | `5V` + `GND` | `5V`, `G` | ✅ |
+
+> 💡 Sur ce format, les GPIO 12/13/14/27/32/33 sont sur la **rangée interne** (les
+> broches supplémentaires au centre de la carte), pas sur le contour type D1 Mini.
+> Vérifie la sérigraphie de ta carte avant de souder.
+
+**⚠️ Broches de « strapping » — à connaître**
+
+Certains GPIO sont lus par l'ESP32 **au démarrage** pour choisir son mode de boot :
+
+- **GPIO 12 (MTDI)** : s'il est **maintenu à l'état haut au boot**, l'ESP32 règle
+  la tension de flash à 1,8 V et **refuse de démarrer**. Un piézo passif est
+  capacitif, il ne tire pas la broche vers le haut → dans la pratique ça démarre
+  sans problème (c'est le cas de ce montage). Mais **si tu ajoutes un module avec
+  résistance de tirage** sur cette broche, la carte ne bootera plus.
+  → En cas de non-démarrage, déplace le piézo sur **GPIO 27** (libre et sans contrainte)
+  et change `#define BUZZER_PIN 27` dans le `.ino`.
+- **GPIO 5** : sort une impulsion au démarrage — sans effet sur une WS2812.
+- **GPIO 34/35/36/39** : **entrées uniquement**, sans résistance de tirage interne.
+  Parfait pour l'ADC batterie, jamais pour une sortie.
+
 ### Bandeau de plusieurs LED (`LED_COUNT`)
 
 Le nombre de pixels se règle en haut du `.ino` :
