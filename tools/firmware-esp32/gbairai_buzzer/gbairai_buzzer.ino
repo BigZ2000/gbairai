@@ -42,10 +42,10 @@
 #define BUTTON_PIN     13        // microswitch : NO → GPIO13, COM → GND
 #define BUTTON_LED_PIN 14        // anneau du bouton (via transistor). -1 pour désactiver.
 #define LED_PIN        5         // entrée DATA d'une LED WS2812 (NeoPixel)
-#define LED_COUNT      1
+#define LED_COUNT      7
 #define BUZZER_PIN     12        // piézo (sortie son) — mêmes déclencheurs que le simulateur
 #define BATTERY_PIN    34        // mesure batterie via pont diviseur (entrée ADC)
-#define FIRMWARE_VERSION "esp32-1.2"
+#define FIRMWARE_VERSION "esp32-1.3"
 #define TELEMETRY_MS 30000UL     // télémétrie toutes les 30 s
 
 // Canaux PWM (LEDC) — le piézo utilise tone() qui réserve le canal 0.
@@ -109,6 +109,14 @@ int readBatteryPercent() {
 // ============================================================================
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) { return pixel.Color(r, g, b); }
 
+// Applique une couleur à TOUT le bandeau (LED_COUNT pixels) puis rafraîchit.
+// ⚠️ Ne jamais adresser le seul pixel 0 : avec un bandeau, les autres resteraient
+// éteints (leur tampon vaut 0). Tous les rendus passent par ici.
+void setAll(uint32_t color) {
+  for (uint16_t i = 0; i < LED_COUNT; i++) pixel.setPixelColor(i, color);
+  pixel.show();
+}
+
 // Anneau lumineux du bouton arcade (LED simple, donc uniquement une intensité).
 // Piloté en PWM pour reproduire les mêmes rythmes que la NeoPixel : le joueur
 // voit le BOUTON lui-même s'allumer, ce qui est bien plus lisible à distance.
@@ -130,16 +138,18 @@ void renderLed() {
   // Mise à jour OTA en cours : priorité absolue, la barre de progression se lit
   // sur l'intensité de l'anneau et la NeoPixel passe en bleu clignotant.
   if (gOtaProgress >= 0) {
-    bool tick = (now / 200) % 2;
-    pixel.setPixelColor(0, tick ? rgb(0, 80, 255) : rgb(0, 10, 40));
+    // Le bandeau se remplit au fil du téléchargement : N pixels allumés sur 7.
+    uint16_t remplis = (uint16_t)((uint32_t)gOtaProgress * LED_COUNT / 100);
+    for (uint16_t i = 0; i < LED_COUNT; i++)
+      pixel.setPixelColor(i, i < remplis ? rgb(0, 80, 255) : rgb(0, 8, 30));
     pixel.show();
-    setButtonLed((uint8_t)(gOtaProgress * 255 / 100)); // s'éclaire au fil du téléchargement
+    setButtonLed((uint8_t)(gOtaProgress * 255 / 100)); // l'anneau suit aussi la progression
     return;
   }
 
   // Flash blanc prioritaire (retour tactile immédiat à l'appui).
   if (now < gFlashUntil) {
-    pixel.setPixelColor(0, rgb(255, 255, 255)); pixel.show();
+    setAll(rgb(255, 255, 255));
     setButtonLed(255);
     return;
   }
@@ -162,17 +172,16 @@ void renderLed() {
   }
 
   switch (gLed) {
-    case L_OFFLINE:  pixel.setPixelColor(0, rgb(breath/3, 0, 0)); break;            // rouge sombre lent
-    case L_PORTAL:   pixel.setPixelColor(0, rgb(breath, breath, breath)); break;    // blanc pulsé (config)
-    case L_AWAITING: pixel.setPixelColor(0, rgb(breath, (uint8_t)(breath*0.7), 0)); break; // ambre pulsé
-    case L_READY:    pixel.setPixelColor(0, rgb(10, 40, 20)); break;                // vert très doux (prêt)
-    case L_ARMED:    pixel.setPixelColor(0, rgb(0, (uint8_t)(breath*0.5), breath)); break;  // bleu pulsé
-    case L_WINNER:   pixel.setPixelColor(0, rgb(0, 220, 60)); break;                // vert vif
-    case L_LOCKED:   pixel.setPixelColor(0, rgb(160, 0, 0)); break;                 // rouge
-    case L_REVEAL:   pixel.setPixelColor(0, rgb(230, 140, 0)); break;               // orange
-    case L_PRESSED:  pixel.setPixelColor(0, rgb(255, 255, 255)); break;
+    case L_OFFLINE:  setAll(rgb(breath/3, 0, 0)); break;                            // rouge sombre lent
+    case L_PORTAL:   setAll(rgb(breath, breath, breath)); break;                    // blanc pulsé (config)
+    case L_AWAITING: setAll(rgb(breath, (uint8_t)(breath*0.7), 0)); break;          // ambre pulsé
+    case L_READY:    setAll(rgb(10, 40, 20)); break;                                // vert très doux (prêt)
+    case L_ARMED:    setAll(rgb(0, (uint8_t)(breath*0.5), breath)); break;          // bleu pulsé
+    case L_WINNER:   setAll(rgb(0, 220, 60)); break;                                // vert vif
+    case L_LOCKED:   setAll(rgb(160, 0, 0)); break;                                 // rouge
+    case L_REVEAL:   setAll(rgb(230, 140, 0)); break;                               // orange
+    case L_PRESSED:  setAll(rgb(255, 255, 255)); break;
   }
-  pixel.show();
 }
 
 // ── Son piézo (mêmes déclencheurs que le simulateur Web Audio) ──────────────
@@ -289,16 +298,16 @@ void doOta(const String& url, const String& version) {
     Serial.println("[OTA] succès → redémarrage");
     sendOtaResult(true, version, "");
     // 3 clignotements verts : succès visible sans câble série.
-    for (int i = 0; i < 3; i++) { pixel.setPixelColor(0, rgb(0, 220, 60)); pixel.show(); setButtonLed(255); delay(150);
-                                  pixel.setPixelColor(0, 0); pixel.show(); setButtonLed(0); delay(150); }
+    for (int i = 0; i < 3; i++) { setAll(rgb(0, 220, 60)); setButtonLed(255); delay(150);
+                                  setAll(0); setButtonLed(0); delay(150); }
     ESP.restart();
   } else {
     String err = httpUpdate.getLastErrorString();
     Serial.printf("[OTA] échec (%d) %s\n", httpUpdate.getLastError(), err.c_str());
     sendOtaResult(false, version, err);
     // 3 clignotements rouges : échec identifiable d'un coup d'œil.
-    for (int i = 0; i < 3; i++) { pixel.setPixelColor(0, rgb(200, 0, 0)); pixel.show(); delay(150);
-                                  pixel.setPixelColor(0, 0); pixel.show(); delay(150); }
+    for (int i = 0; i < 3; i++) { setAll(rgb(200, 0, 0)); delay(150);
+                                  setAll(0); delay(150); }
   }
 }
 
@@ -371,8 +380,7 @@ void handleButton() {
     uint32_t held = now - gPressStartMs;
     if (held > 3000) {                              // à partir de 3 s : avertissement visuel
       bool tick = (now / 150) % 2;
-      pixel.setPixelColor(0, tick ? rgb(220, 0, 0) : rgb(20, 0, 0));
-      pixel.show();
+      setAll(tick ? rgb(220, 0, 0) : rgb(20, 0, 0));
       setButtonLed(tick ? 255 : 0);
     }
     if (held >= LONG_PRESS_RESET_MS) {
@@ -390,10 +398,24 @@ void startPortalIfNeeded() {
   // Le portail ne demande QUE le Wi-Fi (SSID + mot de passe). Le serveur Gbairai
   // est codé en dur (GBAIRAI_HOST/PORT) → aucune saisie technique pour l'utilisateur.
   gLed = L_PORTAL;
+  // ⚠️ autoConnect()/startConfigPortal() sont BLOQUANTS : loop() — et donc
+  // renderLed() — ne tourne pas tant que le Wi-Fi n'est pas configuré. Sans le
+  // rendu explicite ci-dessous, le bandeau restait ÉTEINT pendant toute la
+  // configuration (le « blanc pulsé » n'apparaissait jamais). On allume donc en
+  // blanc fixe avant de bloquer, et on le ré-affirme quand le point d'accès
+  // démarre réellement (setAPCallback), seul moment où WiFiManager nous rend la main.
+  setAll(rgb(255, 255, 255));
+  setButtonLed(255);
+
   // Nom du point d'accès de configuration : "Gbairai-Buzzer-XXXX".
   String ap = "Gbairai-Buzzer-" + gMac.substring(gMac.length() - 5);
   ap.replace(":", "");
   wm.setConfigPortalTimeout(180);                   // 3 min puis re-tentative
+  wm.setAPCallback([](WiFiManager*) {               // le portail vient de s'ouvrir
+    Serial.println("[WiFi] portail ouvert → connecte-toi au Wi-Fi Gbairai-Buzzer-…");
+    setAll(rgb(255, 255, 255));
+    setButtonLed(255);
+  });
 
   // Drapeau posé par doFactoryReset() : garantit l'ouverture du portail même si
   // l'effacement des identifiants Wi-Fi (NVS) avait échoué silencieusement —
@@ -452,8 +474,8 @@ void doFactoryReset() {
   prefs.end();
 
   // clignotement rouge de confirmation
-  for (int i = 0; i < 6; i++) { pixel.setPixelColor(0, rgb(180,0,0)); pixel.show(); delay(120);
-                                pixel.setPixelColor(0, 0); pixel.show(); delay(120); }
+  for (int i = 0; i < 6; i++) { setAll(rgb(180,0,0)); delay(120);
+                                setAll(0); delay(120); }
   ESP.restart();
 }
 
@@ -471,7 +493,12 @@ void maybeFactoryReset() {
 void setup() {
   Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pixel.begin(); pixel.setBrightness(160); pixel.show();
+  // Luminosité volontairement modérée : une WS2812 tire ~60 mA en blanc plein.
+  // Avec LED_COUNT=7 cela ferait ~420 mA — bien trop pour la broche 3V3 de la
+  // carte, surtout pendant les pics d'émission Wi-Fi (risque de brownout/reset).
+  // À 90/255 on plafonne autour de ~150 mA, ce qui reste sûr. Si tu alimentes le
+  // bandeau en 5 V (VIN) avec sa propre masse, tu peux remonter jusqu'à 160–255.
+  pixel.begin(); pixel.setBrightness(LED_COUNT > 1 ? 90 : 160); pixel.show();
 
   // Anneau lumineux du bouton arcade (4 broches) piloté en PWM via transistor.
 #if BUTTON_LED_PIN >= 0

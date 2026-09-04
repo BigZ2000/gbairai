@@ -104,7 +104,7 @@ Constantes en haut de [`gbairai_buzzer.ino`](gbairai_buzzer/gbairai_buzzer.ino) 
 | **Bouton — NO** (microswitch) | **GPIO 13** | **COM** → **GND** | `INPUT_PULLUP` → appui = niveau bas. Pas de résistance externe. |
 | **Bouton — LED+** (anneau) | **GPIO 14** *via transistor* | **LED−** → **GND** | ⚠️ jamais en direct — voir §3 bis |
 | **NeoPixel DIN** | **GPIO 5** | via **330 Ω** en série | protège l'entrée data |
-| **NeoPixel VCC** | **3V3** (ou 5V) | — | 1 pixel : 3V3 suffit |
+| **NeoPixel VCC** | **3V3** (ou 5V) | — | 1 pixel : 3V3 suffit. **Bandeau ≥ 4 LED → voir ci-dessous** |
 | **NeoPixel GND** | **GND** | — | masse commune |
 | **Piézo +** | **GPIO 12** | piézo **−** → **GND** | **piézo passif** obligatoire (`tone()`) |
 | **Batterie (mesure)** | **GPIO 34** | diviseur **2×100 kΩ** | BAT+ → 100 kΩ → GPIO34 → 100 kΩ → GND |
@@ -112,6 +112,36 @@ Constantes en haut de [`gbairai_buzzer.ino`](gbairai_buzzer/gbairai_buzzer.ino) 
 
 > ⚠️ **GPIO 34 = entrée uniquement** (pas de pull-up interne) : parfait pour l'ADC,
 > ne pas y câbler de sortie. Le diviseur /2 ramène 4,2 V → 2,1 V (< 3,3 V, sûr).
+
+### Bandeau de plusieurs LED (`LED_COUNT`)
+
+Le nombre de pixels se règle en haut du `.ino` :
+
+```c
+#define LED_COUNT 7        // 1 = pixel unique, 7 = anneau/bandeau
+```
+
+Le firmware pilote **tous** les pixels ensemble (même couleur), sauf pendant une
+mise à jour OTA où le bandeau se **remplit progressivement** comme une barre de
+progression.
+
+**⚠️ Consommation.** Une WS2812 tire jusqu'à **60 mA en blanc plein** :
+
+| Nb de LED | Blanc plein (255) | À luminosité 90 |
+|---|---|---|
+| 1 | 60 mA | ~21 mA |
+| 7 | **420 mA** ❌ | ~150 mA ✅ |
+
+La broche **3V3** de la carte ne peut pas fournir 420 mA, surtout pendant les pics
+d'émission Wi-Fi → **brownouts et redémarrages intempestifs**. Deux options :
+
+1. **Rester sur 3V3** (simple) en gardant la luminosité modérée — c'est le défaut
+   automatique du firmware dès que `LED_COUNT > 1` (90/255).
+2. **Alimenter le bandeau en 5 V** (broche `VIN`, masse commune) pour retrouver
+   toute la luminosité. Note que la donnée reste en 3,3 V alors que le seuil
+   logique d'une WS2812B en 5 V est de ~3,5 V : ça fonctionne le plus souvent,
+   mais si l'affichage devient instable, ajoute un adaptateur de niveau
+   (74AHCT125) ou alimente le bandeau en 4,3 V (une diode 1N4007 en série sur le 5 V).
 
 ---
 
