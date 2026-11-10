@@ -42,10 +42,10 @@
 #define BUTTON_PIN     13        // microswitch : NO → GPIO13, COM → GND
 #define BUTTON_LED_PIN 14        // anneau du bouton (via transistor). -1 pour désactiver.
 #define LED_PIN        5         // entrée DATA d'une LED WS2812 (NeoPixel)
-#define LED_COUNT      1
+#define LED_COUNT      7
 #define BUZZER_PIN     12        // piézo (sortie son) — mêmes déclencheurs que le simulateur
 #define BATTERY_PIN    34        // mesure batterie via pont diviseur (entrée ADC)
-#define FIRMWARE_VERSION "esp32-1.2"
+#define FIRMWARE_VERSION "esp32-1.3"
 #define TELEMETRY_MS 30000UL     // télémétrie toutes les 30 s
 
 // Canaux PWM (LEDC) — le piézo utilise tone() qui réserve le canal 0.
@@ -72,6 +72,11 @@ bool gConnected = false;
 
 // ── États de LED (miroir exact du simulateur) ───────────────────────────────
 enum LedState { L_OFFLINE, L_PORTAL, L_AWAITING, L_READY, L_ARMED, L_WINNER, L_LOCKED, L_REVEAL, L_PRESSED };
+
+// Une note du séquenceur audio. freq = 0 → silence (articulation entre deux notes).
+// Défini ici, avant toute fonction, pour que les prototypes générés par Arduino
+// (qui référencent `const Note*`) voient bien le type.
+struct Note { uint16_t freq; uint16_t ms; };
 LedState  gLed = L_OFFLINE;
 uint32_t  gFlashUntil = 0;        // flash blanc local lors de l'appui
 
@@ -89,6 +94,7 @@ bool gJustFactoryReset = false;
 
 // Appui long en fonctionnement (reset d'usine) : instant du début d'appui.
 uint32_t gPressStartMs = 0;
+uint8_t  gLastResetTickSec = 0;   // dernière seconde « tictée » du décompte sonore
 // Progression OTA (0..100, -1 = pas de MAJ en cours) → retour visuel dédié.
 int gOtaProgress = -1;
 
@@ -109,6 +115,14 @@ int readBatteryPercent() {
 // ============================================================================
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) { return pixel.Color(r, g, b); }
 
+// Applique une couleur à TOUT le bandeau (LED_COUNT pixels) puis rafraîchit.
+// ⚠️ Ne jamais adresser le seul pixel 0 : avec un bandeau, les autres resteraient
+// éteints (leur tampon vaut 0). Tous les rendus passent par ici.
+void setAll(uint32_t color) {
+  for (uint16_t i = 0; i < LED_COUNT; i++) pixel.setPixelColor(i, color);
+  pixel.show();
+}
+
 // Anneau lumineux du bouton arcade (LED simple, donc uniquement une intensité).
 // Piloté en PWM pour reproduire les mêmes rythmes que la NeoPixel : le joueur
 // voit le BOUTON lui-même s'allumer, ce qui est bien plus lisible à distance.
@@ -124,85 +138,295 @@ void setButtonLed(uint8_t level) {
 #endif
 }
 
+// ============================================================================
+//  MOTEUR DE TRANSITION — « rien ne claque »
+// ----------------------------------------------------------------------------
+//  Trois couches composées à chaque image :
+//    1. COULEUR CIBLE de l'état (avec sa respiration propre)
+//    2. FONDU depuis la couleur RÉELLEMENT AFFICHÉE au moment du changement,
+//       avec une durée et une courbe choisies selon l'INTENTION de l'état
+//       (le verrouillage retombe, la victoire éclôt, le repos se pose).
+//    3. ACCENT synchronisé au son : la mélodie et le changement d'état partent
+//       au même instant, donc chronométrer depuis gStateSince suffit à faire
+//       « frapper » la lumière exactement sur la note.
+// ============================================================================
+
+// ── Courbes d'accélération ──────────────────────────────────────────────────
+float easeOutCubic (float t) { float u = 1.0f - t; return 1.0f - u * u * u; }   // arrivée franche
+float easeInCubic  (float t) { return t * t * t; }                              // départ mou, chute
+float easeInOutCubic(float t) { return t < 0.5f ? 4*t*t*t : 1 - powf(-2*t + 2, 3) / 2; }
+float smoothstep   (float t) { return t * t * (3.0f - 2.0f * t); }
+
+// Respiration perceptuelle. Une rampe linéaire paraît saccadée car l'œil perçoit
+// la luminosité de façon logarithmique : la puissance ci-dessous creuse les bas
+// et rend le souffle organique. `periode` en ms (plus long = plus calme/premium).
+float breathe(uint32_t now, uint16_t periode) {
+  float phase = (sinf(6.2832f * (now % periode) / (float)periode) + 1.0f) * 0.5f;
+  return powf(phase, 1.7f);
+}
+
+// Durée du fondu selon l'intention de l'état.
+uint16_t transitionMs(LedState s) {
+  switch (s) {
+    case L_ARMED:   return 130;   // assertif : on doit sentir l'ordre « à toi »
+    case L_WINNER:  return 260;   // éclosion
+    case L_LOCKED:  return 420;   // on se dégonfle
+    case L_REVEAL:  return 280;
+    case L_READY:   return 520;   // on se pose doucement
+    case L_AWAITING:return 380;
+    case L_PORTAL:  return 320;
+    case L_OFFLINE: return 650;   // extinction lente
+    default:        return 250;
+  }
+}
+
+// Courbe associée à l'intention.
+float transitionCurve(LedState s, float t) {
+  switch (s) {
+    case L_ARMED:
+    case L_WINNER:  return easeOutCubic(t);    // impact immédiat puis stabilisation
+    case L_LOCKED:  return easeInCubic(t);     // chute qui s'accélère
+    default:        return easeInOutCubic(t);  // calme des deux côtés
+  }
+}
+
+// Couleur « au repos » d'un état, respiration comprise.
+void stateColor(LedState s, uint32_t now, float& r, float& g, float& b) {
+  float br;
+  switch (s) {
+    case L_OFFLINE:                                   // souffle très lent, presque éteint
+      br = breathe(now, 5200); r = 25 + br * 70; g = 0; b = 0; break;
+    case L_PORTAL:                                    // blanc calme : « configure-moi »
+      br = breathe(now, 3600); r = g = b = 45 + br * 175; break;
+    case L_AWAITING:                                  // ambre plus insistant
+      br = breathe(now, 2400); r = 50 + br * 190; g = (50 + br * 190) * 0.5f; b = 0; break;
+    case L_READY:    r = 0;   g = 90;  b = 35; break; // veilleuse stable
+    case L_ARMED:                                     // bleu vif qui respire vite
+      br = breathe(now, 1500); r = 0; g = 40 + br * 90; b = 120 + br * 135; break;
+    case L_WINNER:   r = 0;   g = 235; b = 70; break;
+    case L_LOCKED:   r = 190; g = 0;   b = 0;  break;
+    case L_REVEAL:   r = 245; g = 130; b = 0;  break;
+    default:         r = g = b = 255; break;
+  }
+}
+
+// Niveau « au repos » de l'anneau du bouton.
+float stateRing(LedState s, uint32_t now) {
+  switch (s) {
+    case L_OFFLINE:  return breathe(now, 5200) * 40;
+    case L_PORTAL:   return 40 + breathe(now, 3600) * 200;
+    case L_AWAITING: return 40 + breathe(now, 2400) * 200;
+    case L_READY:    return 30;
+    case L_ARMED:    return 255;                       // plein feu
+    case L_WINNER:   return 255;
+    case L_LOCKED:   return 0;                         // éteint
+    case L_REVEAL:   return 120;
+    default:         return 255;
+  }
+}
+
+// Enveloppe d'accent : attaque instantanée, extinction douce.
+float pulseEnv(uint32_t e, uint32_t start, uint32_t dur) {
+  if (e < start || e >= start + dur) return 0.0f;
+  return 1.0f - (float)(e - start) / (float)dur;
+}
+// Enveloppe d'éclosion : montée puis retombée (final de la fanfare).
+float bloomEnv(uint32_t e, uint32_t start, uint32_t rise, uint32_t fall) {
+  if (e < start || e >= start + rise + fall) return 0.0f;
+  uint32_t d = e - start;
+  if (d < rise) return smoothstep((float)d / rise);
+  return 1.0f - smoothstep((float)(d - rise) / fall);
+}
+
+// ACCENT SYNCHRONISÉ AU SON. Les instants ci-dessous correspondent NOTE À NOTE
+// aux mélodies définies plus haut — la lumière frappe donc pile sur l'accent.
+float accentFor(LedState s, uint32_t e) {
+  switch (s) {
+    // melArmed = la(45) + silence(35) + do aigu(60) → deux tics : 0 et 80 ms.
+    case L_ARMED:  return fmaxf(pulseEnv(e, 0, 110), pulseEnv(e, 80, 130));
+    // melWinner = sol(110) do(110) mi(110) silence(40) SOL(230) → final à 370 ms.
+    case L_WINNER: return fmaxf(fmaxf(pulseEnv(e, 0, 90), pulseEnv(e, 110, 90)),
+                          fmaxf(pulseEnv(e, 220, 90), bloomEnv(e, 370, 90, 320)));
+    // melReveal = fa(90) + silence(50) + fa(130) → deux frappes douces.
+    case L_REVEAL: return fmaxf(pulseEnv(e, 0, 90), pulseEnv(e, 140, 130)) * 0.55f;
+    default:       return 0.0f;
+  }
+}
+
+// État affiché (float) : c'est de LUI que part chaque fondu, jamais de la cible
+// théorique — sinon une transition interrompue produirait un saut visible.
+float gCurR = 0, gCurG = 0, gCurB = 0, gCurRing = 0;
+float gFromR = 0, gFromG = 0, gFromB = 0, gFromRing = 0;
+uint32_t gStateSince = 0;
+
+// Point d'entrée unique pour changer d'état : mémorise ce qui est à l'écran et
+// démarre le fondu. Toute affectation directe de gLed court-circuiterait ça.
+void setLedState(LedState s) {
+  if (s == gLed) return;
+  gFromR = gCurR; gFromG = gCurG; gFromB = gCurB; gFromRing = gCurRing;
+  gLed = s;
+  gStateSince = millis();
+}
+
 void renderLed() {
   uint32_t now = millis();
 
-  // Mise à jour OTA en cours : priorité absolue, la barre de progression se lit
-  // sur l'intensité de l'anneau et la NeoPixel passe en bleu clignotant.
+  // Mise à jour OTA : priorité absolue. Le bandeau se remplit progressivement,
+  // et le pixel de tête pulse pour montrer que le téléchargement vit.
   if (gOtaProgress >= 0) {
-    bool tick = (now / 200) % 2;
-    pixel.setPixelColor(0, tick ? rgb(0, 80, 255) : rgb(0, 10, 40));
+    float remplis = (float)gOtaProgress * LED_COUNT / 100.0f;
+    float tete = breathe(now, 700);
+    for (uint16_t i = 0; i < LED_COUNT; i++) {
+      float f = constrain(remplis - i, 0.0f, 1.0f);          // remplissage partiel = dégradé
+      if (i == (uint16_t)remplis) f = 0.35f + tete * 0.65f;  // le pixel en cours respire
+      pixel.setPixelColor(i, rgb((uint8_t)(0), (uint8_t)(f * 90), (uint8_t)(20 + f * 235)));
+    }
     pixel.show();
-    setButtonLed((uint8_t)(gOtaProgress * 255 / 100)); // s'éclaire au fil du téléchargement
+    setButtonLed((uint8_t)(gOtaProgress * 255 / 100));
+    gCurR = 0; gCurG = 60; gCurB = 200; gCurRing = gOtaProgress * 2.55f;
     return;
   }
 
-  // Flash blanc prioritaire (retour tactile immédiat à l'appui).
-  if (now < gFlashUntil) {
-    pixel.setPixelColor(0, rgb(255, 255, 255)); pixel.show();
-    setButtonLed(255);
-    return;
-  }
+  // 1. Cible de l'état courant.
+  float tr, tg, tb;
+  stateColor(gLed, now, tr, tg, tb);
+  float tring = stateRing(gLed, now);
 
-  // Respiration : 0..255 sinusoïdal lent.
-  float phase = (sin(now / 350.0) + 1.0) / 2.0;     // 0..1
-  uint8_t breath = 40 + (uint8_t)(phase * 180);
+  // 2. Fondu depuis ce qui était affiché, avec la courbe de l'intention.
+  uint16_t dur = transitionMs(gLed);
+  uint32_t e = now - gStateSince;
+  float t = (dur == 0 || e >= dur) ? 1.0f : transitionCurve(gLed, (float)e / dur);
+  gCurR = gFromR + (tr - gFromR) * t;
+  gCurG = gFromG + (tg - gFromG) * t;
+  gCurB = gFromB + (tb - gFromB) * t;
+  gCurRing = gFromRing + (tring - gFromRing) * t;
 
-  // L'anneau reprend le rythme de l'état courant (allumé/pulsé/éteint).
-  switch (gLed) {
-    case L_OFFLINE:  setButtonLed(breath / 6); break;   // très faible, respire
-    case L_PORTAL:   setButtonLed(breath); break;       // pulse franchement (à configurer)
-    case L_AWAITING: setButtonLed(breath); break;       // pulse (à appairer)
-    case L_READY:    setButtonLed(30); break;           // veilleuse discrète
-    case L_ARMED:    setButtonLed(255); break;          // PLEIN FEU : « tu peux buzzer »
-    case L_WINNER:   setButtonLed(255); break;
-    case L_LOCKED:   setButtonLed(0); break;            // éteint : verrouillé
-    case L_REVEAL:   setButtonLed(120); break;
-    case L_PRESSED:  setButtonLed(255); break;
+  // 3. Accent calé sur la mélodie + retour tactile de l'appui, tous deux fondus
+  //    en blanc plutôt qu'en bascule brutale.
+  float accent = accentFor(gLed, e);
+  if (now < gFlashUntil) {                                   // appui : attaque immédiate
+    accent = fmaxf(accent, (float)(gFlashUntil - now) / 180.0f);
   }
+  float r = gCurR + (255.0f - gCurR) * accent;
+  float g = gCurG + (255.0f - gCurG) * accent;
+  float b = gCurB + (255.0f - gCurB) * accent;
+  float ring = gCurRing + (255.0f - gCurRing) * accent;
 
-  switch (gLed) {
-    case L_OFFLINE:  pixel.setPixelColor(0, rgb(breath/3, 0, 0)); break;            // rouge sombre lent
-    case L_PORTAL:   pixel.setPixelColor(0, rgb(breath, breath, breath)); break;    // blanc pulsé (config)
-    case L_AWAITING: pixel.setPixelColor(0, rgb(breath, (uint8_t)(breath*0.7), 0)); break; // ambre pulsé
-    case L_READY:    pixel.setPixelColor(0, rgb(10, 40, 20)); break;                // vert très doux (prêt)
-    case L_ARMED:    pixel.setPixelColor(0, rgb(0, (uint8_t)(breath*0.5), breath)); break;  // bleu pulsé
-    case L_WINNER:   pixel.setPixelColor(0, rgb(0, 220, 60)); break;                // vert vif
-    case L_LOCKED:   pixel.setPixelColor(0, rgb(160, 0, 0)); break;                 // rouge
-    case L_REVEAL:   pixel.setPixelColor(0, rgb(230, 140, 0)); break;               // orange
-    case L_PRESSED:  pixel.setPixelColor(0, rgb(255, 255, 255)); break;
-  }
-  pixel.show();
+  setAll(rgb((uint8_t)constrain(r, 0.0f, 255.0f),
+             (uint8_t)constrain(g, 0.0f, 255.0f),
+             (uint8_t)constrain(b, 0.0f, 255.0f)));
+  setButtonLed((uint8_t)constrain(ring, 0.0f, 255.0f));
 }
 
-// ── Son piézo (mêmes déclencheurs que le simulateur Web Audio) ──────────────
-// `tone(pin, freq, durée)` (Arduino-ESP32) ; non bloquant pour des bips courts.
-void sndBeep(int freq, int dur) { tone(BUZZER_PIN, freq, dur); }
-void sndConnect() { sndBeep(660, 90); }
-void sndAwaiting(){ sndBeep(500, 90); }
-void sndPaired()  { sndBeep(700, 90); delay(110); sndBeep(950, 130); }
-void sndArmed()   { sndBeep(880, 60); }
-void sndWinner()  { sndBeep(660,140); delay(120); sndBeep(880,140); delay(120); sndBeep(1175,180); }
-void sndLocked()  { sndBeep(160, 260); }
-void sndReveal()  { sndBeep(520, 180); }
-void sndPress()   { sndBeep(1000, 50); }
+// ============================================================================
+//  SON — séquenceur de mélodies NON BLOQUANT
+// ----------------------------------------------------------------------------
+//  Les anciennes mélodies enchaînaient des `delay()` : jusqu'à 240 ms pendant
+//  lesquelles webSocket.loop(), le bouton et la LED étaient gelés — inacceptable
+//  sur un buzzer où le temps de réaction est l'essence du jeu. Le séquenceur
+//  ci-dessous avance à chaque tour de loop() via millis().
+//
+//  Deux modes :
+//    • playMelody()    → non bloquant, pour tout ce qui arrive EN JEU.
+//    • playMelodyNow() → bloquant, réservé aux phases où loop() ne tourne pas
+//                        de toute façon (démarrage, portail Wi-Fi, OTA, reset).
+// ============================================================================
+
+// Gamme de do majeur — les mélodies partagent le même vocabulaire pour former
+// une famille sonore cohérente plutôt qu'une collection de bips au hasard.
+#define N_C4  262
+#define N_F4  349
+#define N_G4  392
+#define N_A4  440
+#define N_G3  196
+#define N_A3  220
+#define N_C5  523
+#define N_E5  659
+#define N_F5  698
+#define N_G5  784
+#define N_A5  880
+#define N_C6 1047
+#define N_E6 1319
+#define N_G6 1568
+#define SIL     0        // silence
+
+#define MEL(x) x, (uint8_t)(sizeof(x) / sizeof((x)[0]))
+
+// ── Palette : une intention par évènement ───────────────────────────────────
+static const Note melBoot[]     = {{N_C5,60},{N_E5,60},{N_G5,80}};                              // réveil
+static const Note melPortal[]   = {{N_G5,100},{SIL,60},{N_C6,170}};                             // « configure-moi »
+static const Note melWifiOk[]   = {{N_C5,70},{N_G5,120}};                                       // Wi-Fi obtenu
+static const Note melWsConnect[]= {{N_E5,60},{N_A5,90}};                                        // serveur joint
+static const Note melOffline[]  = {{N_G5,100},{N_E5,100},{N_C5,190}};                           // liaison perdue
+static const Note melAwaiting[] = {{N_E5,90},{SIL,50},{N_A5,110}};                              // question : « appaire-moi ? »
+static const Note melPaired[]   = {{N_C5,70},{N_E5,70},{N_G5,70},{N_C6,150}};                   // résolution joyeuse
+static const Note melReady[]    = {{N_G4,45}};                                                  // veilleuse, très discret
+static const Note melArmed[]    = {{N_A5,45},{SIL,35},{N_C6,60}};                               // double tic : « à toi ! »
+static const Note melPress[]    = {{N_C6,40}};                                                  // impact sec de l'appui
+static const Note melWinner[]   = {{N_G5,110},{N_C6,110},{N_E6,110},{SIL,40},{N_G6,230}};       // fanfare
+static const Note melLocked[]   = {{N_A3,120},{SIL,40},{N_G3,230}};                             // grave, « trop tard »
+static const Note melReveal[]   = {{N_F5,90},{SIL,50},{N_F5,130}};                              // notification neutre
+static const Note melOtaStart[] = {{N_C5,70},{N_E5,70},{N_G5,70},{N_C6,70}};                    // « travaux en cours »
+static const Note melOtaOk[]    = {{N_C6,90},{N_E6,90},{N_G6,210}};                             // MAJ réussie
+static const Note melOtaFail[]  = {{N_E5,140},{SIL,40},{N_C5,140},{SIL,40},{N_A4,260}};         // MAJ échouée
+static const Note melResetDone[]= {{N_C5,90},{N_A4,90},{N_F4,90},{N_C4,260}};                   // effacement
+
+// ── Moteur ──────────────────────────────────────────────────────────────────
+const Note* gMel = nullptr;
+uint8_t  gMelLen = 0, gMelIdx = 0;
+uint32_t gNoteUntil = 0;
+
+void updateMelody() {
+  if (!gMel) return;
+  uint32_t now = millis();
+  if (gNoteUntil && now < gNoteUntil) return;          // note en cours
+  if (gMelIdx >= gMelLen) { noTone(BUZZER_PIN); gMel = nullptr; return; }
+  const Note& n = gMel[gMelIdx++];
+  if (n.freq) tone(BUZZER_PIN, n.freq); else noTone(BUZZER_PIN);
+  gNoteUntil = now + n.ms;
+}
+
+// Non bloquant. La 1re note est attaquée immédiatement → aucune latence perçue
+// sur l'appui du bouton, qui doit rester le retour le plus instantané possible.
+void playMelody(const Note* m, uint8_t len) {
+  gMel = m; gMelLen = len; gMelIdx = 0; gNoteUntil = 0;
+  updateMelody();
+}
+
+// Bloquant — uniquement là où loop() est de toute façon à l'arrêt.
+void playMelodyNow(const Note* m, uint8_t len) {
+  for (uint8_t i = 0; i < len; i++) {
+    if (m[i].freq) tone(BUZZER_PIN, m[i].freq); else noTone(BUZZER_PIN);
+    delay(m[i].ms);
+  }
+  noTone(BUZZER_PIN);
+}
+
+// Un simple tic ponctuel (décompte du reset d'usine).
+void sndTick(uint16_t freq) { tone(BUZZER_PIN, freq, 45); }
+
+// Évite de rejouer la même mélodie si le serveur renvoie deux fois le même état.
+LedState gLastSoundState = L_OFFLINE;
 
 void playSoundForState(LedState s) {
+  if (s == gLastSoundState) return;
+  gLastSoundState = s;
   switch (s) {
-    case L_ARMED:  sndArmed();  break;
-    case L_WINNER: sndWinner(); break;
-    case L_LOCKED: sndLocked(); break;
-    case L_REVEAL: sndReveal(); break;
+    case L_ARMED:  playMelody(MEL(melArmed));  break;
+    case L_WINNER: playMelody(MEL(melWinner)); break;
+    case L_LOCKED: playMelody(MEL(melLocked)); break;
+    case L_REVEAL: playMelody(MEL(melReveal)); break;
+    case L_READY:  playMelody(MEL(melReady));  break;
     default: break;
   }
 }
 
 void setLedFromState(const String& s) {
-  if      (s == "armed")  gLed = L_ARMED;
-  else if (s == "winner") gLed = L_WINNER;
-  else if (s == "locked") gLed = L_LOCKED;
-  else if (s == "reveal") gLed = L_REVEAL;
-  else                    gLed = L_READY;   // 'idle' ou inconnu
+  if      (s == "armed")  setLedState(L_ARMED);
+  else if (s == "winner") setLedState(L_WINNER);
+  else if (s == "locked") setLedState(L_LOCKED);
+  else if (s == "reveal") setLedState(L_REVEAL);
+  else                    setLedState(L_READY);   // 'idle' ou inconnu
 }
 
 // ============================================================================
@@ -266,6 +490,7 @@ void doOta(const String& url, const String& version) {
 
   gOtaProgress = 0;                          // active le retour visuel dédié
   renderLed();
+  playMelodyNow(MEL(melOtaStart));           // « travaux en cours »
 
   httpUpdate.rebootOnUpdate(false);          // on veut rendre compte AVANT de redémarrer
   httpUpdate.onProgress([](int cur, int total) {
@@ -288,17 +513,19 @@ void doOta(const String& url, const String& version) {
   if (ret == HTTP_UPDATE_OK) {
     Serial.println("[OTA] succès → redémarrage");
     sendOtaResult(true, version, "");
+    playMelodyNow(MEL(melOtaOk));
     // 3 clignotements verts : succès visible sans câble série.
-    for (int i = 0; i < 3; i++) { pixel.setPixelColor(0, rgb(0, 220, 60)); pixel.show(); setButtonLed(255); delay(150);
-                                  pixel.setPixelColor(0, 0); pixel.show(); setButtonLed(0); delay(150); }
+    for (int i = 0; i < 3; i++) { setAll(rgb(0, 220, 60)); setButtonLed(255); delay(150);
+                                  setAll(0); setButtonLed(0); delay(150); }
     ESP.restart();
   } else {
     String err = httpUpdate.getLastErrorString();
     Serial.printf("[OTA] échec (%d) %s\n", httpUpdate.getLastError(), err.c_str());
     sendOtaResult(false, version, err);
+    playMelodyNow(MEL(melOtaFail));
     // 3 clignotements rouges : échec identifiable d'un coup d'œil.
-    for (int i = 0; i < 3; i++) { pixel.setPixelColor(0, rgb(200, 0, 0)); pixel.show(); delay(150);
-                                  pixel.setPixelColor(0, 0); pixel.show(); delay(150); }
+    for (int i = 0; i < 3; i++) { setAll(rgb(200, 0, 0)); delay(150);
+                                  setAll(0); delay(150); }
   }
 }
 
@@ -309,23 +536,26 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch (type) {
     case WStype_CONNECTED:
       gConnected = true;
-      gLed = L_READY;
+      setLedState(L_READY);
       sendHello();                              // annonce de l'appareil au boot
       sendTelemetry();                          // 1re télémétrie immédiate
-      sndConnect();
+      playMelody(MEL(melWsConnect));
+      gLastSoundState = L_READY;                // évite un doublon si un 'idle' suit
       Serial.println("[WS] connecté → buzzer_hello");
       break;
 
     case WStype_DISCONNECTED:
       gConnected = false;
-      gLed = L_OFFLINE;
+      setLedState(L_OFFLINE);
+      gLastSoundState = L_OFFLINE;
+      playMelody(MEL(melOffline));              // motif descendant : liaison perdue
       Serial.println("[WS] déconnecté");
       break;
 
     case WStype_TEXT: {
       const char* p = (const char*)payload;
-      if (jsonHas(p, "\"awaiting_claim\""))       { gLed = L_AWAITING; sndAwaiting(); Serial.println("[WS] à appairer"); }
-      else if (jsonHas(p, "\"pairing_success\"")) { gLed = L_READY;    sndPaired();   Serial.println("[WS] appairé"); }
+      if (jsonHas(p, "\"awaiting_claim\""))       { setLedState(L_AWAITING); gLastSoundState = L_AWAITING; playMelody(MEL(melAwaiting)); Serial.println("[WS] à appairer"); }
+      else if (jsonHas(p, "\"pairing_success\"")) { setLedState(L_READY);    gLastSoundState = L_READY;    playMelody(MEL(melPaired));   Serial.println("[WS] appairé"); }
       else if (jsonHas(p, "\"type\":\"led\"")) {
         String s = jsonField(p, "\"state\":\"");
         setLedFromState(s);
@@ -357,10 +587,11 @@ void handleButton() {
     if (b == LOW) {                                 // appui (pull-up → LOW = pressé)
       gPressStartMs = now;                          // départ du chrono d'appui long
       gFlashUntil = now + 180;                      // flash blanc local immédiat
-      sndPress();
+      playMelody(MEL(melPress));                    // impact sec, latence nulle
       if (gConnected) { sendBuzz(); Serial.println("→ BUZZ"); }
     } else {
       gPressStartMs = 0;                            // relâché avant le seuil → rien
+      gLastResetTickSec = 0;                        // réarme le décompte sonore
     }
   }
 
@@ -371,9 +602,16 @@ void handleButton() {
     uint32_t held = now - gPressStartMs;
     if (held > 3000) {                              // à partir de 3 s : avertissement visuel
       bool tick = (now / 150) % 2;
-      pixel.setPixelColor(0, tick ? rgb(220, 0, 0) : rgb(20, 0, 0));
-      pixel.show();
+      setAll(tick ? rgb(220, 0, 0) : rgb(20, 0, 0));
       setButtonLed(tick ? 255 : 0);
+
+      // Décompte SONORE : un tic par seconde, de plus en plus aigu à mesure que
+      // l'effacement approche. On entend le reset arriver — et on peut relâcher.
+      uint8_t sec = held / 1000;                    // 3,4,5… jusqu'à 10
+      if (sec != gLastResetTickSec) {
+        gLastResetTickSec = sec;
+        sndTick(400 + (uint16_t)sec * 90);
+      }
     }
     if (held >= LONG_PRESS_RESET_MS) {
       Serial.println("[RESET] appui long → reset d'usine");
@@ -389,11 +627,26 @@ void startPortalIfNeeded() {
   WiFiManager wm;
   // Le portail ne demande QUE le Wi-Fi (SSID + mot de passe). Le serveur Gbairai
   // est codé en dur (GBAIRAI_HOST/PORT) → aucune saisie technique pour l'utilisateur.
-  gLed = L_PORTAL;
+  setLedState(L_PORTAL);
+  // ⚠️ autoConnect()/startConfigPortal() sont BLOQUANTS : loop() — et donc
+  // renderLed() — ne tourne pas tant que le Wi-Fi n'est pas configuré. Sans le
+  // rendu explicite ci-dessous, le bandeau restait ÉTEINT pendant toute la
+  // configuration (le « blanc pulsé » n'apparaissait jamais). On allume donc en
+  // blanc fixe avant de bloquer, et on le ré-affirme quand le point d'accès
+  // démarre réellement (setAPCallback), seul moment où WiFiManager nous rend la main.
+  setAll(rgb(255, 255, 255));
+  setButtonLed(255);
+  playMelodyNow(MEL(melPortal));   // bloquant : loop() ne tourne pas pendant le portail
+
   // Nom du point d'accès de configuration : "Gbairai-Buzzer-XXXX".
   String ap = "Gbairai-Buzzer-" + gMac.substring(gMac.length() - 5);
   ap.replace(":", "");
   wm.setConfigPortalTimeout(180);                   // 3 min puis re-tentative
+  wm.setAPCallback([](WiFiManager*) {               // le portail vient de s'ouvrir
+    Serial.println("[WiFi] portail ouvert → connecte-toi au Wi-Fi Gbairai-Buzzer-…");
+    setAll(rgb(255, 255, 255));
+    setButtonLed(255);
+  });
 
   // Drapeau posé par doFactoryReset() : garantit l'ouverture du portail même si
   // l'effacement des identifiants Wi-Fi (NVS) avait échoué silencieusement —
@@ -425,7 +678,17 @@ void startPortalIfNeeded() {
     prefs.putBool("force_portal", false);
     prefs.end();
   }
-  Serial.printf("[WiFi] connecté. Serveur = %s:%u\n", GBAIRAI_HOST, GBAIRAI_PORT);
+
+  // EXTINCTION EXPLICITE DU POINT D'ACCÈS. WiFiManager laisse parfois la carte en
+  // mode AP_STA après une configuration réussie : le réseau « Gbairai-Buzzer-XXXX »
+  // resterait alors visible et connectable en permanence (confusion pour les
+  // joueurs, et surface d'attaque inutile). On force donc le mode station seule.
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_STA);
+  playMelodyNow(MEL(melWifiOk));    // « Wi-Fi obtenu » avant de rendre la main à loop()
+
+  Serial.printf("[WiFi] connecté (%s) — point d'accès éteint. Serveur = %s:%u\n",
+                WiFi.localIP().toString().c_str(), GBAIRAI_HOST, GBAIRAI_PORT);
 }
 
 // Effacement Wi-Fi + config puis redémarrage (rouvre le portail au reboot).
@@ -451,9 +714,10 @@ void doFactoryReset() {
   prefs.putBool("force_portal", true);
   prefs.end();
 
+  playMelodyNow(MEL(melResetDone));          // motif descendant : effacement
   // clignotement rouge de confirmation
-  for (int i = 0; i < 6; i++) { pixel.setPixelColor(0, rgb(180,0,0)); pixel.show(); delay(120);
-                                pixel.setPixelColor(0, 0); pixel.show(); delay(120); }
+  for (int i = 0; i < 6; i++) { setAll(rgb(180,0,0)); delay(120);
+                                setAll(0); delay(120); }
   ESP.restart();
 }
 
@@ -471,7 +735,12 @@ void maybeFactoryReset() {
 void setup() {
   Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pixel.begin(); pixel.setBrightness(160); pixel.show();
+  // Luminosité volontairement modérée : une WS2812 tire ~60 mA en blanc plein.
+  // Avec LED_COUNT=7 cela ferait ~420 mA — bien trop pour la broche 3V3 de la
+  // carte, surtout pendant les pics d'émission Wi-Fi (risque de brownout/reset).
+  // À 90/255 on plafonne autour de ~150 mA, ce qui reste sûr. Si tu alimentes le
+  // bandeau en 5 V (VIN) avec sa propre masse, tu peux remonter jusqu'à 160–255.
+  pixel.begin(); pixel.setBrightness(LED_COUNT > 1 ? 90 : 160); pixel.show();
 
   // Anneau lumineux du bouton arcade (4 broches) piloté en PWM via transistor.
 #if BUTTON_LED_PIN >= 0
@@ -487,6 +756,8 @@ void setup() {
   gMac = WiFi.macAddress();           // "AA:BB:CC:DD:EE:FF" (majuscules)
   gMac.toUpperCase();
   Serial.printf("\nGbairai Buzzer — MAC %s\n", gMac.c_str());
+
+  playMelodyNow(MEL(melBoot));        // petit réveil sonore : « je suis vivant »
 
   maybeFactoryReset();                // reset d'usine si bouton tenu au boot
   startPortalIfNeeded();              // Wi-Fi (captive portal au 1er démarrage)
@@ -510,6 +781,7 @@ void loop() {
   webSocket.loop();
   handleButton();
   renderLed();
+  updateMelody();          // fait avancer la mélodie en cours (jamais de delay)
   // Télémétrie périodique (batterie + signal Wi-Fi).
   if (millis() - gLastTelemetryMs > TELEMETRY_MS) { gLastTelemetryMs = millis(); sendTelemetry(); }
 }

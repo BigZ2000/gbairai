@@ -75,7 +75,7 @@ export default function Register() {
 
         <div className="flex flex-col items-center mb-8">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg mb-4"
-            style={{ background: '#6366F1', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>G</div>
+            style={{ background: '#F26A1B', boxShadow: '0 4px 20px rgba(242,106,27,0.4)' }}>G</div>
           <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Créer un compte</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Rejoignez et créez des parties en quelques secondes</p>
         </div>
@@ -138,7 +138,7 @@ export default function Register() {
                         <button key={s} type="button"
                           onClick={() => setForm(f => ({ ...f, username: s }))}
                           className="text-2xs px-2 py-0.5 rounded font-medium transition-colors"
-                          style={{ background: 'rgba(99,102,241,0.12)', color: '#A5B4FC', border: '1px solid rgba(99,102,241,0.2)' }}>
+                          style={{ background: 'rgba(242,106,27,0.12)', color: 'var(--brand-text)', border: '1px solid rgba(242,106,27,0.2)' }}>
                           {s}
                         </button>
                       ))}
@@ -219,7 +219,7 @@ export default function Register() {
 
         <p className="text-center text-sm mt-5" style={{ color: 'var(--text-dim)' }}>
           Déjà un compte ?{' '}
-          <Link to="/login" className="font-medium" style={{ color: '#818CF8' }}>Se connecter</Link>
+          <Link to="/login" className="font-medium" style={{ color: 'var(--brand-text)' }}>Se connecter</Link>
         </p>
       </div>
     </div>

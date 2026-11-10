@@ -103,8 +103,8 @@ export default function AdminMedia() {
           <button key={t || 'all'} onClick={() => setType(t)}
             className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
             style={{
-              background: type === t ? 'rgba(99,102,241,0.15)' : 'var(--input-bg)',
-              color: type === t ? '#818CF8' : 'var(--text-muted)',
+              background: type === t ? 'rgba(242,106,27,0.15)' : 'var(--input-bg)',
+              color: type === t ? 'var(--brand-text)' : 'var(--text-muted)',
             }}>
             {TYPE_LABEL[t]}
           </button>
@@ -114,13 +114,13 @@ export default function AdminMedia() {
       {/* Zone drop */}
       <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleFiles(Array.from(e.dataTransfer.files ?? [])) }}
         className="mb-4 rounded-xl border-2 border-dashed px-4 py-3 text-center text-xs"
-        style={{ borderColor: 'rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.03)', color: 'var(--text-dim)' }}>
+        style={{ borderColor: 'rgba(242,106,27,0.25)', background: 'rgba(242,106,27,0.03)', color: 'var(--text-dim)' }}>
         Glissez-déposez des fichiers ici pour les téléverser (images, audio, vidéo)
       </div>
 
       {/* Grille */}
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} /></div>
+        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin" style={{ color: '#F26A1B' }} /></div>
       ) : items.length === 0 ? (
         <p className="text-center text-sm py-16" style={{ color: 'var(--text-dim)' }}>Aucun média</p>
       ) : (

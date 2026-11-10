@@ -76,7 +76,7 @@ export default function ForgotPassword() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg mb-4"
-            style={{ background: '#6366F1', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>G</div>
+            style={{ background: '#F26A1B', boxShadow: '0 4px 20px rgba(242,106,27,0.4)' }}>G</div>
           <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>
             {step === STEPS.DONE ? 'Mot de passe réinitialisé' : 'Mot de passe oublié'}
           </h1>
@@ -208,7 +208,7 @@ export default function ForgotPassword() {
 
         <p className="text-center text-sm mt-5" style={{ color: 'var(--text-dim)' }}>
           <Link to="/login" className="flex items-center justify-center gap-1.5 font-medium transition-colors"
-            style={{ color: '#818CF8' }}>
+            style={{ color: 'var(--brand-text)' }}>
             <ArrowLeft size={13} />Retour à la connexion
           </Link>
         </p>

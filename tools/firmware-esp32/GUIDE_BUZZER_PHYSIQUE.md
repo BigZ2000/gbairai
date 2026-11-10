@@ -104,7 +104,7 @@ Constantes en haut de [`gbairai_buzzer.ino`](gbairai_buzzer/gbairai_buzzer.ino) 
 | **Bouton — NO** (microswitch) | **GPIO 13** | **COM** → **GND** | `INPUT_PULLUP` → appui = niveau bas. Pas de résistance externe. |
 | **Bouton — LED+** (anneau) | **GPIO 14** *via transistor* | **LED−** → **GND** | ⚠️ jamais en direct — voir §3 bis |
 | **NeoPixel DIN** | **GPIO 5** | via **330 Ω** en série | protège l'entrée data |
-| **NeoPixel VCC** | **3V3** (ou 5V) | — | 1 pixel : 3V3 suffit |
+| **NeoPixel VCC** | **3V3** (ou 5V) | — | 1 pixel : 3V3 suffit. **Bandeau ≥ 4 LED → voir ci-dessous** |
 | **NeoPixel GND** | **GND** | — | masse commune |
 | **Piézo +** | **GPIO 12** | piézo **−** → **GND** | **piézo passif** obligatoire (`tone()`) |
 | **Batterie (mesure)** | **GPIO 34** | diviseur **2×100 kΩ** | BAT+ → 100 kΩ → GPIO34 → 100 kΩ → GND |
@@ -112,6 +112,70 @@ Constantes en haut de [`gbairai_buzzer.ino`](gbairai_buzzer/gbairai_buzzer.ino) 
 
 > ⚠️ **GPIO 34 = entrée uniquement** (pas de pull-up interne) : parfait pour l'ADC,
 > ne pas y câbler de sortie. Le diviseur /2 ramène 4,2 V → 2,1 V (< 3,3 V, sûr).
+
+### Carte **D1 Mini ESP32** (format compact)
+
+Le firmware cible le module **ESP32-WROOM-32**, donc il fonctionne tel quel sur une
+carte au format *D1 Mini ESP32* (LOLIN/Wemos et clones type ZaDelivery). Seule
+l'**implantation physique** des broches change — les numéros GPIO, eux, sont identiques.
+
+| Signal | GPIO | Sérigraphie D1 Mini ESP32 | Disponibilité |
+|---|---|---|---|
+| Bouton (NO) | **13** | `13` (rangée interne) | ✅ |
+| Anneau du bouton | **14** | `14` (rangée interne) | ✅ |
+| NeoPixel DIN | **5** | `D8` / `5` | ✅ |
+| Piézo | **12** | `12` (rangée interne) | ⚠️ voir ci-dessous |
+| Mesure batterie | **34** | `34` (entrée seule) | ✅ (sinon 35/36/39) |
+| Alimentation | `5V` + `GND` | `5V`, `G` | ✅ |
+
+> 💡 Sur ce format, les GPIO 12/13/14/27/32/33 sont sur la **rangée interne** (les
+> broches supplémentaires au centre de la carte), pas sur le contour type D1 Mini.
+> Vérifie la sérigraphie de ta carte avant de souder.
+
+**⚠️ Broches de « strapping » — à connaître**
+
+Certains GPIO sont lus par l'ESP32 **au démarrage** pour choisir son mode de boot :
+
+- **GPIO 12 (MTDI)** : s'il est **maintenu à l'état haut au boot**, l'ESP32 règle
+  la tension de flash à 1,8 V et **refuse de démarrer**. Un piézo passif est
+  capacitif, il ne tire pas la broche vers le haut → dans la pratique ça démarre
+  sans problème (c'est le cas de ce montage). Mais **si tu ajoutes un module avec
+  résistance de tirage** sur cette broche, la carte ne bootera plus.
+  → En cas de non-démarrage, déplace le piézo sur **GPIO 27** (libre et sans contrainte)
+  et change `#define BUZZER_PIN 27` dans le `.ino`.
+- **GPIO 5** : sort une impulsion au démarrage — sans effet sur une WS2812.
+- **GPIO 34/35/36/39** : **entrées uniquement**, sans résistance de tirage interne.
+  Parfait pour l'ADC batterie, jamais pour une sortie.
+
+### Bandeau de plusieurs LED (`LED_COUNT`)
+
+Le nombre de pixels se règle en haut du `.ino` :
+
+```c
+#define LED_COUNT 7        // 1 = pixel unique, 7 = anneau/bandeau
+```
+
+Le firmware pilote **tous** les pixels ensemble (même couleur), sauf pendant une
+mise à jour OTA où le bandeau se **remplit progressivement** comme une barre de
+progression.
+
+**⚠️ Consommation.** Une WS2812 tire jusqu'à **60 mA en blanc plein** :
+
+| Nb de LED | Blanc plein (255) | À luminosité 90 |
+|---|---|---|
+| 1 | 60 mA | ~21 mA |
+| 7 | **420 mA** ❌ | ~150 mA ✅ |
+
+La broche **3V3** de la carte ne peut pas fournir 420 mA, surtout pendant les pics
+d'émission Wi-Fi → **brownouts et redémarrages intempestifs**. Deux options :
+
+1. **Rester sur 3V3** (simple) en gardant la luminosité modérée — c'est le défaut
+   automatique du firmware dès que `LED_COUNT > 1` (90/255).
+2. **Alimenter le bandeau en 5 V** (broche `VIN`, masse commune) pour retrouver
+   toute la luminosité. Note que la donnée reste en 3,3 V alors que le seuil
+   logique d'une WS2812B en 5 V est de ~3,5 V : ça fonctionne le plus souvent,
+   mais si l'affichage devient instable, ajoute un adaptateur de niveau
+   (74AHCT125) ou alimente le bandeau en 4,3 V (une diode 1N4007 en série sur le 5 V).
 
 ---
 
@@ -308,6 +372,68 @@ l'attribue à un joueur → au lancement, le serveur **pilote la LED tout seul**
 | 🟢 vert vif | gagné |
 | 🔴 rouge | verrouillé |
 | 🟠 orange | réponse révélée |
+
+## 8 bis. Palette sonore (piézo)
+
+Chaque transition a **sa propre mélodie**, construite sur la gamme de do majeur
+pour former une famille cohérente plutôt qu'une collection de bips au hasard.
+
+| Évènement | Motif | Intention |
+|---|---|---|
+| Démarrage | do–mi–sol montant, très court | « je suis vivant » |
+| Portail de configuration | sol → do aigu | « configure-moi » |
+| Wi-Fi obtenu | do → sol | validation |
+| Serveur joint | mi → la | liaison établie |
+| Liaison perdue | sol–mi–do **descendant** | alerte douce |
+| À appairer | mi … la (montant, suspendu) | question ouverte |
+| Appairé | do–mi–sol–do aigu | résolution joyeuse |
+| Prêt | sol grave très bref | veilleuse discrète |
+| **Armé** | la–do aigu, double tic sec | « à toi de jouer ! » |
+| **Appui** | do aigu, 40 ms | impact instantané |
+| Gagné | sol–do–mi–**sol aigu** | fanfare |
+| Verrouillé | la–sol **graves** | « trop tard » |
+| Réponse révélée | fa–fa | notification neutre |
+| Début de MAJ | do–mi–sol–do montant | « travaux en cours » |
+| MAJ réussie | do–mi–sol aigus | succès |
+| MAJ échouée | mi–do–la descendant | échec |
+| Décompte du reset | 1 tic/seconde, **de plus en plus aigu** | on entend l'effacement approcher |
+| Reset effectué | do–la–fa–do descendant | effacement |
+
+### Transitions lumineuses
+
+Aucun changement d'état n'est brutal : la lumière **fond** toujours depuis ce qui
+est réellement affiché, avec une durée et une courbe choisies selon l'intention.
+
+| État | Durée | Courbe | Intention |
+|---|---|---|---|
+| Armé | 130 ms | *ease-out* | arrivée franche, presque un ordre |
+| Gagné | 260 ms | *ease-out* + éclosion | la victoire s'épanouit |
+| Verrouillé | 420 ms | *ease-in* | on se dégonfle, la chute s'accélère |
+| Révélé | 280 ms | *ease-in-out* | annonce posée |
+| Prêt | 520 ms | *ease-in-out* | on se pose doucement |
+| À appairer | 380 ms | *ease-in-out* | attente calme mais insistante |
+| Hors ligne | 650 ms | *ease-in-out* | extinction lente |
+
+**Synchronisation lumière ↔ son.** La mélodie et le changement d'état démarrent au
+même instant : il suffit donc de chronométrer l'animation depuis ce point pour que
+la lumière **frappe pile sur la note**. Deux exemples :
+
+- **Armé** — deux éclats calés sur le double tic (0 ms et 80 ms).
+- **Gagné** — trois frappes légères sur les trois premières notes, puis une
+  **éclosion** qui culmine à 370 ms, exactement sur le sol aigu final de la fanfare.
+
+**Respiration perceptuelle.** Une rampe linéaire paraît saccadée, car l'œil perçoit
+la luminosité de façon logarithmique. Le souffle passe donc par une courbe de type
+gamma (`puissance 1,7`), et chaque état a sa propre période : 5,2 s hors ligne
+(presque endormi), 2,4 s en attente d'appairage (plus insistant), 1,5 s une fois
+armé (tendu). C'est ce détail qui distingue un rendu « produit » d'un clignotement.
+
+> ⚙️ **Non bloquant.** Les mélodies de jeu sont jouées par un séquenceur avancé à
+> chaque tour de `loop()` via `millis()` — **aucun `delay()`**. C'est essentiel :
+> l'ancienne version figeait la boucle jusqu'à 240 ms sur le son « gagné »
+> (plus de WebSocket, plus de bouton, plus de LED). Seules les phases où `loop()`
+> est de toute façon à l'arrêt (démarrage, portail, OTA, reset) utilisent la
+> variante bloquante `playMelodyNow()`.
 
 **Reset d'usine** : maintenir le bouton enfoncé **à la mise sous tension** → efface
 Wi-Fi/config (clignotement rouge), rouvre le portail.

@@ -64,12 +64,12 @@ export default function VerifierEmail() {
             <button onClick={() => navigate('/dashboard')} className="btn-primary w-full">Aller au tableau de bord</button>
           </>
         ) : status === 'verifying' ? (
-          <><Loader2 size={36} className="animate-spin mx-auto mb-4" style={{ color: '#6366F1' }} />
+          <><Loader2 size={36} className="animate-spin mx-auto mb-4" style={{ color: '#F26A1B' }} />
             <p style={{ color: 'var(--text-muted)' }}>Vérification en cours…</p></>
         ) : (
           <>
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(99,102,241,0.15)' }}>
-              <MailCheck size={26} style={{ color: '#818CF8' }} />
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(242,106,27,0.15)' }}>
+              <MailCheck size={26} style={{ color: 'var(--brand-text)' }} />
             </div>
             <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text)' }}>Vérifie ton email</h1>
             <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>

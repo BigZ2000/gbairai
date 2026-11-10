@@ -2,12 +2,18 @@
 // Détermine si un utilisateur peut lancer un pack selon son plan, ses achats
 // unitaires et le niveau (tier) du pack.
 import { prisma } from '../utils/prisma.js'
-import { getLimites, TIER_REQUIRED_PLAN, resolvePlan } from '../config/plans.js'
+import { getLimites, TIER_REQUIRED_PLAN, resolvePlan, effectivePlan } from '../config/plans.js'
 
 // canAccessPack(user, pack) -> { allowed, reason, code, requiredTier, requiredPlan }
 export async function canAccessPack(user, pack) {
   // Admin : accès total.
   if (user?.isAdmin) return { allowed: true }
+
+  // Quiz personnel : jouable par son seul propriétaire, sans condition de plan.
+  if (pack.ownerId) {
+    if (pack.ownerId === user?.id) return { allowed: true }
+    return { allowed: false, code: 'PACK_PRIVE', reason: 'Ce quiz est privé.' }
+  }
 
   const tier = pack.tier ?? 'GRATUIT'
 
@@ -15,7 +21,7 @@ export async function canAccessPack(user, pack) {
   if (tier === 'GRATUIT') return { allowed: true }
 
   // Le plan de l'utilisateur débloque-t-il ce niveau ?
-  const limites = getLimites(user.plan)
+  const limites = getLimites(effectivePlan(user))
   if (limites.packTiers.includes(tier)) return { allowed: true }
 
   // Achat unitaire réussi de ce pack précis ?

@@ -17,10 +17,11 @@ export default function Checkout() {
 
   async function pay() {
     setPaying(true); setError('')
-    // Mode préparation : CinetPay n'est pas activé, on simule la confirmation.
+    // Démonstration (développement uniquement) : le serveur refuse ce règlement
+    // simulé en production et dès que CinetPay est actif.
     const res = await apiFetch('/billing/confirm', { method: 'POST', body: { reference, status: 'SUCCESS' } })
     setPaying(false)
-    if (!res?.ok) { setError('Le paiement a échoué. Réessaie.'); return }
+    if (!res?.ok) { const e = await res?.json().catch(() => ({})); setError(e?.error ?? 'Le paiement a échoué. Réessaie.'); return }
     navigate('/abonnement/confirmation', { state: { offre, montant, reference } })
   }
 
@@ -48,13 +49,13 @@ export default function Checkout() {
         <div className="flex items-start gap-2 p-3 rounded-lg mb-4 text-2xs"
           style={{ background: 'rgba(245,158,11,0.08)', color: '#F59E0B' }}>
           <Info size={14} className="shrink-0 mt-0.5" />
-          Paiement en mode démonstration — CinetPay n'est pas encore activé. Aucun montant réel ne sera débité.
+          Démonstration : aucun montant n'est débité. En production, ce bouton est remplacé par la page de paiement CinetPay.
         </div>
 
         {error && <p className="text-sm mb-3" style={{ color: '#F87171' }}>{error}</p>}
 
         <button onClick={pay} disabled={paying} className="btn-primary w-full btn-lg gap-2">
-          {paying ? <Loader2 size={16} className="animate-spin" /> : <><Lock size={15} />Payer {fmtFCFA(montant)}</>}
+          {paying ? <Loader2 size={16} className="animate-spin" /> : <><Lock size={15} />Simuler le paiement de {fmtFCFA(montant)}</>}
         </button>
         <p className="text-2xs text-center mt-3 flex items-center justify-center gap-1.5" style={{ color: 'var(--text-dim)' }}>
           <ShieldCheck size={12} />Paiement sécurisé · Orange Money · MTN · Wave · Moov

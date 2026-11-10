@@ -73,3 +73,17 @@ export async function canManage(userId, organisationId) {
   })
   return !!m && m.statut === 'ACTIF' && (m.role === 'RESPONSABLE' || m.role === 'GESTIONNAIRE')
 }
+
+// Habillage (nom + logo) de l'organisation d'un utilisateur, pour l'écran
+// public, la salle d'attente et le bilan d'une partie qu'il organise. Null si
+// l'utilisateur n'appartient à aucune organisation active ou si elle n'a pas
+// de logo : l'interface garde alors l'habillage Gbairai.
+export async function brandingDeUtilisateur(userId) {
+  if (!userId) return null
+  const ctx = await getUserOrganisation(userId)
+  const org = ctx?.organisation
+  if (!org || ctx.statut !== 'ACTIF' || org.statut !== 'ACTIVE') return null
+  if (org.expireAt && new Date(org.expireAt) < new Date()) return null
+  if (!org.logoUrl) return null
+  return { nom: org.nom, logoUrl: org.logoUrl }
+}

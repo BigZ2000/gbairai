@@ -6,6 +6,8 @@ import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { flattenManchesServer } from '../services/gameService.js'
 import { getLiveProgress } from '../ws/gameHandler.js'
+import { equipesDe, classementEquipes } from '../services/teamService.js'
+import { brandingDeUtilisateur } from '../services/orgService.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -153,13 +155,15 @@ router.get('/:id', async (req, res) => {
     if (e.valide && e.participantId && statsParPart[e.participantId]) statsParPart[e.participantId].bonnes++
   }
 
-  const participants = partie.participants.map(p => {
+  // Le maître du jeu (animateur qui ne joue pas) n'apparaît pas au classement.
+  const participants = partie.participants.filter(p => !p.isAnimateur).map(p => {
     const s = statsParPart[p.id]
     return {
       id: p.id,
       prenom: p.prenom,
       score: p.score,
       rang: p.rang,
+      equipe: p.equipe ?? null,
       couleur: p.buzzer?.couleur ?? '#6366F1',
       buzz: s.buzz,
       bonnes: s.bonnes,
@@ -167,8 +171,31 @@ router.get('/:id', async (req, res) => {
     }
   })
 
+  // ── Bilan par question (index « à plat », celui du moteur) ─────────────────
+  // Réponses jugées (bonnes / mauvaises) et buzz, à partir du journal de jeu.
+  const prenomDe = Object.fromEntries(partie.participants.map(p => [p.id, p.prenom]))
+  const parQuestion = new Map()
+  const statQ = (i) => {
+    if (!parQuestion.has(i)) parQuestion.set(i, { bonnes: 0, reponses: 0, buzz: 0, plusRapide: null })
+    return parQuestion.get(i)
+  }
+  for (const e of answerEvents) {
+    const st = statQ(e.questionIndex)
+    st.reponses++
+    if (e.valide) st.bonnes++
+  }
+  for (const e of buzzEvents) {
+    const st = statQ(e.questionIndex)
+    st.buzz++
+    if (e.responseMs != null && e.participantId && (!st.plusRapide || e.responseMs < st.plusRapide.ms)) {
+      st.plusRapide = { prenom: prenomDe[e.participantId] ?? '—', ms: e.responseMs }
+    }
+  }
+  const tauxDe = (st) => (st && st.reponses > 0 ? Math.round((st.bonnes / st.reponses) * 100) : null)
+
   // Déroulé : manches + questions (réponses incluses uniquement si partie terminée).
-  const manches = partie.manches.map(m => ({
+  let indexPlat = 0
+  const manches = [...partie.manches].sort((a, b) => a.ordre - b.ordre).map(m => ({
     id: m.id,
     nom: m.nom,
     ordre: m.ordre,
@@ -176,14 +203,21 @@ router.get('/:id', async (req, res) => {
     nbQuestions: m.nbQuestions,
     pointsParQ: m.pointsParQ,
     tempsLimite: m.tempsLimite,
-    questions: m.mancheQuestions.map(mq => ({
+    questions: [...m.mancheQuestions].sort((a, b) => a.ordre - b.ordre).map(mq => {
+      const st = parQuestion.get(indexPlat++)
+      return {
       id: mq.question.id,
+      bonnes: st?.bonnes ?? 0,
+      reponses: st?.reponses ?? 0,
+      tauxReussite: tauxDe(st),
+      plusRapide: st?.plusRapide ?? null,
       enonce: mq.question.enonce,
       type: mq.question.type,
       reponse: finished ? mq.question.reponse : null,
       explication: finished ? (mq.question.explication ?? null) : null,
       difficulte: mq.question.difficulte,
-    })),
+      }
+    }),
   }))
 
   const durationMin = partie.startedAt && partie.endedAt
@@ -193,6 +227,26 @@ router.get('/:id', async (req, res) => {
   const totalBuzz = buzzEvents.length
   const allMs = buzzEvents.filter(e => e.responseMs != null).map(e => e.responseMs)
   const tempsMoyenMs = allMs.length ? Math.round(allMs.reduce((a, b) => a + b, 0) / allMs.length) : null
+
+  // ── Synthèse du bilan d'événement ──────────────────────────────────────────
+  const toutesQuestions = manches.flatMap(m => m.questions)
+  const jugees = toutesQuestions.filter(q => q.tauxReussite != null)
+  const totalReponses = answerEvents.length
+  const totalBonnes = answerEvents.filter(e => e.valide).length
+  const parTaux = [...jugees].sort((a, b) => a.tauxReussite - b.tauxReussite)
+  const rapides = participants.filter(p => p.tempsMoyenMs != null).sort((a, b) => a.tempsMoyenMs - b.tempsMoyenMs)
+  const precis = [...participants].sort((a, b) => b.bonnes - a.bonnes)
+  const equipes = classementEquipes(equipesDe(partie), partie.participants)
+  const bilan = {
+    // Questions réellement jouées (une partie peut être arrêtée avant la fin).
+    questionsJouees: new Set(partie.events.map(e => e.questionIndex)).size,
+    tauxReussite: totalReponses ? Math.round((totalBonnes / totalReponses) * 100) : null,
+    totalReponses,
+    questionPlusDure: parTaux[0] ? { enonce: parTaux[0].enonce, taux: parTaux[0].tauxReussite } : null,
+    questionPlusFacile: parTaux.length > 1 ? { enonce: parTaux.at(-1).enonce, taux: parTaux.at(-1).tauxReussite } : null,
+    plusRapide: rapides[0] ? { prenom: rapides[0].prenom, ms: rapides[0].tempsMoyenMs } : null,
+    plusDeBonnes: precis[0]?.bonnes ? { prenom: precis[0].prenom, bonnes: precis[0].bonnes } : null,
+  }
 
   res.json({
     id: partie.id,
@@ -204,6 +258,9 @@ router.get('/:id', async (req, res) => {
     createdAt: partie.createdAt,
     startedAt: partie.startedAt,
     endedAt: partie.endedAt,
+    equipes,
+    bilan,
+    branding: await brandingDeUtilisateur(partie.creatorId ?? partie.animateurId),
     durationMin,
     totalQuestions: flat.length,
     totalBuzz,

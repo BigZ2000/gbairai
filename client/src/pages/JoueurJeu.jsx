@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import { flattenManches } from '../utils/manches.js'
 import QuestionMedia from '../components/QuestionMedia.jsx'
+import { ClassementEquipes, PastilleEquipe, equipeDe, classementLocal } from '../components/Equipes.jsx'
 import { Loader2, Zap, Check, X, Trophy, Hand, AlertTriangle, Tv, Square, Gamepad2, Smartphone, Heart, Skull, PartyPopper, Frown, AlarmClock, Eye } from 'lucide-react'
 
 // Écran JOUEUR — pensé pour le présentiel « lève les yeux » :
@@ -21,6 +22,7 @@ export default function JoueurJeu() {
   const [winner, setWinner] = useState(null)
   const [revealed, setRevealed] = useState(false)
   const [revealReponse, setRevealReponse] = useState(null)
+  const [revealExplication, setRevealExplication] = useState(null) // « le saviez-vous ? » affiché à la révélation
   const [revealCorrectIndex, setRevealCorrectIndex] = useState(-1) // choix-images
   const [voted, setVoted] = useState(null)
   const [classement, setClassement] = useState(null)
@@ -33,6 +35,7 @@ export default function JoueurJeu() {
   const [textAnswer, setTextAnswer] = useState('')  // A4 : saisie libre BUZZER distanciel
   const [endConfirm, setEndConfirm] = useState(false) // confirmation Fin (hôte)
   const [toast, setToast] = useState(null)
+  const [equipesLive, setEquipesLive] = useState(null) // classement des équipes (serveur)
   // ANO-1 — Chronomètre JOUEUR : échéance (ms) + tic. Sans lui, en téléphone-only
   // les questions expirent sans aucun signal (le chrono géant n'est que sur
   // l'écran public). Alimenté par question_display.remainingMs (horloge serveur).
@@ -48,6 +51,9 @@ export default function JoueurJeu() {
   useEffect(() => { myIdRef.current = myParticipant?.id ?? null; myMacRef.current = myParticipant?.buzzer?.mac ?? null })
   function showToast(t) { setToast(t); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 3500) }
   const myScore = myParticipant?.score ?? 0
+  const monEquipe = equipeDe(partie, myParticipant)
+  const equipes = equipesLive ?? classementLocal(partie, participants)
+  const scoreEquipe = monEquipe ? equipes?.find(e => e.index === monEquipe.index)?.score ?? 0 : null
   const totalQuestions = partie ? flattenManches(partie.manches ?? []).length : 0
   const isVote        = !!partie?.modeVote
   const isAuto        = !!partie?.modeAuto
@@ -79,14 +85,14 @@ export default function JoueurJeu() {
     // réinitialise l'état de fin et de question, sinon l'écran « Partie
     // terminée » de la partie précédente reste affiché.
     setClassement(null); setQuestion(null); setRevealed(false); setWinner(null)
-    setMyAnswer(null); setTextAnswer(''); setDeadline(null); setIsEliminated(false)
+    setMyAnswer(null); setTextAnswer(''); setDeadline(null); setIsEliminated(false); setEquipesLive(null)
     load()
     joinRoom(code)
     const unsub = subscribe('joueur_jeu', (msg) => {
       switch (msg.type) {
         case 'question_display':
           setQuestionIndex(msg.index ?? 0); setQuestion(msg.question ?? null)
-          setArmed(true); setWinner(null); setRevealed(false); setRevealReponse(null)
+          setArmed(true); setWinner(null); setRevealed(false); setRevealReponse(null); setRevealExplication(null)
           setRevealCorrectIndex(-1)
           setVoted(null); setMyAnswer(null); setTextAnswer(''); setMediaState(null)
           setAnimateurOffline(false)
@@ -96,7 +102,7 @@ export default function JoueurJeu() {
           setWinner(msg); setArmed(false); setDeadline(null); break
         case 'question_reveal':
           setRevealed(true); setArmed(false); setWinner(null); setDeadline(null)
-          setRevealReponse(msg.reponse ?? null); setRevealCorrectIndex(msg.correctIndex ?? -1); break
+          setRevealReponse(msg.reponse ?? null); setRevealExplication(msg.explication ?? null); setRevealCorrectIndex(msg.correctIndex ?? -1); break
         case 'buzz_reopened':
           // Mauvaise réponse : le buzz rouvre pour tout le monde (« vol »).
           setWinner(null); setArmed(true); break
@@ -121,6 +127,7 @@ export default function JoueurJeu() {
           if (msg.participantId === myIdRef.current) setIsEliminated(true)
           break
         case 'participant_update':
+          if (msg.equipes) setEquipesLive(msg.equipes)
           if (msg.participants) {
             setParticipants(msg.participants)
             // D6 : mise à jour du statut d'élimination depuis le serveur
@@ -129,6 +136,7 @@ export default function JoueurJeu() {
           }
           break
         case 'game_ended':
+          if (msg.equipes) setEquipesLive(msg.equipes)
           setClassement(msg.classement ?? []); break
         case 'game_started':
           setArmed(true); break
@@ -181,24 +189,39 @@ export default function JoueurJeu() {
   function endGame() { send({ type: 'end_game', partieCode: code }) }
 
   if (loading) {
-    return <Center><Loader2 size={28} className="animate-spin" style={{ color: '#6366F1' }} /></Center>
+    return <Center><Loader2 size={28} className="animate-spin" style={{ color: '#F26A1B' }} /></Center>
   }
 
   // Écran de fin : classement personnel.
   if (classement) {
-    const mine = classement.find(c => c.participantId === myParticipant?.id) ?? classement.find(c => c.userId === user?.id)
-    const rang = mine?.rang ?? (classement.findIndex(c => c.participantId === myParticipant?.id) + 1 || null)
+    // Le classement final identifie chaque joueur par son id de participant.
+    const mine = classement.find(c => c.id === myParticipant?.id)
+    const rang = mine?.rang ?? null
+    const scoreFinal = mine?.score ?? myScore
+    const equipeGagnante = equipes?.[0]
     return (
       <Center>
-        <div className="text-center px-6">
+        <div className="text-center px-6 w-full max-w-sm py-10">
           <Trophy size={56} style={{ color: '#EAB308' }} className="mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-1" style={{ color: '#ECECF0' }}>Partie terminée !</h1>
-          {rang && <p className="text-lg mb-1" style={{ color: '#ECECF0' }}>Tu finis <strong>{rang}{rang === 1 ? 'er' : 'e'}</strong></p>}
-          <p className="text-sm mb-6" style={{ color: '#9090A0' }}>{myScore} point{myScore !== 1 ? 's' : ''}</p>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: '#FFF3E6' }}>Partie terminée !</h1>
+          {monEquipe && equipeGagnante && (
+            <p className="text-lg mb-1" style={{ color: '#FFF3E6' }}>
+              {equipeGagnante.index === monEquipe.index
+                ? <>Ton équipe <strong style={{ color: monEquipe.couleur }}>{monEquipe.nom}</strong> gagne !</>
+                : <>L'équipe <strong style={{ color: equipeGagnante.couleur }}>{equipeGagnante.nom}</strong> gagne.</>}
+            </p>
+          )}
+          {rang && <p className="text-base mb-1" style={{ color: '#FFF3E6' }}>Tu finis <strong>{rang}{rang === 1 ? 'er' : 'e'}</strong>{classement.length > 1 ? ` sur ${classement.length}` : ''}</p>}
+          <p className="text-sm mb-6" style={{ color: '#C9B5A4' }}>{scoreFinal} point{scoreFinal !== 1 ? 's' : ''}</p>
+          {equipes && (
+            <div className="mb-6 text-left">
+              <ClassementEquipes equipes={equipes} maEquipe={monEquipe?.index ?? null} />
+            </div>
+          )}
           {user?.isGuest ? (
             // Invité → tunnel de conversion (jamais de retour au tableau de bord).
             <div className="w-full max-w-xs mx-auto">
-              <p className="text-sm mb-3" style={{ color: '#9090A0' }}>Garde ton score et ton historique :</p>
+              <p className="text-sm mb-3" style={{ color: '#C9B5A4' }}>Garde ton score et ton historique :</p>
               <div className="flex flex-col gap-2">
                 <button onClick={() => navigate('/register')} className="btn-primary w-full">Créer mon compte</button>
                 <button onClick={() => navigate('/abonnement')} className="btn-secondary w-full">Voir les offres</button>
@@ -206,7 +229,10 @@ export default function JoueurJeu() {
               </div>
             </div>
           ) : (
-            <button onClick={() => navigate('/dashboard')} className="btn-primary">Retour au tableau de bord</button>
+            <div className="flex flex-col gap-2 w-full max-w-xs mx-auto">
+              {partie?.id && <button onClick={() => navigate(`/historique/${partie.id}`)} className="btn-primary w-full">Voir le bilan</button>}
+              <button onClick={() => navigate('/dashboard')} className="btn-secondary w-full">Retour à l'accueil</button>
+            </div>
           )}
         </div>
       </Center>
@@ -217,10 +243,10 @@ export default function JoueurJeu() {
   const showVote = isVote && winner && !revealed && !iWon
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0E0E12' }}>
+    <div data-theme="dark" className="min-h-screen flex flex-col" style={{ background: '#1A120E' }}>
       {/* Barre haute : question + score */}
       <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <span className="text-sm font-medium" style={{ color: '#9090A0' }}>
+        <span className="text-sm font-medium" style={{ color: '#C9B5A4' }}>
           {totalQuestions ? `Question ${questionIndex + 1}/${totalQuestions}` : `Question ${questionIndex + 1}`}
         </span>
         <div className="flex items-center gap-2">
@@ -229,26 +255,28 @@ export default function JoueurJeu() {
             <span className="text-sm font-bold px-2 py-1 rounded-lg tabular-nums"
               style={{
                 background: secondsLeft <= 5 ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.05)',
-                color: secondsLeft <= 5 ? '#F87171' : secondsLeft <= 10 ? '#F59E0B' : '#9090A0',
+                color: secondsLeft <= 5 ? '#F87171' : secondsLeft <= 10 ? '#F59E0B' : '#C9B5A4',
               }}>
               {secondsLeft}s
             </span>
           )}
           {/* Source de buzz active (informatif) : matériel ou téléphone. */}
           <span className="text-2xs px-2 py-1 rounded-lg" title="Ta source de buzz"
-            style={{ background: 'rgba(255,255,255,0.04)', color: buzzerLive ? '#A5B4FC' : '#9090A0' }}>
+            style={{ background: 'rgba(255,255,255,0.04)', color: buzzerLive ? 'var(--brand-text)' : '#C9B5A4' }}>
             {buzzerLive ? <><Gamepad2 size={12} className="inline mr-1 -mt-0.5" />Buzzer</> : <><Smartphone size={12} className="inline mr-1 -mt-0.5" />Téléphone</>}
           </span>
-          <span className="text-2xs" style={{ color: '#5A5A6E' }}>{myParticipant?.prenom}</span>
+          {monEquipe
+            ? <span title={`Score de l'équipe : ${scoreEquipe} pts`}><PastilleEquipe equipe={monEquipe} /></span>
+            : <span className="text-2xs" style={{ color: '#8A7566' }}>{myParticipant?.prenom}</span>}
           {myParticipant?.vies != null && (
             <span className="text-sm px-2 py-1 rounded-lg" title="Vies restantes"
               style={{ background: 'rgba(239,68,68,0.12)' }}>
               {myParticipant.vies > 0
                 ? <span className="inline-flex items-center gap-0.5">{Array.from({ length: myParticipant.vies }).map((_, i) => <Heart key={i} size={13} fill="#F87171" color="#F87171" />)}</span>
-                : <Skull size={14} color="#9090A0" />}
+                : <Skull size={14} color="#C9B5A4" />}
             </span>
           )}
-          <span className="text-sm font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(99,102,241,0.15)', color: '#A5B4FC' }}>
+          <span className="text-sm font-bold px-2.5 py-1 rounded-lg" style={{ background: 'rgba(242,106,27,0.15)', color: 'var(--brand-text)' }}>
             {myScore} pts
           </span>
         </div>
@@ -257,7 +285,7 @@ export default function JoueurJeu() {
       {/* Avis discret (bascule de source) — non bloquant */}
       {toast && (
         <div className="fixed left-1/2 -translate-x-1/2 bottom-6 px-4 py-2 rounded-full text-sm z-50 animate-fadeUp"
-          style={{ background: 'rgba(20,20,28,0.95)', border: '1px solid rgba(255,255,255,0.12)', color: '#ECECF0' }}>
+          style={{ background: 'rgba(32,22,15,0.95)', border: '1px solid rgba(255,255,255,0.12)', color: '#FFF3E6' }}>
           {toast}
         </div>
       )}
@@ -282,12 +310,12 @@ export default function JoueurJeu() {
       {/* Barre HÔTE (créateur en auto/vote/distanciel) : projection + Fin */}
       {isHost && (
         <div className="px-4 py-2 flex items-center justify-between gap-2"
-          style={{ background: 'rgba(99,102,241,0.08)', borderBottom: '1px solid rgba(99,102,241,0.2)' }}>
-          <span className="text-2xs font-semibold" style={{ color: '#A5B4FC' }}>HÔTE</span>
+          style={{ background: 'rgba(242,106,27,0.08)', borderBottom: '1px solid rgba(242,106,27,0.2)' }}>
+          <span className="text-2xs font-semibold" style={{ color: 'var(--brand-text)' }}>HÔTE</span>
           <div className="flex items-center gap-2">
             <a href={`/screen/${code}`} target="_blank" rel="noopener noreferrer"
               className="text-2xs px-2.5 py-1 rounded-lg flex items-center gap-1"
-              style={{ background: 'rgba(99,102,241,0.15)', color: '#A5B4FC' }}>
+              style={{ background: 'rgba(242,106,27,0.15)', color: 'var(--brand-text)' }}>
               <Tv size={12} />Écran public
             </a>
             <button onClick={() => setEndConfirm(true)}
@@ -328,14 +356,14 @@ export default function JoueurJeu() {
             présentiel sans écran, saisie texte distanciel…). Exceptions : le pavé
             QCM/VF l'affiche déjà lui-même, et on le masque après la révélation. */}
         {!showSelect && !revealed && question?.enonce && (
-          <p className="text-center text-base font-semibold mb-6 max-w-md px-2" style={{ color: '#ECECF0' }}>
+          <p className="text-center text-base font-semibold mb-6 max-w-md px-2" style={{ color: '#FFF3E6' }}>
             {question.enonce}
           </p>
         )}
         {showVote ? (
           <div className="text-center w-full max-w-xs">
-            <p className="text-sm mb-1" style={{ color: '#9090A0' }}><strong style={{ color: '#ECECF0' }}>{winner.prenom}</strong> a buzzé.</p>
-            <p className="text-base font-semibold mb-6" style={{ color: '#ECECF0' }}>Sa réponse est-elle bonne ?</p>
+            <p className="text-sm mb-1" style={{ color: '#C9B5A4' }}><strong style={{ color: '#FFF3E6' }}>{winner.prenom}</strong> a buzzé.</p>
+            <p className="text-base font-semibold mb-6" style={{ color: '#FFF3E6' }}>Sa réponse est-elle bonne ?</p>
             {voted === null ? (
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => vote(true)} className="btn-lg rounded-2xl py-6 flex flex-col items-center gap-2"
@@ -348,13 +376,16 @@ export default function JoueurJeu() {
                 </button>
               </div>
             ) : (
-              <p className="text-sm" style={{ color: '#9090A0' }}>Vote enregistré ✓ — on attend les autres…</p>
+              <p className="text-sm" style={{ color: '#C9B5A4' }}>Vote enregistré ✓ — on attend les autres…</p>
             )}
           </div>
         ) : showSelect ? (
           // QCM / Vrai-Faux : tout le monde répond (auto ET animateur). Le serveur
           // marque chaque bonne réponse à la révélation.
-          <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed} revealReponse={revealReponse} revealCorrectIndex={revealCorrectIndex} onAnswer={answer} />
+          <>
+            <AnswerPad question={question} myAnswer={myAnswer} revealed={revealed} revealReponse={revealReponse} revealCorrectIndex={revealCorrectIndex} onAnswer={answer} />
+            {revealed && <Explication texte={revealExplication} />}
+          </>
         ) : showTextInput ? (
           // A4 — Mode auto + BUZZER + distanciel : saisie libre, matching intelligent.
           // À la révélation : grand panneau trouvé/raté (même lisibilité que le QCM).
@@ -362,7 +393,7 @@ export default function JoueurJeu() {
             {revealed ? (() => {
               const ok = myAnswer !== null && answersMatchClient(myAnswer, revealReponse)
               const none = myAnswer === null
-              const color = none ? '#9090A0' : ok ? '#22C55E' : '#F87171'
+              const color = none ? '#C9B5A4' : ok ? '#22C55E' : '#F87171'
               return (
                 <div className="rounded-3xl px-6 py-8 animate-fadeUp"
                   style={{
@@ -370,25 +401,26 @@ export default function JoueurJeu() {
                     border: `2px solid ${none ? 'rgba(255,255,255,0.10)' : ok ? 'rgba(34,197,94,0.55)' : 'rgba(248,113,113,0.45)'}`,
                   }}>
                   <div className="flex justify-center mb-4">
-                    {none ? <AlarmClock size={56} color="#9090A0" /> : ok ? <PartyPopper size={56} color="#22C55E" /> : <Frown size={56} color="#F87171" />}
+                    {none ? <AlarmClock size={56} color="#C9B5A4" /> : ok ? <PartyPopper size={56} color="#22C55E" /> : <Frown size={56} color="#F87171" />}
                   </div>
                   <p className="text-2xl font-extrabold mb-1" style={{ color }}>
                     {none ? 'Pas de réponse' : ok ? 'Bonne réponse !' : 'Raté cette fois…'}
                   </p>
                   {!none && !ok && (
-                    <p className="text-sm mb-2" style={{ color: '#9090A0' }}>Ta réponse : « {myAnswer} »</p>
+                    <p className="text-sm mb-2" style={{ color: '#C9B5A4' }}>Ta réponse : « {myAnswer} »</p>
                   )}
-                  <p className="text-lg mt-2" style={{ color: '#ECECF0' }}>
+                  <p className="text-lg mt-2" style={{ color: '#FFF3E6' }}>
                     Réponse : <strong>{revealReponse ?? '—'}</strong>
                   </p>
+                  <Explication texte={revealExplication} />
                 </div>
               )
             })() : (
               <>
-                <p className="text-sm mb-4" style={{ color: '#9090A0' }}>Tape ta réponse</p>
+                <p className="text-sm mb-4" style={{ color: '#C9B5A4' }}>Tape ta réponse</p>
                 <input
                   className="w-full rounded-2xl px-4 py-4 text-lg font-semibold text-center mb-3"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '2px solid rgba(99,102,241,0.4)', color: '#ECECF0', outline: 'none' }}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '2px solid rgba(242,106,27,0.4)', color: '#FFF3E6', outline: 'none' }}
                   value={textAnswer}
                   onChange={e => setTextAnswer(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && submitTextAnswer()}
@@ -401,14 +433,14 @@ export default function JoueurJeu() {
                   disabled={!textAnswer.trim() || myAnswer !== null}
                   className="w-full rounded-2xl py-4 font-bold text-lg"
                   style={{
-                    background: myAnswer !== null ? 'rgba(99,102,241,0.2)' : '#6366F1',
+                    background: myAnswer !== null ? 'rgba(242,106,27,0.2)' : '#F26A1B',
                     color: '#fff',
                     opacity: !textAnswer.trim() || myAnswer !== null ? 0.5 : 1,
                   }}>
                   {myAnswer !== null ? 'Réponse envoyée ✓' : 'Envoyer'}
                 </button>
                 {myAnswer !== null && (
-                  <p className="text-sm mt-3" style={{ color: '#9090A0' }}>En attente de la révélation…</p>
+                  <p className="text-sm mt-3" style={{ color: '#C9B5A4' }}>En attente de la révélation…</p>
                 )}
               </>
             )}
@@ -416,9 +448,9 @@ export default function JoueurJeu() {
         ) : isEliminated ? (
           // D6 — Spectateur éliminé
           <div className="text-center px-6">
-            <div className="flex justify-center mb-3"><Eye size={48} color="#5A5A6E" /></div>
-            <p className="text-xl font-bold" style={{ color: '#9090A0' }}>Mode spectateur</p>
-            <p className="text-sm mt-1" style={{ color: '#5A5A6E' }}>Tu ne peux plus buzzer, mais tu peux encourager !</p>
+            <div className="flex justify-center mb-3"><Eye size={48} color="#8A7566" /></div>
+            <p className="text-xl font-bold" style={{ color: '#C9B5A4' }}>Mode spectateur</p>
+            <p className="text-sm mt-1" style={{ color: '#8A7566' }}>Tu ne peux plus buzzer, mais tu peux encourager !</p>
           </div>
         ) : (
           // BUZZER : buzz (mode animateur → validation ; auto présentiel → réflexe).
@@ -433,7 +465,7 @@ export default function JoueurJeu() {
           <div className="rounded-2xl p-6 max-w-xs w-full"
             style={{ background: '#15151B', border: '1px solid rgba(239,68,68,0.25)' }}>
             <h3 className="font-semibold mb-1" style={{ color: '#F87171' }}>Terminer la partie ?</h3>
-            <p className="text-sm mb-5" style={{ color: '#9090A0' }}>Tous les joueurs verront le classement final.</p>
+            <p className="text-sm mb-5" style={{ color: '#C9B5A4' }}>Tous les joueurs verront le classement final.</p>
             <div className="flex gap-2">
               <button onClick={() => { endGame(); setEndConfirm(false) }} className="btn-danger flex-1">Terminer</button>
               <button onClick={() => setEndConfirm(false)} className="btn-ghost flex-1">Annuler</button>
@@ -456,17 +488,33 @@ function editDistance(a, b) {
   if (!m) return n
   if (!n) return m
   let prev = Array.from({ length: n + 1 }, (_, j) => j)
+  let prev2 = prev
   for (let i = 1; i <= m; i++) {
     const cur = [i]
     for (let j = 1; j <= n; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1
       cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+      // Deux lettres voisines inversées (« cacoa » pour « cacao ») = une seule faute.
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1)
     }
+    prev2 = prev
     prev = cur
   }
   return prev[n]
 }
-function answersMatchClient(playerAnswer, correctAnswer) {
+// Explication de la réponse (« le saviez-vous ? ») — visible sur le téléphone du
+// joueur, pas seulement sur l'écran public : en jeu à distance c'est le seul écran.
+function Explication({ texte }) {
+  if (!texte) return null
+  return (
+    <p className="text-sm mt-3 px-4 py-3 rounded-2xl text-left animate-fadeUp w-full max-w-sm mx-auto"
+      style={{ background: 'rgba(255,194,61,0.12)', color: '#FFF3E6', border: '1px solid rgba(255,194,61,0.3)' }}>
+      <strong style={{ color: '#FFC23D' }}>Le saviez-vous ? </strong>{texte}
+    </p>
+  )
+}
+
+export function answersMatchClient(playerAnswer, correctAnswer) {
   const p = normalizeAnswer(playerAnswer)
   const c = normalizeAnswer(correctAnswer)
   if (!p || !c || p.length < 3) return false
@@ -501,18 +549,19 @@ function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectI
 
   return (
     <div className="w-full max-w-md">
-      <p className="text-center text-base font-semibold mb-5" style={{ color: '#ECECF0' }}>{question.enonce}</p>
+      <p className="text-center text-base font-semibold mb-5" style={{ color: '#FFF3E6' }}>{question.enonce}</p>
       <div className={`grid ${cols} gap-3`}>
         {options.map(opt => {
           const chosen = myAnswer === opt.value
           const isCorrect = isOptCorrect(opt)
           const isWrongChosen = revealed && chosen && !isCorrect
-          let bg = 'rgba(255,255,255,0.04)', border = 'rgba(255,255,255,0.1)', color = '#ECECF0'
+          let bg = 'rgba(255,255,255,0.04)', border = 'rgba(255,255,255,0.1)', color = '#FFF3E6'
           if (isCorrect) { bg = 'rgba(34,197,94,0.18)'; border = 'rgba(34,197,94,0.6)'; color = '#22C55E' }
           else if (isWrongChosen) { bg = 'rgba(248,113,113,0.15)'; border = 'rgba(248,113,113,0.5)'; color = '#F87171' }
-          else if (chosen) { bg = 'rgba(99,102,241,0.22)'; border = 'rgba(99,102,241,0.6)'; color = '#A5B4FC' }
+          else if (chosen) { bg = 'rgba(242,106,27,0.22)'; border = 'rgba(242,106,27,0.6)'; color = '#FFB27D' }
           return (
             <button key={String(opt.value)} disabled={myAnswer !== null || revealed} onClick={() => onAnswer(opt.value)}
+              aria-label={opt.text ? undefined : `Choix ${Number(opt.value) + 1}`} aria-pressed={chosen}
               className="rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center font-semibold transition-all active:scale-[0.98]"
               style={{ background: bg, border: `2px solid ${border}`, color, minHeight: opt.mediaUrl ? 0 : 64 }}>
               {opt.mediaUrl && (
@@ -524,7 +573,7 @@ function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectI
           )
         })}
       </div>
-      <p className="text-center text-sm mt-5" style={{ color: '#9090A0' }}>
+      <p className="text-center text-sm mt-5" style={{ color: '#C9B5A4' }}>
         {revealed
           ? (myAnswer !== null ? (myCorrect ? 'Bonne réponse !' : 'Raté cette fois…') : 'Pas de réponse')
           : myAnswer !== null ? 'Réponse envoyée ✓ — on attend la suite…' : 'Choisis ta réponse !'}
@@ -536,10 +585,10 @@ function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectI
 function BuzzButton({ armed, winner, iWon, revealed, onBuzz }) {
   let label, sub, color, pulse = false
   if (iWon) { label = 'TU AS BUZZÉ !'; sub = 'Plus rapide que tout le monde'; color = '#22C55E' }
-  else if (winner) { label = `${winner.prenom} a buzzé`; sub = 'Trop tard cette fois…'; color = '#5A5A6E' }
-  else if (revealed) { label = 'Réponse révélée'; sub = 'Regarde l\'écran'; color = '#818CF8' }
-  else if (armed) { label = 'BUZZ'; sub = 'Appuie dès que tu sais !'; color = '#6366F1'; pulse = true }
-  else { label = 'Prépare-toi…'; sub = 'La prochaine question arrive'; color = '#5A5A6E' }
+  else if (winner) { label = `${winner.prenom} a buzzé`; sub = 'Trop tard cette fois…'; color = '#8A7566' }
+  else if (revealed) { label = 'Réponse révélée'; sub = 'Regarde l\'écran'; color = '#F58A45' }
+  else if (armed) { label = 'BUZZ'; sub = 'Appuie dès que tu sais !'; color = '#F26A1B'; pulse = true }
+  else { label = 'Prépare-toi…'; sub = 'La prochaine question arrive'; color = '#8A7566' }
 
   return (
     <div className="flex flex-col items-center gap-6 w-full">
@@ -562,18 +611,18 @@ function BuzzButton({ armed, winner, iWon, revealed, onBuzz }) {
           : <Zap size={88} color="#fff" strokeWidth={2.5} style={{ opacity: armed ? 1 : 0.5 }} />}
       </button>
       <div className="text-center">
-        <p className="text-xl font-extrabold tracking-tight" style={{ color: '#ECECF0' }}>{label}</p>
-        <p className="text-sm mt-1" style={{ color: '#9090A0' }}>{sub}</p>
+        <p className="text-xl font-extrabold tracking-tight" style={{ color: '#FFF3E6' }}>{label}</p>
+        <p className="text-sm mt-1" style={{ color: '#C9B5A4' }}>{sub}</p>
       </div>
     </div>
   )
 }
 
 function Center({ children }) {
-  return <div className="min-h-screen flex items-center justify-center" style={{ background: '#0E0E12' }}>{children}</div>
+  return <div data-theme="dark" className="min-h-screen flex items-center justify-center" style={{ background: '#1A120E' }}>{children}</div>
 }
 function hex(color, alpha) {
-  const c = (color ?? '#6366F1').replace('#', '')
+  const c = (color ?? '#F26A1B').replace('#', '')
   const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16)
   return `rgba(${r},${g},${b},${alpha})`
 }

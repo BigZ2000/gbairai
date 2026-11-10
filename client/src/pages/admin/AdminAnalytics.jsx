@@ -6,7 +6,7 @@ import { LineChart, Donut, BarChart } from '../../components/Charts.jsx'
 
 function fmtFCFA(n) { return (n ?? 0).toLocaleString('fr-FR') + ' FCFA' }
 function fmtK(n) { return (n ?? 0) >= 1000 ? Math.round(n / 1000) + 'k' : String(n ?? 0) }
-const PLAN_COLORS = { FREE: 'var(--text-muted)', PRO: '#6366F1', ENTREPRISE: '#0EA5E9', ECOLE: '#22C55E' }
+const PLAN_COLORS = { FREE: 'var(--text-muted)', PRO: '#F26A1B', ENTREPRISE: '#0EA5E9', ECOLE: '#22C55E' }
 
 export default function AdminAnalytics() {
   const { apiFetch } = useAuth()
@@ -28,7 +28,7 @@ export default function AdminAnalytics() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <Kpi icon={Wallet} label="Revenus totaux" value={fmtFCFA(data.revenus)} color="#22C55E" />
-        <Kpi icon={Users} label="Utilisateurs" value={data.totalUsers} sub={`${data.payants} payants`} color="#6366F1" />
+        <Kpi icon={Users} label="Utilisateurs" value={data.totalUsers} sub={`${data.payants} payants`} color="#F26A1B" />
         <Kpi icon={Repeat} label="Taux de conversion" value={`${data.tauxConversion}%`} color="#F59E0B" />
         <Kpi icon={TrendingUp} label="Abonnements actifs" value={data.abonnementsActifs} color="#0EA5E9" />
       </div>
@@ -45,10 +45,10 @@ export default function AdminAnalytics() {
         </div>
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3">
-            <UserPlus size={15} style={{ color: '#6366F1' }} />
+            <UserPlus size={15} style={{ color: '#F26A1B' }} />
             <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Inscriptions (6 mois)</h2>
           </div>
-          <LineChart data={data.inscriptionsParMois ?? []} color="#818CF8" />
+          <LineChart data={data.inscriptionsParMois ?? []} color="#F58A45" />
         </div>
       </div>
 
@@ -66,7 +66,7 @@ export default function AdminAnalytics() {
         <div className="card p-5">
           <h2 className="font-semibold mb-4" style={{ color: 'var(--text)' }}>Répartition par plan</h2>
           <Donut data={Object.entries(data.abonnes).sort((a, b) => b[1] - a[1])
-            .map(([plan, n]) => ({ label: plan, value: n, color: PLAN_COLORS[plan] ?? '#6366F1' }))} />
+            .map(([plan, n]) => ({ label: plan, value: n, color: PLAN_COLORS[plan] ?? '#F26A1B' }))} />
           <div className="mt-5 pt-4 grid grid-cols-2 gap-3" style={{ borderTop: '1px solid var(--border)' }}>
             <MiniStat label="Revenus abonnements" value={fmtFCFA(data.revenusAbonnements)} />
             <MiniStat label="Revenus packs" value={fmtFCFA(data.revenusPacks)} />
@@ -76,7 +76,7 @@ export default function AdminAnalytics() {
         {/* Top packs vendus */}
         <div className="card p-5">
           <h2 className="font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text)' }}>
-            <Package size={16} style={{ color: '#818CF8' }} />Packs les plus vendus
+            <Package size={16} style={{ color: 'var(--brand-text)' }} />Packs les plus vendus
           </h2>
           {data.topPacks.length === 0 ? (
             <p className="text-sm py-8 text-center" style={{ color: 'var(--text-dim)' }}>Aucune vente de pack pour l'instant.</p>
@@ -116,7 +116,7 @@ function MiniStat({ label, value }) {
   return (<div><p className="text-2xs" style={{ color: 'var(--text-dim)' }}>{label}</p><p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{value}</p></div>)
 }
 function hex(color, alpha) {
-  const c = (color ?? '#6366F1').replace('#', '')
+  const c = (color ?? '#F26A1B').replace('#', '')
   const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16)
   return `rgba(${r},${g},${b},${alpha})`
 }

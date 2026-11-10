@@ -21,6 +21,7 @@ import billingRoutes from './routes/billing.js'
 import organisationsRoutes from './routes/organisations.js'
 import adminOffresRoutes from './routes/adminOffres.js'
 import adminFirmwareRoutes from './routes/adminFirmware.js'
+import quizRoutes from './routes/quiz.js'
 import { initWsServer } from './ws/wsServer.js'
 import { loadFirmwareConfig } from './config/firmware.js'
 import { startJournalPurge } from './services/buzzerService.js'
@@ -63,6 +64,7 @@ app.use('/api/billing', billingRoutes)
 app.use('/api/organisations', organisationsRoutes)
 app.use('/api/admin/offres', adminOffresRoutes)
 app.use('/api/admin/firmware', adminFirmwareRoutes)
+app.use('/api/quiz', quizRoutes)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 

@@ -1,26 +1,39 @@
 // ── ROUTES BILLING / ABONNEMENTS ──────────────────────────────────────────────
 // Offres, état des quotas, souscription, achat de pack, historique + webhook.
-// Paiement réel non activé (préparation CinetPay) : l'endpoint /confirm permet
-// de simuler un règlement pour tester tout le modèle économique sans argent.
+// Paiement réel par CinetPay quand il est configuré. Sinon, en développement
+// seulement, /confirm simule un règlement (démonstration sans argent).
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { getSettings } from '../config/settings.js'
-import { PLANS } from '../config/plans.js'
-import { cinetpayConfig } from '../config/cinetpay.js'
+import { PLANS, effectivePlan } from '../config/plans.js'
+import { modePaiement, simulationAutorisee } from '../config/cinetpay.js'
+import { CinetpayErreur } from '../services/cinetpayClient.js'
 import { getQuotaState } from '../services/quotaService.js'
 import { getUserOrganisation, activeSeats } from '../services/orgService.js'
 import {
-  initiatePayment, confirmPayment, listPayments, verifyWebhookSignature,
+  initiatePayment, confirmPayment, listPayments, traiterNotification, suivrePaiement, PaiementFerme,
 } from '../services/paymentService.js'
+
+// Initie un paiement et répond ; traduit les erreurs en messages lisibles.
+async function lancerPaiement(res, params, montant) {
+  try {
+    const result = await initiatePayment(params)
+    res.status(201).json({ reference: result.paiement.reference, montant, checkout: result.checkout })
+  } catch (e) {
+    if (e instanceof PaiementFerme) return res.status(503).json({ error: e.message, code: 'PAIEMENT_FERME' })
+    if (e instanceof CinetpayErreur) return res.status(502).json({ error: 'CinetPay n\'a pas pu ouvrir le paiement. Réessaie dans un instant.', code: 'PAIEMENT_INDISPONIBLE' })
+    throw e
+  }
+}
 
 const router = Router()
 
 async function loadUser(req, res, next) {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
-    select: { id: true, email: true, prenom: true, plan: true, planExpireAt: true, isAdmin: true, emailVerified: true, phoneVerified: true },
+    select: { id: true, email: true, prenom: true, nom: true, plan: true, planExpireAt: true, isAdmin: true, emailVerified: true, phoneVerified: true },
   })
   if (!user) return res.status(401).json({ error: 'Non authentifié' })
   req.fullUser = user
@@ -52,8 +65,9 @@ router.get('/plans', requireAuth, loadUser, async (req, res) => {
       categorie: o.categorie, prix: o.prix, dureeJours: o.dureeJours, sieges: o.sieges,
       couleur: o.couleur, populaire: o.populaire, fonctionnalites: o.fonctionnalites,
     })),
-    current: req.fullUser.plan,
-    paiementsActifs: cinetpayConfig.enabled,
+    current: effectivePlan(req.fullUser),
+    paiementsActifs: modePaiement() === 'reel',
+    modePaiement: modePaiement(),
   })
 })
 
@@ -90,14 +104,13 @@ router.post('/subscribe', requireAuth, loadUser, requireVerified, async (req, re
   if (!offre || !offre.visible) return res.status(404).json({ error: 'Offre introuvable' })
   if (offre.prix <= 0) return res.status(400).json({ error: 'Cette offre est gratuite' })
 
-  const result = await initiatePayment({
+  await lancerPaiement(res, {
     user: req.fullUser,
     plan: offre.plan,
     offreId: offre.id,
     montant: offre.prix,
-    description: `Abonnement ${offre.nom} (${offre.dureeJours} jours)`,
-  })
-  res.status(201).json({ reference: result.paiement.reference, montant: offre.prix, checkout: result.checkout })
+    description: `Pass ${offre.nom} (${offre.dureeJours} jours)`,
+  }, offre.prix)
 })
 
 // POST /api/billing/packs/:id/buy — achat unitaire d'un pack payant.
@@ -106,20 +119,26 @@ router.post('/packs/:id/buy', requireAuth, loadUser, requireVerified, async (req
   if (!pack) return res.status(404).json({ error: 'Pack introuvable' })
   if ((pack.prix ?? 0) <= 0) return res.status(400).json({ error: 'Ce pack n\'est pas en vente à l\'unité' })
 
-  const result = await initiatePayment({
+  await lancerPaiement(res, {
     user: req.fullUser,
     packId: pack.id,
     montant: pack.prix,
     description: `Achat du pack « ${pack.nom} »`,
-  })
-  res.status(201).json({ reference: result.paiement.reference, montant: pack.prix, checkout: result.checkout })
+  }, pack.prix)
 })
 
-// POST /api/billing/confirm — SIMULATION de règlement (préparation uniquement).
-// Bloqué si CinetPay est réellement activé (le webhook fait foi).
+// GET /api/billing/paiements/:reference — suivi d'un paiement (page de retour).
+router.get('/paiements/:reference', requireAuth, async (req, res) => {
+  const p = await suivrePaiement(req.userId, req.params.reference)
+  if (!p) return res.status(404).json({ error: 'Paiement introuvable' })
+  res.json({ reference: p.reference, statut: p.statut, montant: p.montant, description: p.description, plan: p.plan, paymentUrl: p.statut === 'PENDING' ? p.paymentUrl : null })
+})
+
+// POST /api/billing/confirm — SIMULATION de règlement (démonstration).
+// Refusée en production et dès que CinetPay est actif (le statut CinetPay fait foi).
 router.post('/confirm', requireAuth, async (req, res) => {
-  if (cinetpayConfig.enabled) {
-    return res.status(403).json({ error: 'Confirmation manuelle désactivée : CinetPay est actif.' })
+  if (!simulationAutorisee()) {
+    return res.status(403).json({ error: 'Le règlement simulé n\'est pas disponible.', code: 'SIMULATION_FERMEE' })
   }
   const parsed = z.object({
     reference: z.string(),
@@ -141,22 +160,16 @@ router.post('/confirm', requireAuth, async (req, res) => {
   res.json(result)
 })
 
-// POST /api/billing/webhook — notification CinetPay (public, signé).
+// POST /api/billing/webhook — notification CinetPay (publique). Le jeton de
+// notification est vérifié, puis le statut est redemandé à CinetPay.
 router.post('/webhook', async (req, res) => {
-  const signature = req.headers['x-token'] || req.headers['x-cinetpay-signature']
-  if (!verifyWebhookSignature(req.body, signature)) {
-    return res.status(401).json({ error: 'Signature invalide' })
+  try {
+    const { http, corps } = await traiterNotification(req.body)
+    res.status(http).json(corps)
+  } catch {
+    // CinetPay renverra la notification ; le suivi côté client re-vérifie aussi.
+    res.status(502).json({ error: 'Vérification impossible pour le moment' })
   }
-  const reference = req.body?.cpm_trans_id || req.body?.reference
-  const status = (req.body?.cpm_result === '00' || req.body?.status === 'ACCEPTED') ? 'SUCCESS' : 'FAILED'
-  if (!reference) return res.status(400).json({ error: 'Référence manquante' })
-
-  await confirmPayment({
-    reference, status,
-    transactionId: req.body?.cpm_payid ?? null,
-    operateur: req.body?.payment_method ?? null,
-  })
-  res.json({ ok: true })
 })
 
 export default router

@@ -5,13 +5,15 @@ import { useWs } from '../context/WsContext.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
 import QuestionMedia from '../components/QuestionMedia.jsx'
 import Podium from '../components/Podium.jsx'
+import { BrandMark } from '../components/Brand.jsx'
+import { ClassementEquipes, classementLocal, equipeDe } from '../components/Equipes.jsx'
 import { flattenManches } from '../utils/manches.js'
 import {
   ChevronRight, Square, Trophy, ThumbsUp, ThumbsDown,
   Users, Hash, Loader2, Eye, EyeOff, Play, Pause, RotateCcw, Tv, Mic2, Check, X,
 } from 'lucide-react'
 
-const WEB_COLORS = ['#6366F1', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
+const WEB_COLORS = ['#F26A1B', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
 
 export default function AnimateurJeu() {
   const { partieCode } = useParams()
@@ -30,6 +32,7 @@ export default function AnimateurJeu() {
   const [myVote, setMyVote] = useState(null)
   const [endConfirm, setEndConfirm] = useState(false)
   const [finalClassement, setFinalClassement] = useState(null)
+  const [equipesLive, setEquipesLive] = useState(null)
   const [animateurOffline, setAnimateurOffline] = useState(false) // A3
   const [winnerSelectedAnswer, setWinnerSelectedAnswer] = useState(null) // D2
   const [answersCount, setAnswersCount] = useState({ count: 0, total: 0 }) // QCM simultané
@@ -138,9 +141,13 @@ export default function AnimateurJeu() {
       if (msg.type === 'animateur_offline') setAnimateurOffline(true)
       if (msg.type === 'question_display') setAnimateurOffline(false)
       if (msg.type === 'game_ended') {
+        if (msg.equipes) setEquipesLive(msg.equipes)
         setFinalClassement(msg.classement ?? [])
       }
-      if (msg.type === 'participant_update') setParticipants(msg.participants ?? [])
+      if (msg.type === 'participant_update') {
+        setParticipants(msg.participants ?? [])
+        if (msg.equipes) setEquipesLive(msg.equipes)
+      }
       if (msg.type === 'buzzer_status_update') {
         setBuzzerStatuts(prev => ({ ...prev, [msg.mac]: msg.status === 'OFFLINE' ? 'offline' : 'ready' }))
       }
@@ -211,27 +218,36 @@ export default function AnimateurJeu() {
   if (!partie) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} />
+        <Loader2 size={24} className="animate-spin" style={{ color: '#F26A1B' }} />
       </div>
     )
   }
 
+  const equipes = equipesLive ?? classementLocal(partie, participants)
+
   if (finalClassement) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 overflow-y-auto" style={{ background: 'var(--bg)' }}>
-        <Podium
-          classement={finalClassement}
-          variant="compact"
-          title={partie.nom}
-          onClose={() => navigate('/dashboard')}
-        />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-6 overflow-y-auto" style={{ background: 'var(--bg)' }}>
+        {equipes && (
+          <div className="w-full max-w-md">
+            <p className="text-center text-sm uppercase tracking-widest font-semibold mb-3" style={{ color: 'var(--text-dim)' }}>Équipes</p>
+            <ClassementEquipes equipes={equipes} />
+          </div>
+        )}
+        <Podium classement={finalClassement} variant="compact" title={partie.nom} />
+        <div className="flex flex-wrap justify-center gap-2">
+          <button onClick={() => navigate(`/historique/${partie.id}`)} className="btn-primary">Voir le bilan</button>
+          <button onClick={() => navigate('/dashboard')} className="btn-secondary">Retour à l'accueil</button>
+        </div>
       </div>
     )
   }
 
   const questions = flattenManches(partie.manches)
   const currentQ  = questions[questionIndex]
-  const sortedParticipants = [...participants].sort((a, b) => b.score - a.score)
+  // Le maître du jeu anime : il n'apparaît pas parmi les joueurs.
+  const joueurs = participants.filter(p => !p.isAnimateur)
+  const sortedParticipants = [...joueurs].sort((a, b) => b.score - a.score)
 
   // Affichage de la réponse :
   //  - animateur en mode régie (réponses non masquées) → en permanence ;
@@ -244,12 +260,11 @@ export default function AnimateurJeu() {
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 flex items-center justify-between px-5"
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-5 py-2"
         style={{ background: 'var(--surface)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', minHeight: '52px' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white"
-            style={{ background: '#6366F1' }}>G</div>
-          <div>
+        <div className="flex items-center gap-3 min-w-0">
+          <BrandMark size={28} />
+          <div className="min-w-0">
             <p className="text-sm font-semibold leading-none" style={{ color: 'var(--text)' }}>{partie.nom}</p>
             <p className="text-2xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
               Q{questionIndex + 1}{questions.length > 0 ? `/${questions.length}` : ''}
@@ -262,21 +277,21 @@ export default function AnimateurJeu() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="code-tag flex items-center gap-1"><Hash size={9} />{partieCode}</span>
+          <span className="code-tag hidden sm:flex items-center gap-1"><Hash size={9} />{partieCode}</span>
 
           {/* Lien vers l'écran public de projection (hôte uniquement). */}
           {isHost && (
             <a href={`/screen/${partieCode}`} target="_blank" rel="noopener noreferrer"
-              className="btn-sm gap-1.5" title="Ouvrir l'écran de projection"
-              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#818CF8' }}>
-              <Tv size={13} />Écran public
+              className="btn btn-sm gap-1.5" title="Ouvrir l'écran de projection"
+              style={{ background: 'rgba(242,106,27,0.12)', border: '1px solid rgba(242,106,27,0.3)', color: 'var(--brand-text)' }}>
+              <Tv size={13} /><span className="hidden sm:inline">Écran public</span>
             </a>
           )}
 
           {/* Reveal button — shows when answer not yet revealed */}
           {isAnimateur && !isModeAuto && !isModeVote && currentQ && !revealed && (
-            <button onClick={revealAnswer} className="btn-sm gap-1.5"
-              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#818CF8' }}>
+            <button onClick={revealAnswer} className="btn btn-sm gap-1.5"
+              style={{ background: 'rgba(242,106,27,0.12)', border: '1px solid rgba(242,106,27,0.3)', color: 'var(--brand-text)' }}>
               <Eye size={13} />Révéler
             </button>
           )}
@@ -297,17 +312,18 @@ export default function AnimateurJeu() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      {/* Téléphone : question puis joueurs, l'un sous l'autre. Grand écran : côte à côte. */}
+      <div className="flex flex-col md:flex-row flex-1 md:overflow-hidden">
 
         {/* Main */}
-        <main className="flex-1 p-6 flex flex-col items-center justify-center gap-5 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center gap-5 md:overflow-y-auto min-w-0">
 
           {currentQ ? (
-            <div className="card p-7 max-w-2xl w-full text-center animate-fadeUp">
+            <div className="card p-5 sm:p-7 max-w-2xl w-full text-center animate-fadeUp">
               <p className="text-2xs uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-dim)' }}>
                 {currentQ.mancheNom && <>{currentQ.mancheNom} · </>}Question {questionIndex + 1}
               </p>
-              <p className="text-2xl font-bold leading-snug mb-4" style={{ color: 'var(--text)' }}>
+              <p className="text-xl sm:text-2xl font-bold leading-snug mb-4" style={{ color: 'var(--text)' }}>
                 {currentQ.enonce}
               </p>
 
@@ -330,7 +346,7 @@ export default function AnimateurJeu() {
                   {currentQ.choix.map((c, i) => (
                     <div key={i} className="rounded-lg px-3 py-2 text-sm"
                       style={{ background: 'var(--input-bg)', border: '1px solid var(--border)' }}>
-                      <span className="font-bold mr-2" style={{ color: '#818CF8' }}>{['A','B','C','D'][i]}</span>
+                      <span className="font-bold mr-2" style={{ color: 'var(--brand-text)' }}>{['A','B','C','D'][i]}</span>
                       <span style={{ color: 'var(--text)' }}>{c}</span>
                     </div>
                   ))}
@@ -406,7 +422,7 @@ export default function AnimateurJeu() {
             (currentQ.type === 'QCM' || currentQ.type === 'VRAI_FAUX' || currentQ.choix?.length > 0) && (
             <div className="card p-4 max-w-md w-full text-center animate-fadeUp">
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                <span className="text-2xl font-black" style={{ color: '#818CF8' }}>{answersCount.count}</span>
+                <span className="text-2xl font-black" style={{ color: 'var(--brand-text)' }}>{answersCount.count}</span>
                 <span className="mx-1">/</span>{answersCount.total} joueur{answersCount.total !== 1 ? 's' : ''} ont répondu
               </p>
               <p className="text-2xs mt-1" style={{ color: 'var(--text-dim)' }}>
@@ -439,8 +455,8 @@ export default function AnimateurJeu() {
               {/* A2 — Bonne réponse visible par l'animateur pour comparaison */}
               {!isModeAuto && !isModeVote && isAnimateur && !revealed && (
                 <div className="rounded-lg px-3 py-2 mb-3 text-sm text-left"
-                  style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)' }}>
-                  <p className="text-2xs uppercase tracking-widest mb-1" style={{ color: '#818CF8' }}>Bonne réponse</p>
+                  style={{ background: 'rgba(242,106,27,0.1)', border: '1px solid rgba(242,106,27,0.25)' }}>
+                  <p className="text-2xs uppercase tracking-widest mb-1" style={{ color: 'var(--brand-text)' }}>Bonne réponse</p>
                   <p className="font-bold" style={{ color: 'var(--text)' }}>
                     {regieAnticipee ? answers[questionIndex]?.reponse : '(masquée — projection directe)'}
                   </p>
@@ -512,15 +528,28 @@ export default function AnimateurJeu() {
         </main>
 
         {/* Sidebar */}
-        <aside className="w-56 flex flex-col"
-          style={{ borderLeft: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <aside className="w-full md:w-56 flex flex-col border-t md:border-t-0 md:border-l"
+          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
           <div className="p-4 pb-2 flex items-center gap-1.5">
             <Users size={13} style={{ color: 'var(--text-dim)' }} />
             <p className="text-2xs uppercase tracking-wider font-semibold" style={{ color: 'var(--text-dim)' }}>
-              Joueurs · {participants.length}
+              Joueurs · {joueurs.length}
             </p>
           </div>
-          <div className="flex-1 p-3 space-y-1.5 overflow-y-auto">
+          <div className="flex-1 p-3 md:overflow-y-auto">
+            {equipes && (
+              <div className="space-y-1 mb-3">
+                {equipes.map(e => (
+                  <div key={e.index} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+                    style={{ background: `${e.couleur}14`, border: `1px solid ${e.couleur}40` }}>
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: e.couleur }} />
+                    <span className="text-xs font-semibold flex-1 truncate" style={{ color: 'var(--text)' }}>{e.nom}</span>
+                    <span className="text-xs font-black tabular-nums" style={{ color: e.couleur }}>{e.score}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-1 gap-1.5">
             {sortedParticipants.map((p, i) => {
               // Identité de buzz : mac physique, sinon buzzer virtuel (téléphone).
               const mac = p.buzzer?.mac ?? `WEB-${p.id}`
@@ -535,6 +564,7 @@ export default function AnimateurJeu() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
                       {i === 0 && <Trophy size={10} style={{ color: '#F59E0B' }} />}
+                      {equipeDe(partie, p) && <span className="w-2 h-2 rounded-full shrink-0" title={equipeDe(partie, p).nom} style={{ background: equipeDe(partie, p).couleur }} />}
                       <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{p.prenom}</p>
                     </div>
                     <p className="text-2xs font-bold" style={{ color: '#F59E0B' }}>
@@ -544,6 +574,7 @@ export default function AnimateurJeu() {
                 </div>
               )
             })}
+            </div>
           </div>
         </aside>
       </div>
@@ -556,7 +587,7 @@ export default function AnimateurJeu() {
             style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
             <h3 className="font-semibold mb-1" style={{ color: '#F87171' }}>Terminer la partie ?</h3>
             <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
-              Tous les joueurs seront redirigés vers le tableau de bord.
+              Le classement final s'affichera sur tous les écrans.
             </p>
             <div className="flex gap-2">
               <button onClick={endGame} className="btn-danger flex-1">Terminer</button>

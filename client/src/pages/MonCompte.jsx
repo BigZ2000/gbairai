@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { applyTheme, currentTheme } from '../utils/theme.js'
+import { useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import Layout from '../components/Layout.jsx'
@@ -8,10 +9,10 @@ import { formatMac } from '../utils/mac.js'
 import {
   Radio, Pencil, Unlink, Check, X, Link2, Wifi, WifiOff, Cpu, Palette, AtSign,
   User, Shield, Sliders, BarChart3, Sun, Moon, Monitor, LogOut, Trophy,
-  Clock, Target, Gamepad2, Crown, Loader2, KeyRound, SendHorizonal,
+  Clock, Target, Gamepad2, Crown, Loader2, KeyRound, SendHorizonal, Receipt, Building2, ChevronRight,
 } from 'lucide-react'
 
-const COULEURS = ['#6366F1','#8B5CF6','#3B82F6','#06B6D4','#22C55E','#F59E0B','#EF4444','#EC4899']
+const COULEURS = ['#F26A1B','#8B5CF6','#3B82F6','#06B6D4','#22C55E','#F59E0B','#EF4444','#EC4899']
 
 function Toast({ toast }) {
   if (!toast) return null
@@ -38,7 +39,7 @@ const TABS = [
 ]
 
 export default function MonCompte() {
-  const { user, setUser, apiFetch } = useAuth()
+  const { user, setUser, apiFetch, logout } = useAuth()
   const location = useLocation()
   const initialTab = location.state?.tab ?? 'profil'
   const [tab, setTab] = useState(initialTab)
@@ -62,7 +63,7 @@ export default function MonCompte() {
             style={{ border: '1px solid var(--border)' }} />
         ) : (
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black text-white shrink-0"
-            style={{ background: '#6366F1' }}>{initial}</div>
+            style={{ background: '#F26A1B' }}>{initial}</div>
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -71,27 +72,24 @@ export default function MonCompte() {
             </h1>
             {user?.isAdmin && <span className="badge-indigo"><Crown size={9} />Admin</span>}
           </div>
-          <div className="flex items-center gap-2 mt-0.5 text-sm" style={{ color: 'var(--text-muted)' }}>
-            {user?.username && <span className="flex items-center gap-0.5" style={{ color: '#818CF8' }}><AtSign size={11} />{user.username}</span>}
-            <span>·</span>
+          <div className="flex items-center gap-2 mt-0.5 text-sm min-w-0 flex-wrap" style={{ color: 'var(--text-muted)' }}>
+            {user?.username && <><span className="flex items-center gap-0.5" style={{ color: 'var(--brand-text)' }}><AtSign size={11} />{user.username}</span><span>·</span></>}
             <span>{user?.email}</span>
           </div>
         </div>
       </div>
 
+      {/* Ton offre : ce que tu as, jusqu'à quand, et où gérer tes paiements. */}
+      {!user?.isGuest && <MonOffre apiFetch={apiFetch} />}
+
       {/* Onglets */}
-      <div className="flex gap-1 mb-6 overflow-x-auto pb-1">
+      <div className="scroll-x mb-5" role="tablist" aria-label="Réglages du compte">
         {TABS.map(t => {
           const Icon = t.icon
           const active = tab === t.id
           return (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className="btn btn-sm gap-1.5 shrink-0"
-              style={{
-                background: active ? 'rgba(99,102,241,0.14)' : 'transparent',
-                color: active ? '#A5B4FC' : 'var(--text-muted)',
-                border: `1px solid ${active ? 'rgba(99,102,241,0.3)' : 'transparent'}`,
-              }}>
+            <button key={t.id} role="tab" aria-selected={active} onClick={() => setTab(t.id)}
+              className={`chip ${active ? 'chip-on' : ''}`}>
               <Icon size={13} />{t.label}
             </button>
           )
@@ -105,7 +103,51 @@ export default function MonCompte() {
         {tab === 'stats'       && <StatsTab apiFetch={apiFetch} />}
         {tab === 'buzzers'     && <BuzzersTab apiFetch={apiFetch} showToast={showToast} />}
       </div>
+
+      <button onClick={logout} className="btn-ghost btn-sm gap-1.5 mt-8" style={{ color: '#C0392B' }}>
+        <LogOut size={14} />Se déconnecter
+      </button>
     </Layout>
+  )
+}
+
+// ── Ton offre ─────────────────────────────────────────────────────────────────
+function MonOffre({ apiFetch }) {
+  const [etat, setEtat] = useState(null)
+  useEffect(() => { apiFetch('/billing/me').then(r => (r?.ok ? r.json() : null)).then(setEtat).catch(() => {}) }, [])
+  if (!etat) return <div className="card p-4 mb-5 h-[88px] animate-pulse" aria-hidden="true" />
+
+  const gratuit = etat.plan === 'FREE'
+  const nomOffre = gratuit ? 'Gratuit' : etat.plan === 'PRO' ? 'Premium' : etat.organisation?.nom ?? etat.planNom
+  const fin = etat.expireAt ? new Date(etat.expireAt) : null
+  const joursRestants = fin ? Math.ceil((fin - Date.now()) / 864e5) : null
+  const restantes = etat.usage?.partiesRestantes
+
+  return (
+    <div className={`${gratuit ? 'card' : 'panel-ink'} rounded-2xl p-4 mb-5`}>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-2xs uppercase tracking-widest font-semibold opacity-70">Ton offre</p>
+          <p className="text-lg font-extrabold flex items-center gap-1.5">
+            {!gratuit && <Crown size={16} style={{ color: 'var(--mango)' }} />}{nomOffre}
+          </p>
+          <p className="text-xs opacity-80">
+            {gratuit
+              ? (restantes != null ? `${restantes} partie${restantes > 1 ? 's' : ''} à plusieurs restante${restantes > 1 ? 's' : ''} ce mois · solo illimité` : 'Solo illimité')
+              : fin ? (joursRestants > 0 ? `Active jusqu'au ${fin.toLocaleDateString('fr-FR')} (${joursRestants} j)` : 'Expirée') : 'Active'}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {gratuit || (joursRestants != null && joursRestants <= 7)
+            ? <Link to="/abonnement" className="btn-primary btn-sm gap-1.5"><Crown size={13} />{gratuit ? 'Passer en Premium' : 'Prolonger'}</Link>
+            : <Link to="/abonnement" className="btn-secondary btn-sm">Voir les offres</Link>}
+          <Link to="/paiements" className="btn-ghost btn-sm gap-1.5" style={{ color: 'inherit' }}><Receipt size={13} />Paiements</Link>
+          {etat.organisation && (
+            <Link to="/organisation" className="btn-ghost btn-sm gap-1.5" style={{ color: 'inherit' }}><Building2 size={13} />{etat.organisation.peutGerer ? 'Gérer l\'organisation' : 'Mon organisation'}<ChevronRight size={12} /></Link>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -145,7 +187,7 @@ function ProfilTab({ user, setUser, apiFetch, showToast }) {
   return (
     <form onSubmit={save} className="card p-5 space-y-4">
       <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-        <User size={15} style={{ color: '#6366F1' }} />Informations personnelles
+        <User size={15} style={{ color: '#F26A1B' }} />Informations personnelles
       </h2>
 
       <div className="grid grid-cols-2 gap-3">
@@ -275,7 +317,7 @@ function SecuriteTab({ apiFetch, showToast, user }) {
       {pwdStep === 'form' ? (
         <form onSubmit={requestOtp} className="card p-5 space-y-4">
           <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-            <Shield size={15} style={{ color: '#6366F1' }} />Changer le mot de passe
+            <Shield size={15} style={{ color: '#F26A1B' }} />Changer le mot de passe
           </h2>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -302,9 +344,9 @@ function SecuriteTab({ apiFetch, showToast, user }) {
       ) : (
         <form onSubmit={confirmWithOtp} className="card p-5 space-y-4">
           <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-            <KeyRound size={15} style={{ color: '#6366F1' }} />Confirmer le changement
+            <KeyRound size={15} style={{ color: '#F26A1B' }} />Confirmer le changement
           </h2>
-          <div className="rounded-lg px-4 py-3 text-sm" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: 'var(--text-muted)' }}>
+          <div className="rounded-lg px-4 py-3 text-sm" style={{ background: 'rgba(242,106,27,0.08)', border: '1px solid rgba(242,106,27,0.2)', color: 'var(--text-muted)' }}>
             Code envoyé{otpHint ? ` sur ${otpHint}` : ''}. Saisis-le ci-dessous pour confirmer.
           </div>
           <div>
@@ -330,14 +372,14 @@ function SecuriteTab({ apiFetch, showToast, user }) {
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-            <Monitor size={15} style={{ color: '#6366F1' }} />Sessions actives
+            <Monitor size={15} style={{ color: '#F26A1B' }} />Sessions actives
           </h2>
           <button onClick={logoutOthers} className="btn-danger btn-sm gap-1.5">
             <LogOut size={12} />Déconnecter les autres
           </button>
         </div>
         {sessions === null ? (
-          <Loader2 size={16} className="animate-spin" style={{ color: '#6366F1' }} />
+          <Loader2 size={16} className="animate-spin" style={{ color: '#F26A1B' }} />
         ) : sessions.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Aucune session active.</p>
         ) : (
@@ -365,7 +407,7 @@ function SecuriteTab({ apiFetch, showToast, user }) {
 
 // ── Onglet Préférences ────────────────────────────────────────────────────────
 function PreferencesTab({ user, setUser, apiFetch, showToast }) {
-  const [theme, setTheme] = useState(user?.theme === 'light' ? 'light' : 'dark')
+  const [theme, setTheme] = useState(currentTheme())
   const [langue, setLangue] = useState(user?.langue ?? 'fr')
   const [saving, setSaving] = useState(false)
 
@@ -384,14 +426,14 @@ function PreferencesTab({ user, setUser, apiFetch, showToast }) {
   function pickTheme(t) {
     setTheme(t)
     // Application immédiate (effet visuel sans attendre le serveur).
-    document.documentElement.setAttribute('data-theme', t)
+    applyTheme(t) // persiste le choix sur l'appareil (prime au prochain démarrage)
     save({ theme: t })
   }
 
   return (
     <div className="card p-5 space-y-5">
       <h2 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
-        <Palette size={15} style={{ color: '#6366F1' }} />Apparence
+        <Palette size={15} style={{ color: '#F26A1B' }} />Apparence
       </h2>
 
       <div>
@@ -404,12 +446,12 @@ function PreferencesTab({ user, setUser, apiFetch, showToast }) {
               <button key={t.id} onClick={() => pickTheme(t.id)} disabled={saving}
                 className="flex items-center gap-2.5 rounded-xl p-3.5 transition-all"
                 style={{
-                  background: active ? 'rgba(99,102,241,0.1)' : 'var(--input-bg)',
-                  border: `1px solid ${active ? 'rgba(99,102,241,0.4)' : 'var(--border)'}`,
+                  background: active ? 'rgba(242,106,27,0.1)' : 'var(--input-bg)',
+                  border: `1px solid ${active ? 'rgba(242,106,27,0.4)' : 'var(--border)'}`,
                 }}>
-                <Icon size={18} style={{ color: active ? '#818CF8' : 'var(--text-muted)' }} />
+                <Icon size={18} style={{ color: active ? 'var(--brand-text)' : 'var(--text-muted)' }} />
                 <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{t.label}</span>
-                {active && <Check size={14} className="ml-auto" style={{ color: '#818CF8' }} />}
+                {active && <Check size={14} className="ml-auto" style={{ color: 'var(--brand-text)' }} />}
               </button>
             )
           })}
@@ -435,10 +477,10 @@ function StatsTab({ apiFetch }) {
     apiFetch('/profile/stats').then(r => r?.ok ? r.json() : null).then(setStats)
   }, [])
 
-  if (!stats) return <Loader2 size={18} className="animate-spin" style={{ color: '#6366F1' }} />
+  if (!stats) return <Loader2 size={18} className="animate-spin" style={{ color: '#F26A1B' }} />
 
   const cards = [
-    { label: 'Parties jouées', value: stats.partiesJouees, icon: Gamepad2, color: '#6366F1' },
+    { label: 'Parties jouées', value: stats.partiesJouees, icon: Gamepad2, color: '#F26A1B' },
     { label: 'Parties gagnées', value: stats.partiesGagnees, icon: Trophy, color: '#F59E0B' },
     { label: 'Parties créées', value: stats.partiesCreees, icon: Crown, color: '#8B5CF6' },
     { label: 'Meilleur score', value: stats.meilleurScore, icon: Target, color: '#22C55E' },
@@ -544,7 +586,7 @@ function BuzzersTab({ apiFetch, showToast }) {
   return (
     <div className="card p-5">
       <div className="flex items-center gap-2 mb-5">
-        <Radio size={15} style={{ color: '#6366F1' }} />
+        <Radio size={15} style={{ color: '#F26A1B' }} />
         <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Mes buzzers</h2>
       </div>
 
@@ -589,7 +631,7 @@ function BuzzersTab({ apiFetch, showToast }) {
                           ? <Wifi size={10} style={{ color: b.status === 'IN_GAME' ? '#F59E0B' : '#22C55E' }} />
                           : <WifiOff size={10} style={{ color: 'var(--text-dim)' }} />}
                         <span className="text-2xs font-medium" style={{
-                          color: b.status === 'ONLINE' ? '#22C55E' : b.status === 'IN_GAME' ? '#F59E0B' : b.status === 'AWAITING_CLAIM' ? '#818CF8' : 'var(--text-dim)'
+                          color: b.status === 'ONLINE' ? '#22C55E' : b.status === 'IN_GAME' ? '#F59E0B' : b.status === 'AWAITING_CLAIM' ? 'var(--brand-text)' : 'var(--text-dim)'
                         }}>
                           {b.status === 'ONLINE' ? 'Connecté' : b.status === 'IN_GAME' ? 'En jeu' : b.status === 'AWAITING_CLAIM' ? 'Appairage…' : 'Hors ligne'}
                         </span>
@@ -609,9 +651,9 @@ function BuzzersTab({ apiFetch, showToast }) {
         </ul>
       )}
 
-      <div className="rounded-lg p-4" style={{ background: 'rgba(99,102,241,0.05)', border: '1px dashed rgba(99,102,241,0.2)' }}>
+      <div className="rounded-lg p-4" style={{ background: 'rgba(242,106,27,0.05)', border: '1px dashed rgba(242,106,27,0.2)' }}>
         <p className="text-sm font-medium mb-1 flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
-          <Link2 size={13} style={{ color: '#6366F1' }} />Ajouter un buzzer
+          <Link2 size={13} style={{ color: '#F26A1B' }} />Ajouter un buzzer
         </p>
         <p className="text-xs mb-3" style={{ color: 'var(--text-dim)' }}>
           Entrez l'adresse MAC inscrite sous le buzzer, puis maintenez le bouton 3 s.

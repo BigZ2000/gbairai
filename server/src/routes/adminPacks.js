@@ -105,7 +105,8 @@ const PackSchema = z.object({
 // GET /api/admin/packs — tous les packs (tous statuts) + stats résumées.
 router.get('/', async (req, res) => {
   const { statut, q } = req.query
-  const where = {}
+  // Catalogue public uniquement : les quiz personnels des utilisateurs sont exclus.
+  const where = { ownerId: null }
   if (statut && ['ACTIF', 'INACTIF', 'ARCHIVE'].includes(statut)) where.statut = statut
   if (q) {
     where.OR = [

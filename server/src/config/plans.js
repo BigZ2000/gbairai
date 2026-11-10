@@ -20,6 +20,15 @@ export const PLANS = {
       joueursMax: 20,
       buzzersVirtuels: 1,
       packTiers: ['GRATUIT'],
+      // Création de quiz : nb de quiz personnels enregistrables (INF = illimité).
+      quizPersoMax: 3,
+      // Génération par IA : quota mensuel + taille maximale d'un quiz généré.
+      // FREE = 0 / mois, mais `iaEssai` générations de découverte (à vie).
+      iaGenerationsParMois: 0,
+      iaEssai: 1,
+      iaQuestionsMax: 10,
+      // Images envoyées pour ses propres quiz (stockage serveur).
+      imagesPersoMax: 0,
       exports: false,
       statsAvancees: false,
       branding: false,
@@ -46,6 +55,11 @@ export const PLANS = {
       joueursMax: 100,
       buzzersVirtuels: INF,
       packTiers: ['GRATUIT', 'PREMIUM', 'EVENEMENT'],
+      quizPersoMax: INF,
+      iaGenerationsParMois: 30,
+      iaEssai: 0,
+      iaQuestionsMax: 30,
+      imagesPersoMax: 100,
       exports: true,
       statsAvancees: true,
       branding: false,
@@ -55,6 +69,8 @@ export const PLANS = {
     avantages: [
       'Parties illimitées',
       "Jusqu'à 100 joueurs",
+      'Création de quiz par IA (30 / mois)',
+      'Tes propres images dans tes quiz',
       'Accès aux packs Premium',
       'Exports & statistiques avancées',
     ],
@@ -71,6 +87,11 @@ export const PLANS = {
       joueursMax: INF,
       buzzersVirtuels: INF,
       packTiers: ['GRATUIT', 'PREMIUM', 'ENTREPRISE', 'EVENEMENT'],
+      quizPersoMax: INF,
+      iaGenerationsParMois: 100,
+      iaEssai: 0,
+      iaQuestionsMax: 40,
+      imagesPersoMax: 500,
       exports: true,
       statsAvancees: true,
       branding: true,
@@ -79,7 +100,9 @@ export const PLANS = {
     },
     avantages: [
       'Joueurs illimités',
-      'Branding personnalisé',
+      'Création de quiz par IA (100 / mois)',
+      'Votre logo sur l\'écran et le bilan',
+      'Jeu par équipes et bilan d\'événement',
       'Événements privés',
       'Packs entreprise dédiés',
     ],
@@ -96,15 +119,22 @@ export const PLANS = {
       joueursMax: INF,
       buzzersVirtuels: INF,
       packTiers: ['GRATUIT', 'PREMIUM', 'ECOLE'],
+      quizPersoMax: INF,
+      iaGenerationsParMois: 60,
+      iaEssai: 0,
+      iaQuestionsMax: 40,
+      imagesPersoMax: 500,
       exports: true,
       statsAvancees: true,
-      branding: false,
+      branding: true,
       evenementsPrives: false,
       classes: true,
     },
     avantages: [
       'Classes & enseignants',
+      'Création de quiz par IA (60 / mois)',
       'Statistiques pédagogiques',
+      'Logo de l\'établissement sur l\'écran',
       'Packs éducatifs',
       'Joueurs illimités',
     ],
@@ -122,6 +152,16 @@ export function resolvePlan(plan) {
 
 export function getLimites(plan) {
   return resolvePlan(plan).limites
+}
+
+// Plan EFFECTIF d'un utilisateur : un plan payant dont l'échéance est dépassée
+// retombe sur FREE (un pass prépayé n'est pas reconduit automatiquement).
+// `planExpireAt` null = pas d'échéance (plan attribué par l'admin, organisation…).
+export function effectivePlan(user, now = new Date()) {
+  const plan = user?.plan ?? 'FREE'
+  if (plan === 'FREE') return 'FREE'
+  if (user?.planExpireAt && new Date(user.planExpireAt) < now) return 'FREE'
+  return plan
 }
 
 // Quel plan minimal débloque un niveau de pack donné.

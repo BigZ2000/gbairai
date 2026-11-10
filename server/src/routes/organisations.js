@@ -8,6 +8,7 @@ import { requireAuth } from '../middleware/auth.js'
 import {
   newToken, activeSeats, canManage, applyPlanToUser, revertUserToFree, getUserOrganisation,
 } from '../services/orgService.js'
+import { recevoirImagePerso } from './media.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -45,6 +46,7 @@ router.get('/mine', async (req, res) => {
     organisation: {
       id: org.id, nom: org.nom, type: org.type, plan: org.plan,
       sieges: org.sieges, siegesUtilises: used, statut: org.statut, expireAt: org.expireAt,
+      logoUrl: org.logoUrl ?? null,
       lienInvitation: `${CLIENT_URL}/invitation/${org.inviteToken}`,
     },
     role, peutGerer,
@@ -59,6 +61,25 @@ router.get('/mine', async (req, res) => {
 })
 
 // PATCH /api/organisations/:id — nom / type (responsable).
+// POST /api/organisations/:id/logo — logo affiché sur l'écran public, la salle
+// d'attente et le bilan des parties organisées par les membres.
+router.post('/:id/logo', async (req, res) => {
+  if (!(await ensureManager(req, res, req.params.id))) return
+  try {
+    const { media } = await recevoirImagePerso(req, res, { titre: 'Logo' })
+    const org = await prisma.organisation.update({ where: { id: req.params.id }, data: { logoUrl: media.url } })
+    res.json({ logoUrl: org.logoUrl })
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Logo refusé' })
+  }
+})
+
+router.delete('/:id/logo', async (req, res) => {
+  if (!(await ensureManager(req, res, req.params.id))) return
+  await prisma.organisation.update({ where: { id: req.params.id }, data: { logoUrl: null } })
+  res.json({ ok: true })
+})
+
 router.patch('/:id', async (req, res) => {
   if (!(await ensureManager(req, res, req.params.id))) return
   const parsed = z.object({

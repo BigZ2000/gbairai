@@ -26,7 +26,7 @@ export default function PartieJeu() {
 
   if (route === null) {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-      <Loader2 size={26} className="animate-spin" style={{ color: '#6366F1' }} />
+      <Loader2 size={26} className="animate-spin" style={{ color: '#F26A1B' }} />
     </div>
   }
   return route === 'regie' ? <AnimateurJeu /> : <JoueurJeu />

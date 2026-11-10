@@ -23,6 +23,14 @@
 		reverse_proxy server:4000
 	}
 
+	# Retour de paiement : si la passerelle revient en POST, on renvoie le
+	# navigateur en GET sur la même adresse (le statut est vérifié par l'API).
+	@retourPaiement {
+		method POST
+		path /abonnement/confirmation
+	}
+	redir @retourPaiement {uri} 303
+
 	handle {
 		root * /srv
 		# Assets hashés (Vite) → immuables, cache long. index.html + routes SPA →

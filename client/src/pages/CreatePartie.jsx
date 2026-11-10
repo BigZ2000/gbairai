@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { NOMBRES_EQUIPES } from '../components/Equipes.jsx'
 import Layout from '../components/Layout.jsx'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Mic2, Timer, Users, Plus, Trash2,
@@ -18,10 +19,10 @@ import {
 // ──────────────────────────────────────────────────────────────────────────────
 
 const MODES = [
-  { value: 'solo',      icon: User,    label: 'Solo',           desc: "Joue seul pour t'entraîner. Tout s'affiche sur ton écran, réponses vérifiées automatiquement." },
-  { value: 'auto',      icon: Timer,   label: 'Automatique',    desc: 'La partie avance toute seule au minuteur. Idéal en groupe pour démarrer vite. (Buzzer en présentiel = jeu de réflexe : le 1er qui buzze marque.)', recommande: true },
-  { value: 'animateur', icon: Mic2,    label: 'Avec animateur', desc: 'Vous présentez et validez chaque réponse. Vous animez — vous n\'apparaissez pas au classement.' },
-  { value: 'vote',      icon: Users,   label: 'Vote collectif', desc: 'Les joueurs votent ensemble pour valider (min. 3 joueurs).' },
+  { value: 'solo',      icon: User,    label: 'Jouer seul',               desc: "Pour t'entraîner : tout s'affiche sur ton écran, réponses vérifiées automatiquement." },
+  { value: 'auto',      icon: Timer,   label: 'Le jeu s\'anime tout seul', desc: 'Chrono, réponses et scores automatiques. Le plus simple en groupe.', recommande: true },
+  { value: 'animateur', icon: Mic2,    label: 'J\'anime la partie',        desc: 'Tu lis les questions et valides les réponses au buzzer. Tu restes hors classement.' },
+  { value: 'vote',      icon: Users,   label: 'La salle vote',             desc: 'Les joueurs jugent la réponse du plus rapide (3 joueurs minimum).' },
 ]
 
 const DIFFS = [
@@ -56,7 +57,7 @@ export default function CreatePartie() {
   const [step, setStep] = useState(1)
   // Défauts « plug & play » : mode AUTO **à distance** (médias + saisie sur le
   // téléphone de chacun — le cas le plus courant) + réponses masquées (régie).
-  const [form, setForm] = useState({ nom: '', mode: 'auto', masquerReponses: true, modeDistanciel: true, eliminationActive: false, viesParJoueur: 0 })
+  const [form, setForm] = useState({ nom: '', mode: 'auto', masquerReponses: true, modeDistanciel: true, eliminationActive: false, viesParJoueur: 0, equipes: 0 })
   const [showOptions, setShowOptions] = useState(false)
   const [manches, setManches] = useState([defaultManche(0)])
   const [categories, setCategories] = useState([]) // [{ nom, count }] — la base est la seule source
@@ -104,6 +105,7 @@ export default function CreatePartie() {
         modeDistanciel: isSolo ? true : !!form.modeDistanciel,
         eliminationActive: isSolo ? false : !!form.eliminationActive,
         viesParJoueur: isSolo ? 0 : (Number(form.viesParJoueur) || 0),
+        equipes: isSolo ? 0 : (Number(form.equipes) || 0),
       }
       const res = await apiFetch('/parties', { method: 'POST', body })
       if (!res?.ok) {
@@ -188,15 +190,15 @@ export default function CreatePartie() {
                     <label key={m.value}
                       className="flex items-start gap-3 p-3.5 rounded-lg cursor-pointer transition-all"
                       style={{
-                        background: sel ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
+                        background: sel ? 'rgba(242,106,27,0.08)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${sel ? 'rgba(242,106,27,0.3)' : 'var(--border)'}`,
                       }}>
                       <input type="radio" name="mode" value={m.value} checked={sel}
                         onChange={e => setForm(f => ({ ...f, mode: e.target.value }))}
-                        className="mt-0.5 accent-indigo-500" />
+                        className="mt-0.5 accent-brand" />
                       <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                          <Icon size={14} style={{ color: sel ? '#818CF8' : 'var(--text-dim)' }} />
+                          <Icon size={14} style={{ color: sel ? 'var(--brand-text)' : 'var(--text-dim)' }} />
                           <p className="text-sm font-semibold" style={{ color: sel ? 'var(--text)' : 'var(--text-muted)' }}>{m.label}</p>
                           {m.recommande && (
                             <span className="text-2xs font-bold px-1.5 py-0.5 rounded-full"
@@ -210,6 +212,20 @@ export default function CreatePartie() {
                 })}
               </div>
             </div>
+
+            {form.mode !== 'solo' && (
+              <div>
+                <p className="label mb-2">On joue comment ?</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {[0, ...NOMBRES_EQUIPES].map(n => (
+                    <button type="button" key={n} onClick={() => setForm(f => ({ ...f, equipes: n }))} aria-pressed={form.equipes === n}
+                      className={`chip ${form.equipes === n ? 'chip-on' : ''}`}>
+                      {n === 0 ? 'Chacun pour soi' : `${n} équipes`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* CTA PRINCIPAL — tout de suite après le mode (zéro friction). */}
             <button onClick={handleCreate} disabled={!form.nom.trim() || loading}
@@ -264,7 +280,7 @@ export default function CreatePartie() {
                           <label key={String(opt.value)} className="flex items-start gap-2.5 py-1.5 cursor-pointer">
                             <input type="radio" name="masquerReponses" checked={!!form.masquerReponses === opt.value}
                               onChange={() => setForm(f => ({ ...f, masquerReponses: opt.value }))}
-                              className="mt-0.5 accent-indigo-500" />
+                              className="mt-0.5 accent-brand" />
                             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                               {opt.label}
                               <span className="block text-2xs" style={{ color: 'var(--text-dim)' }}>{opt.desc}</span>
@@ -294,7 +310,7 @@ export default function CreatePartie() {
               <div key={m.id} className="card p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text)' }}>
-                    <Layers size={14} style={{ color: '#6366F1' }} />Manche {i + 1}
+                    <Layers size={14} style={{ color: '#F26A1B' }} />Manche {i + 1}
                   </span>
                   {manches.length > 1 && (
                     <button onClick={() => removeManche(i)} className="btn-ghost btn-sm" title="Supprimer la manche"
@@ -344,9 +360,9 @@ export default function CreatePartie() {
                         <button key={t.value} type="button" onClick={() => toggleType(i, t.value)}
                           className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
                           style={{
-                            background: active ? 'rgba(99,102,241,0.18)' : 'var(--hover-overlay)',
-                            color: active ? '#818CF8' : 'var(--text-muted)',
-                            border: `1px solid ${active ? 'rgba(99,102,241,0.45)' : 'var(--border)'}`,
+                            background: active ? 'rgba(242,106,27,0.18)' : 'var(--hover-overlay)',
+                            color: active ? 'var(--brand-text)' : 'var(--text-muted)',
+                            border: `1px solid ${active ? 'rgba(242,106,27,0.45)' : 'var(--border)'}`,
                           }}>
                           {active && <Check size={11} className="inline mr-1 -mt-0.5" />}{t.label}
                         </button>
@@ -419,7 +435,7 @@ export default function CreatePartie() {
 
             {/* Récap compact intégré (remplace l'ancien écran « Confirmation »). */}
             <div className="rounded-xl px-4 py-3 flex items-center justify-between text-sm"
-              style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+              style={{ background: 'rgba(242,106,27,0.06)', border: '1px solid rgba(242,106,27,0.2)' }}>
               <span style={{ color: 'var(--text-muted)' }}>
                 {manches.length} manche{manches.length > 1 ? 's' : ''} · {totalQuestions} questions
               </span>

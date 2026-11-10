@@ -9,7 +9,7 @@ const GRID = 'var(--border)'
 
 // ── Histogramme vertical ──────────────────────────────────────────────────────
 // data : [{ label, value }]
-export function BarChart({ data = [], color = '#6366F1', height = 180, format = v => v }) {
+export function BarChart({ data = [], color = '#F26A1B', height = 180, format = v => v }) {
   if (!data.length) return <Empty height={height} />
   const W = 520, H = height, padB = 26, padT = 12, padX = 8
   const max = Math.max(...data.map(d => d.value), 1)

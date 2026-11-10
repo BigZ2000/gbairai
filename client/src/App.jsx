@@ -42,6 +42,7 @@ import MonOrganisation from './pages/MonOrganisation.jsx'
 import InvitationAccept from './pages/InvitationAccept.jsx'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import PwaInstallPrompt from './components/PwaInstallPrompt.jsx'
+import QuizStudio from './pages/QuizStudio.jsx'
 
 function AdminRoute({ children }) {
   const { user, loading } = useAuth()
@@ -86,6 +87,9 @@ export default function App() {
             {/* Écrans UTILISATEUR — interdits aux invités (→ /invite). */}
             <Route path="/dashboard" element={<RequireAccount><Dashboard /></RequireAccount>} />
             <Route path="/parties/new" element={<RequireAccount><CreatePartie /></RequireAccount>} />
+            {/* Studio de quiz : création par IA, écriture à la main, modification. */}
+            <Route path="/quiz/nouveau" element={<RequireAccount><QuizStudio /></RequireAccount>} />
+            <Route path="/quiz/:id" element={<RequireAccount><QuizStudio key="edition" /></RequireAccount>} />
             <Route path="/compte" element={<RequireAccount><MonCompte /></RequireAccount>} />
             {/* Offres : consultables aussi par les invités (lecture seule + CTA création). */}
             <Route path="/abonnement" element={<Abonnements />} />

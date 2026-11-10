@@ -41,6 +41,47 @@ const upload = multer({
   fileFilter: (_req, file, cb) => cb(null, ALLOWED.includes(file.mimetype)),
 }).single('file')
 
+// Images envoyées par les utilisateurs (quiz personnels, logo d'organisation) :
+// images seulement, 5 Mo au plus. La vidéo et le son restent réservés à la
+// médiathèque gérée par l'équipe (poids, droits, modération).
+const IMAGES_PERSO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
+const uploadImagePerso = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, IMAGES_PERSO.includes(file.mimetype)),
+}).single('file')
+
+/**
+ * Reçoit UNE image d'utilisateur (multipart, champ « file ») et l'enregistre
+ * comme média privé de ce compte. Lève une erreur au message lisible.
+ * @returns {Promise<{ media, deduplicated }>}
+ */
+export function recevoirImagePerso(req, res, { titre = null } = {}) {
+  return new Promise((resolve, reject) => {
+    uploadImagePerso(req, res, async (err) => {
+      if (err) return reject(new Error(err.code === 'LIMIT_FILE_SIZE' ? 'Image trop lourde (5 Mo au plus).' : err.message))
+      if (!req.file) return reject(new Error('Choisis une image (JPEG, PNG, WebP, GIF ou AVIF).'))
+      const filePath = path.join(UPLOAD_DIR, req.file.filename)
+      try {
+        resolve(await ingestFile(filePath, {
+          originalName: req.file.originalname, mimeType: req.file.mimetype,
+          userId: req.userId, titre: titre ?? req.body?.titre ?? null, prive: true,
+        }))
+      } catch (e) {
+        fs.promises.unlink(filePath).catch(() => {})
+        reject(e)
+      }
+    })
+  })
+}
+
+/** Supprime le fichier d'un média (et sa miniature) du disque, sans erreur. */
+export function supprimerFichiersMedia(media) {
+  for (const u of [media?.url, media?.thumbUrl]) {
+    if (u && u.startsWith('/uploads/')) fs.promises.unlink(path.join(UPLOAD_DIR, path.basename(u))).catch(() => {})
+  }
+}
+
 function sha256OfFile(filePath) {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash('sha256')
@@ -59,14 +100,17 @@ const mediaInclude = { _count: { select: { questions: true } } }
  * Réutilisé par l'upload unitaire et par l'import en masse.
  * @returns {{ media, deduplicated }}
  */
-export async function ingestFile(absPath, { originalName, mimeType, userId, titre = null }) {
+export async function ingestFile(absPath, { originalName, mimeType, userId, titre = null, prive = false }) {
   const type = MIME_TO_TYPE(mimeType)
   if (!type) {
     fs.promises.unlink(absPath).catch(() => {})
     throw new Error(`Type non supporté : ${mimeType}`)
   }
 
-  const sha256 = await sha256OfFile(absPath)
+  // Image personnelle : l'empreinte est propre à son propriétaire, pour que la
+  // déduplication ne fasse jamais partager le fichier privé d'un autre compte.
+  const empreinte = await sha256OfFile(absPath)
+  const sha256 = prive ? `${empreinte}:${userId}` : empreinte
   const existing = await prisma.media.findUnique({ where: { sha256 }, include: mediaInclude })
   if (existing) {
     fs.promises.unlink(absPath).catch(() => {})
@@ -89,6 +133,7 @@ export async function ingestFile(absPath, { originalName, mimeType, userId, titr
       duration: proc.duration,
       titre,
       createdById: userId,
+      prive: !!prive,
     },
     include: mediaInclude,
   })
@@ -124,6 +169,10 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   const skip = (Math.max(parseInt(page) || 1, 1) - 1) * take
 
   const where = {
+    // Médiathèque publique seulement : les images personnelles des utilisateurs
+    // (quiz privés, logos) n'y apparaissent pas et ne peuvent donc pas être
+    // réutilisées dans les questions du catalogue.
+    prive: false,
     ...(type && ['IMAGE', 'AUDIO', 'VIDEO'].includes(type) ? { type } : {}),
     ...(q
       ? {

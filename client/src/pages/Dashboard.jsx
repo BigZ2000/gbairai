@@ -2,20 +2,21 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
+import LaunchSheet, { tint } from '../components/LaunchSheet.jsx'
 import {
-  ArrowRight, Sliders, Wifi, WifiOff, Radio, AlertCircle,
-  Loader2, Play, X, Zap, Target, Trophy, Clock, Gamepad2, Sparkles,
-  Search, Star, Flame, Clock3, ThumbsUp, SlidersHorizontal, Lock, Crown, Gauge,
+  ArrowRight, AlertCircle, Loader2, Play, X, Zap, Clock, Search, Star, Lock, Crown,
+  Gauge, Wand2, Sparkles, Radio, Plus, SlidersHorizontal, Building2,
 } from 'lucide-react'
 
-const GAMEMODES = [
-  { id: 'animateur', label: 'Animateur', desc: 'Tu présentes et valides les réponses.', icon: Target },
-  { id: 'auto',      label: 'Automatique', desc: 'Le jeu se déroule tout seul.', icon: Zap },
-  { id: 'vote',      label: 'Vote collectif', desc: 'Tout le monde vote la bonne réponse.', icon: Trophy },
+// Accueil : tout ce qu'on vient faire tient en trois gestes, dans cet ordre.
+//   1. rejoindre une partie (un code)      2. créer son quiz (une phrase)
+//   3. choisir un pack prêt à jouer (un clic)
+// Le reste (quotas, buzzers, réglages) est présent mais ne réclame pas l'attention.
+const IDEES = [
+  'Un quiz de 15 questions sur la musique ivoirienne',
+  'Un team building pour 20 collègues sur la cohésion d\'équipe',
+  'Culture générale pour une soirée au maquis',
 ]
-
-const DIFFICULTES = [['FACILE', 'Facile'], ['MOYEN', 'Moyen'], ['DIFFICILE', 'Difficile'], ['MIXTE', 'Mixte']]
-const DUREES = [['RAPIDE', 'Rapide'], ['STANDARD', 'Standard'], ['LONGUE', 'Longue']]
 
 export default function Dashboard() {
   const { user, apiFetch } = useAuth()
@@ -25,72 +26,47 @@ export default function Dashboard() {
   const [signatures, setSignatures] = useState([])
   const [parties, setParties] = useState([])
   const [buzzers, setBuzzers] = useState([])
+  const [mesQuiz, setMesQuiz] = useState([])
+  const [ia, setIa] = useState(null)
+  const [quota, setQuota] = useState(null)
+  const [loading, setLoading] = useState(true)
+
   const [joinCode, setJoinCode] = useState('')
   const [joinError, setJoinError] = useState('')
   const [joinLoading, setJoinLoading] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [selectedPack, setSelectedPack] = useState(null)
-  const [launching, setLaunching] = useState(null)
-  const [animateurJoue, setAnimateurJoue] = useState(false)
-  const [modeDistanciel, setModeDistanciel] = useState(true) // défaut : auto À DISTANCE (médias + saisie sur téléphone)
-  const [quota, setQuota] = useState(null)
-  const [paywall, setPaywall] = useState(null) // { reason, requiredPlan } | null
+  const [idee, setIdee] = useState('')
 
-  // Recherche & filtres
   const [search, setSearch] = useState('')
-  const [fCat, setFCat] = useState('')
-  const [fDiff, setFDiff] = useState('')
-  const [fDuree, setFDuree] = useState('')
+  const [cat, setCat] = useState('')           // '' = tout
+  const [selected, setSelected] = useState(null) // { pack, editable }
+  const [paywall, setPaywall] = useState(null)
 
   useEffect(() => {
+    const json = (p, fallback) => apiFetch(p).then(r => (r?.ok ? r.json() : fallback)).catch(() => fallback)
     Promise.all([
-      apiFetch('/packs').then(r => r?.json()).catch(() => ({})),
-      apiFetch('/parties').then(r => r?.json()).catch(() => []),
-      apiFetch('/buzzers').then(r => r?.json()).catch(() => []),
-      apiFetch('/billing/me').then(r => r?.json()).catch(() => null),
-    ]).then(([cat, p, b, q]) => {
-      setPacks(cat?.packs ?? [])
-      setSignatures(cat?.signatures ?? [])
-      setParties(Array.isArray(p) ? p : [])
-      setBuzzers(Array.isArray(b) ? b : [])
-      setQuota(q)
+      json('/packs', {}), json('/parties', []), json('/buzzers', []),
+      json('/billing/me', null), json('/quiz', { quiz: [] }), json('/quiz/ia/etat', null),
+    ]).then(([c, p, b, q, mq, etat]) => {
+      setPacks(c?.packs ?? []); setSignatures(c?.signatures ?? [])
+      setParties(Array.isArray(p) ? p : []); setBuzzers(Array.isArray(b) ? b : [])
+      setQuota(q); setMesQuiz(mq?.quiz ?? []); setIa(etat)
     }).finally(() => setLoading(false))
   }, [])
 
   const enCours = parties.filter(p => p.status === 'EN_ATTENTE' || p.status === 'EN_COURS')
+  const catalogue = useMemo(() => [...packs, ...signatures].sort((a, b) => b.priorite - a.priorite), [packs, signatures])
+  const categories = useMemo(() => [...new Set(catalogue.map(p => p.categorie).filter(Boolean))].sort(), [catalogue])
+  const vedettes = useMemo(() => catalogue.filter(p => p.vedette || p.signature).slice(0, 8), [catalogue])
 
-  // Catalogue complet (packs + signatures) pour recherche/filtres.
-  const catalogue = useMemo(() => [...packs, ...signatures], [packs, signatures])
-
-  // Liste des catégories présentes dans les données (pour le filtre).
-  const categories = useMemo(() => {
-    const set = new Set()
-    catalogue.forEach(p => { if (p.categorie) set.add(p.categorie) })
-    return [...set].sort()
-  }, [catalogue])
-
-  const hasFilter = search.trim() || fCat || fDiff || fDuree
-
-  // Résultats filtrés (quand recherche/filtre actif).
-  const filtered = useMemo(() => {
+  const filtre = search.trim() || cat
+  const visibles = useMemo(() => {
     const q = search.trim().toLowerCase()
     return catalogue.filter(p => {
-      if (fCat && p.categorie !== fCat) return false
-      if (fDiff && p.difficulte !== fDiff) return false
-      if (fDuree && p.duree !== fDuree) return false
-      if (q) {
-        const hay = [p.nom, p.description, p.categorie, ...(p.tags ?? [])].join(' ').toLowerCase()
-        if (!hay.includes(q)) return false
-      }
-      return true
-    }).sort((a, b) => b.priorite - a.priorite)
-  }, [catalogue, search, fCat, fDiff, fDuree])
-
-  // Sections curatées (quand aucun filtre).
-  const vedettes   = useMemo(() => packs.filter(p => p.vedette).sort((a, b) => b.priorite - a.priorite), [packs])
-  const nouveautes = useMemo(() => [...packs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 8), [packs])
-  const populaires = useMemo(() => packs.filter(p => p.lancements > 0).sort((a, b) => b.lancements - a.lancements).slice(0, 8), [packs])
-  const recommandes = useMemo(() => packs.filter(p => !p.vedette).sort((a, b) => b.priorite - a.priorite).slice(0, 8), [packs])
+      if (cat && p.categorie !== cat) return false
+      if (!q) return true
+      return [p.nom, p.description, p.categorie, ...(p.tags ?? [])].join(' ').toLowerCase().includes(q)
+    })
+  }, [catalogue, search, cat])
 
   async function handleJoin(e) {
     e.preventDefault()
@@ -117,121 +93,100 @@ export default function Dashboard() {
     }
   }
 
-  // Ouvre la modale de lancement OU le paywall si le pack est verrouillé.
   function pickPack(pack) {
     if (pack.verrouille) {
-      setPaywall({ reason: `Ce pack nécessite un abonnement ${pack.requiredPlan === 'PRO' ? 'Pro' : pack.requiredPlan}.`, requiredPlan: pack.requiredPlan })
+      setPaywall({ reason: `Ce pack fait partie de l'offre ${pack.requiredPlan === 'PRO' ? 'Premium' : pack.requiredPlan === 'ECOLE' ? 'École' : 'Organisation'}.` })
       return
     }
-    setSelectedPack(pack)
+    setSelected({ pack, editable: false })
   }
 
-  // `autostart` (solo / preset) : on enchaîne directement le démarrage et on saute
-  // la salle d'attente → « Scanner → Jouer ». `distanciel` peut surcharger l'état.
-  async function launchPack(packId, gameMode, { autostart = false, distanciel } = {}) {
-    setLaunching(packId)
-    try {
-      const dist = distanciel ?? modeDistanciel
-      // « Jouer maintenant » (autostart) = partie solo : gratuite, non décomptée.
-      const res = await apiFetch(`/packs/${packId}/start`, { method: 'POST', body: { gameMode, animateurJoue: gameMode === 'animateur' ? animateurJoue : false, modeDistanciel: dist, solo: autostart } })
-      if (!res?.ok) {
-        const err = await res?.json().catch(() => ({}))
-        setLaunching(null); setSelectedPack(null)
-        // 403 = accès refusé (plan) ; 402 = quota atteint.
-        setPaywall({
-          reason: err?.error ?? 'Action indisponible.',
-          requiredPlan: err?.requiredPlan ?? (err?.code === 'QUOTA_PARTIES' ? 'PRO' : null),
-          quota: err?.code === 'QUOTA_PARTIES',
-        })
-        return
-      }
-      const partie = await res.json()
-      if (autostart) {
-        // Lancement immédiat (la route applique les garde-fous : vivier, vote ≥3…).
-        const s = await apiFetch(`/parties/${partie.id}/start`, { method: 'POST', body: {} })
-        if (!s?.ok) {
-          const e = await s?.json().catch(() => ({}))
-          setLaunching(null); setSelectedPack(null)
-          setPaywall({ reason: e?.error ?? 'Lancement impossible.', requiredPlan: null, quota: false })
-          return
-        }
-        navigate(`/parties/${partie.code}/jeu`)
-        return
-      }
-      navigate(`/parties/${partie.code}/attente`)
-    } catch {
-      setLaunching(null)
-    }
+  function onBlocked(err) {
+    setSelected(null)
+    setPaywall({ reason: err?.error ?? 'Action indisponible.', quota: err?.code === 'QUOTA_PARTIES' })
   }
 
-  const greeting = new Date().getHours() < 12 ? 'Bonjour' : 'Bonsoir'
-  const displayName = user?.username ? `@${user.username}` : user?.prenom
-  const onlineBuzzers = buzzers.filter(b => b.status !== 'OFFLINE').length
+  function creer(e) {
+    e?.preventDefault()
+    navigate('/quiz/nouveau', { state: { demande: idee.trim() } })
+  }
+
+  const prenom = user?.prenom || (user?.username ? `@${user.username}` : '')
+  const heure = new Date().getHours()
+  const salut = heure < 12 ? 'Bonjour' : heure < 18 ? 'Bon après-midi' : 'Bonsoir'
 
   return (
     <Layout maxWidth="max-w-6xl">
-      {/* Header */}
-      <div className="flex items-end justify-between mb-7">
-        <div>
-          <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>{greeting}</p>
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>{displayName}</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg"
-            style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)' }}>
-            {onlineBuzzers > 0 ? <Wifi size={13} style={{ color: '#22C55E' }} /> : <WifiOff size={13} style={{ color: 'var(--text-dim)' }} />}
-            <span className="text-xs font-medium" style={{ color: onlineBuzzers > 0 ? '#22C55E' : 'var(--text-dim)' }}>
-              {onlineBuzzers}/{buzzers.length} buzzer{buzzers.length !== 1 ? 's' : ''}
-            </span>
+      <h1 className="text-2xl sm:text-3xl font-extrabold mb-5" style={{ color: 'var(--text)' }}>
+        {salut}{prenom ? `, ${prenom}` : ''} <span aria-hidden="true">👋</span>
+      </h1>
+
+      {/* 1 + 2 — Rejoindre / Créer */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-8">
+        <form onSubmit={handleJoin} className="card p-4 sm:p-5 md:col-span-2 flex flex-col min-w-0">
+          <p className="font-display font-bold text-base flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            <Zap size={17} style={{ color: 'var(--brand)' }} />Tu as un code ?
+          </p>
+          <p className="text-xs mt-0.5 mb-3" style={{ color: 'var(--text-muted)' }}>Rejoins la partie d'un ami ou d'un animateur.</p>
+          <div className="flex gap-2 mt-auto">
+            <input type="text" inputMode="text" autoCapitalize="characters" autoComplete="off" aria-label="Code de la partie"
+              placeholder="QUIZ42" value={joinCode} maxLength={8}
+              onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError('') }}
+              className={`input min-w-0 font-mono text-lg tracking-[0.25em] uppercase text-center ${joinError ? 'input-error' : ''}`} />
+            <button type="submit" disabled={joinLoading || !joinCode.trim()} className="btn-primary btn-lg shrink-0">
+              {joinLoading ? <Loader2 size={16} className="animate-spin" /> : <>Rejoindre<ArrowRight size={15} /></>}
+            </button>
           </div>
-          <Link to="/parties/new" className="btn-secondary btn-lg gap-2">
-            <Sliders size={15} />
-            <span className="hidden sm:inline">Partie personnalisée</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Join bar */}
-      <form onSubmit={handleJoin} className="flex gap-2 mb-6">
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            placeholder="On t'a donné un code ? Rejoins une partie — ex : QUIZ42"
-            value={joinCode}
-            onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError('') }}
-            maxLength={8}
-            className="input font-mono tracking-widest uppercase"
-          />
           {joinError && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-sm absolute" style={{ color: '#F87171' }}>
-              <AlertCircle size={13} />{joinError}
-            </div>
+            <p className="flex items-center gap-1.5 mt-2 text-sm" role="alert" style={{ color: '#C0392B' }}>
+              <AlertCircle size={14} />{joinError}
+            </p>
           )}
-        </div>
-        <button type="submit" disabled={joinLoading || !joinCode.trim()} className="btn-primary btn-lg shrink-0">
-          {joinLoading ? <Loader2 size={15} className="animate-spin" /> : <>Rejoindre <ArrowRight size={14} /></>}
-        </button>
-      </form>
+        </form>
 
-      {/* Bandeau quotas / plan */}
-      {quota && <QuotaBanner quota={quota} />}
+        <form onSubmit={creer} className="panel-ink md:col-span-3 p-4 sm:p-5 flex flex-col min-w-0" style={{ borderRadius: 18 }}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-display font-bold text-base flex items-center gap-2">
+              <Wand2 size={17} style={{ color: 'var(--mango)' }} />Crée ton quiz en une phrase
+            </p>
+            <IaBadge ia={ia} />
+          </div>
+          <p className="text-xs mt-0.5 mb-3" style={{ opacity: 0.75 }}>
+            Dis ce que tu veux, l'IA prépare les questions. Tu relis, tu joues.
+          </p>
+          <div className="flex gap-2 mt-auto">
+            <input value={idee} onChange={e => setIdee(e.target.value)} maxLength={300} aria-label="Décris ton quiz"
+              placeholder="Un quiz sur le football ivoirien…"
+              className="flex-1 min-w-0 text-sm px-3.5 rounded-xl focus:outline-none"
+              style={{ background: 'rgba(255,255,255,0.12)', color: 'inherit', border: '1px solid rgba(255,255,255,0.18)', height: 44 }} />
+            <button type="submit" className="btn-primary btn-lg shrink-0"><Sparkles size={15} /><span className="hidden sm:inline">Créer</span></button>
+          </div>
+          <div className="scroll-x mt-2.5">
+            {IDEES.map(t => (
+              <button key={t} type="button" onClick={() => navigate('/quiz/nouveau', { state: { demande: t } })}
+                className="text-2xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap shrink-0"
+                style={{ background: 'rgba(255,255,255,0.1)', color: 'inherit' }}>{t}</button>
+            ))}
+          </div>
+        </form>
+      </div>
 
       {/* Reprendre */}
       {enCours.length > 0 && (
-        <section className="mb-9">
-          <SectionTitle icon={Gamepad2} title="Reprendre" />
+        <section className="mb-8">
+          <Titre>Reprendre</Titre>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {enCours.map(p => (
               <Link key={p.id} to={`/parties/${p.code}/${p.status === 'EN_COURS' ? 'jeu' : 'attente'}`}
-                className="card card-hover p-4 flex items-center justify-between">
+                className="card card-hover p-4 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-sm truncate" style={{ color: 'var(--text)' }}>{p.nom}</p>
-                  <p className="text-2xs mt-0.5 font-mono" style={{ color: 'var(--text-dim)' }}>
-                    {p.code} · {p.participants?.length ?? 0} joueur{(p.participants?.length ?? 0) !== 1 ? 's' : ''}
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                    <span className="font-mono">{p.code}</span> · {p.participants?.length ?? 0} joueur{(p.participants?.length ?? 0) !== 1 ? 's' : ''}
                   </p>
                 </div>
                 <span className={p.status === 'EN_COURS' ? 'badge-active' : 'badge-wait'}>
-                  {p.status === 'EN_COURS' ? <><Zap size={9} />En cours</> : <><Clock size={9} />Attente</>}
+                  {p.status === 'EN_COURS' ? <><Zap size={10} />En cours</> : <><Clock size={10} />En attente</>}
                 </span>
               </Link>
             ))}
@@ -239,248 +194,122 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Recherche + filtres */}
-      <div className="mb-6 space-y-3">
-        <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher un pack… (football, musique, Abidjan…)"
-            className="input w-full pl-10" />
-          {hasFilter && (
-            <button onClick={() => { setSearch(''); setFCat(''); setFDiff(''); setFDuree('') }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 btn-ghost btn-sm gap-1 text-2xs">
-              <X size={12} />Réinitialiser
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <SlidersHorizontal size={14} style={{ color: 'var(--text-dim)' }} />
-          <FilterChips value={fCat} onChange={setFCat} options={categories.map(c => [c, c])} placeholder="Catégorie" />
-          <FilterChips value={fDiff} onChange={setFDiff} options={DIFFICULTES} placeholder="Difficulté" />
-          <FilterChips value={fDuree} onChange={setFDuree} options={DUREES} placeholder="Durée" />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-32 rounded-2xl" />)}
-        </div>
-      ) : hasFilter ? (
-        /* Résultats de recherche / filtres */
-        <section className="mb-9">
-          <SectionTitle icon={Search} title={`Résultats (${filtered.length})`} />
-          {filtered.length === 0 ? (
-            <div className="card p-8 text-center">
-              <Search size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
-              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Aucun pack ne correspond à ta recherche.</p>
-            </div>
-          ) : (
-            <PackGrid packs={filtered} launching={launching} onPick={pickPack} />
-          )}
-        </section>
-      ) : (
-        <>
-          {/* Vedettes */}
-          {vedettes.length > 0 && (
-            <Section icon={Star} title="À la une" subtitle="Nos packs vedettes du moment."
-              packs={vedettes} launching={launching} onPick={pickPack} highlight />
-          )}
-          {/* Signature */}
-          {signatures.length > 0 && (
-            <section className="mb-9">
-              <SectionTitle icon={Trophy} title="Signature Gbairai" subtitle="Prêtes à jouer en un clic." />
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-                {signatures.map(sig => (
-                  <button key={sig.id} onClick={() => pickPack(sig)} disabled={launching === sig.id}
-                    className="group relative shrink-0 w-56 text-left rounded-2xl p-4 h-28 flex flex-col justify-between overflow-hidden transition-all"
-                    style={{
-                      background: `linear-gradient(135deg, ${hex(sig.couleur, 0.2)} 0%, var(--card-tint) 75%)`,
-                      border: `1px solid ${hex(sig.couleur, 0.3)}`,
-                    }}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl">{sig.emoji}</span>
-                      {launching === sig.id
-                        ? <Loader2 size={15} className="animate-spin" style={{ color: sig.couleur }} />
-                        : <Play size={15} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: sig.couleur }} />}
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>{sig.nom}</p>
-                      <p className="text-2xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{sig.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-          {/* Tous les packs */}
-          <Section icon={Sparkles} title="Choisis un pack et joue" subtitle="Les questions sont générées automatiquement."
-            packs={packs} launching={launching} onPick={pickPack} />
-          {/* Populaires */}
-          {populaires.length > 0 && (
-            <Section icon={Flame} title="Les plus joués" packs={populaires} launching={launching} onPick={pickPack} />
-          )}
-          {/* Nouveautés */}
-          {nouveautes.length > 0 && (
-            <Section icon={Clock3} title="Dernières nouveautés" packs={nouveautes} launching={launching} onPick={pickPack} />
-          )}
-          {/* Recommandés */}
-          {recommandes.length > 0 && (
-            <Section icon={ThumbsUp} title="Recommandés pour toi" packs={recommandes} launching={launching} onPick={pickPack} />
-          )}
-        </>
-      )}
-
-      {/* Buzzers */}
-      <section className="mt-2">
-        <div className="flex items-center justify-between mb-3">
-          <SectionTitle icon={Radio} title="Mes buzzers" inline />
-          <div className="flex items-center gap-3">
-            <Link to="/buzzer" className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Comment ça marche ?</Link>
-            <Link to="/compte" state={{ tab: 'buzzers' }} className="text-xs font-medium" style={{ color: '#818CF8' }}>Gérer →</Link>
-          </div>
-        </div>
-        {buzzers.length === 0 ? (
-          <div className="card p-6 text-center">
-            <Radio size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
-            <p className="text-sm mb-3" style={{ color: 'var(--text-dim)' }}>Aucun buzzer appairé.</p>
-            <Link to="/compte" state={{ tab: 'buzzers' }} className="btn-secondary btn-sm">Ajouter un buzzer</Link>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {buzzers.map(b => (
-              <Link key={b.id} to="/compte" state={{ tab: 'buzzers' }}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
-                style={{ background: 'var(--hover-overlay)', border: '1px solid var(--border)', textDecoration: 'none' }}>
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: b.status === 'OFFLINE' ? 'var(--text-dim)' : b.status === 'IN_GAME' ? '#F59E0B' : '#22C55E' }} />
-                <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{b.nom ?? b.mac.slice(-5)}</span>
-              </Link>
+      {/* Mes quiz */}
+      {mesQuiz.length > 0 && (
+        <section className="mb-8">
+          <Titre action={<Link to="/quiz/nouveau" className="text-sm font-semibold flex items-center gap-1" style={{ color: 'var(--brand-text)' }}><Plus size={14} />Nouveau</Link>}>
+            Mes quiz
+          </Titre>
+          <div className="scroll-x -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+            {mesQuiz.map(q => (
+              <button key={q.id} onClick={() => setSelected({ pack: q, editable: true })}
+                className="card card-hover shrink-0 w-60 p-4 text-left">
+                <div className="flex items-start justify-between">
+                  <span className="text-3xl" aria-hidden="true">{q.emoji ?? '🎯'}</span>
+                  {q.origine === 'IA' && <span className="badge-ia"><Sparkles size={9} />IA</span>}
+                </div>
+                <p className="font-bold text-sm mt-2 line-clamp-2" style={{ color: 'var(--text)' }}>{q.nom}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>
+                  {q.nbQuestions} question{q.nbQuestions > 1 ? 's' : ''}{q.lancements > 0 ? ` · joué ${q.lancements} fois` : ''}
+                </p>
+              </button>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* 3 — Catalogue */}
+      <section className="mb-8">
+        <Titre action={<Link to="/parties/new" className="text-sm font-semibold flex items-center gap-1" style={{ color: 'var(--text-muted)' }}><SlidersHorizontal size={14} />Sur mesure</Link>}>
+          Prêts à jouer
+        </Titre>
+
+        <div className="relative mb-3">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} aria-label="Rechercher un pack"
+            placeholder="Football, musique, drapeaux, Abidjan…" className="input pl-10 pr-10" />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full"
+              style={{ color: 'var(--text-muted)' }} aria-label="Effacer la recherche"><X size={15} /></button>
+          )}
+        </div>
+        <div className="scroll-x -mx-4 px-4 sm:mx-0 sm:px-0 mb-4">
+          <button onClick={() => setCat('')} className={`chip ${cat === '' ? 'chip-on' : ''}`}>Tout</button>
+          {categories.map(c => (
+            <button key={c} onClick={() => setCat(cat === c ? '' : c)} className={`chip ${cat === c ? 'chip-on' : ''}`}>{c}</button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-36" style={{ borderRadius: 18 }} />)}
+          </div>
+        ) : (
+          <>
+            {!filtre && vedettes.length > 0 && (
+              <div className="scroll-x -mx-4 px-4 sm:mx-0 sm:px-0 mb-4 pb-1">
+                {vedettes.map(p => <PackVedette key={p.id} pack={p} onPick={pickPack} />)}
+              </div>
+            )}
+            {visibles.length === 0 ? (
+              <div className="card p-8 text-center">
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Aucun pack pour cette recherche.</p>
+                <button onClick={() => navigate('/quiz/nouveau', { state: { demande: search.trim() } })} className="btn-primary mt-3">
+                  <Wand2 size={15} />Créer ce quiz avec l'IA
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {visibles.map(p => <PackCard key={p.id} pack={p} onPick={pickPack} />)}
+              </div>
+            )}
+          </>
         )}
       </section>
 
-      {/* Mode picker modal */}
-      {selectedPack && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
-          onClick={() => !launching && setSelectedPack(null)}>
-          <div className="card p-6 max-w-md w-full animate-scaleIn" onClick={e => e.stopPropagation()}
-            style={{ border: `1px solid ${hex(selectedPack.couleur, 0.3)}` }}>
-            <div className="flex items-start justify-between mb-1">
-              <span className="text-4xl">{selectedPack.emoji}</span>
-              <button onClick={() => setSelectedPack(null)} className="btn-ghost btn-sm"><X size={16} /></button>
-            </div>
-            <h3 className="text-xl font-bold mt-2" style={{ color: 'var(--text)' }}>{selectedPack.nom}</h3>
-            <p className="text-sm mt-1 mb-1.5" style={{ color: 'var(--text-muted)' }}>{selectedPack.description}</p>
-            <p className="text-2xs mb-4" style={{ color: 'var(--text-dim)' }}>
-              {selectedPack.nbManches} manche{selectedPack.nbManches > 1 ? 's' : ''} · {selectedPack.nbManches * selectedPack.nbQuestions} questions · {selectedPack.tempsParQuestion}s/question
-            </p>
-
-            {/* Mode animateur : l'hôte peut choisir d'être Maître du jeu (défaut)
-                ou de jouer aussi (compté au classement). */}
-            <button onClick={() => setAnimateurJoue(v => !v)}
-              className="flex items-center gap-2 mb-3 text-left">
-              <span className="w-9 h-5 rounded-full relative transition-all shrink-0"
-                style={{ background: animateurJoue ? '#6366F1' : 'rgba(255,255,255,0.12)' }}>
-                <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: animateurJoue ? '18px' : '2px' }} />
-              </span>
-              <span className="text-2xs" style={{ color: 'var(--text-muted)' }}>
-                {animateurJoue ? 'Je joue aussi (compté au score)' : 'Je suis Maître du jeu (hors classement)'}
-                <span className="block" style={{ color: 'var(--text-dim)' }}>Mode Animateur uniquement</span>
-              </span>
-            </button>
-
-            {/* D5/A4 — Mode distanciel */}
-            <button onClick={() => setModeDistanciel(v => !v)}
-              className="flex items-center gap-2 mb-3 text-left">
-              <span className="w-9 h-5 rounded-full relative transition-all shrink-0"
-                style={{ background: modeDistanciel ? '#0EA5E9' : 'rgba(255,255,255,0.12)' }}>
-                <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: modeDistanciel ? '18px' : '2px' }} />
-              </span>
-              <span className="text-2xs" style={{ color: 'var(--text-muted)' }}>
-                {modeDistanciel ? 'Jeu à distance activé' : 'Jeu à distance désactivé'}
-                <span className="block" style={{ color: 'var(--text-dim)' }}>Médias + saisie sur téléphone</span>
-              </span>
-            </button>
-
-            {/* Jouer maintenant : solo instantané (auto + distanciel), zéro étape. */}
-            <button disabled={!!launching}
-              onClick={() => launchPack(selectedPack.id, 'auto', { autostart: true, distanciel: true })}
-              className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl mb-4 font-semibold transition-all"
-              style={{ background: selectedPack.couleur, color: '#fff', opacity: launching ? 0.7 : 1 }}>
-              {launching === selectedPack.id
-                ? <Loader2 size={16} className="animate-spin" />
-                : <><Play size={16} />Jouer maintenant <span className="text-2xs font-normal opacity-90">· solo, en 1 clic</span></>}
-            </button>
-
-            <p className="label mb-2">…ou choisis un mode (pour inviter des joueurs)</p>
-            <div className="space-y-2">
-              {GAMEMODES.map(m => {
-                const Icon = m.icon
-                const recommended = selectedPack.modeRecommande === m.id
-                return (
-                  <button key={m.id} disabled={!!launching}
-                    onClick={() => launchPack(selectedPack.id, m.id)}
-                    className="w-full flex items-center gap-3 p-3.5 rounded-xl transition-all text-left"
-                    style={{
-                      background: 'var(--hover-overlay)',
-                      border: `1px solid ${recommended ? hex(selectedPack.couleur, 0.4) : 'var(--border)'}`,
-                    }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ background: hex(selectedPack.couleur, 0.15) }}>
-                      <Icon size={16} style={{ color: selectedPack.couleur }} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
-                        {m.label}
-                        {recommended && <span className="text-2xs px-1.5 py-0.5 rounded-full" style={{ background: hex(selectedPack.couleur, 0.15), color: selectedPack.couleur }}>Recommandé</span>}
-                      </p>
-                      <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>{m.desc}</p>
-                    </div>
-                    {launching === selectedPack.id
-                      ? <Loader2 size={16} className="animate-spin" style={{ color: selectedPack.couleur }} />
-                      : <ArrowRight size={15} style={{ color: 'var(--text-dim)' }} />}
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Notation du pack */}
-            <PackRating pack={selectedPack} apiFetch={apiFetch} />
+      {/* Bas de page : état du compte, sans bruit */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {quota && <QuotaCard quota={quota} />}
+        <div className="card p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--brand-soft)' }}>
+            <Radio size={18} style={{ color: 'var(--brand-text)' }} />
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+              {buzzers.length === 0 ? 'Buzzers physiques' : `${buzzers.filter(b => b.status !== 'OFFLINE').length} / ${buzzers.length} buzzer${buzzers.length > 1 ? 's' : ''} en ligne`}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {buzzers.length === 0 ? 'Le téléphone suffit. Les vrais buzzers, c\'est pour le spectacle.' : 'Ils se connectent tout seuls à ta prochaine partie.'}
+            </p>
+          </div>
+          <Link to={buzzers.length === 0 ? '/buzzer' : '/compte'} state={{ tab: 'buzzers' }} className="btn-secondary btn-sm shrink-0">
+            {buzzers.length === 0 ? 'Découvrir' : 'Gérer'}
+          </Link>
         </div>
+      </div>
+
+      {selected && (
+        <LaunchSheet pack={selected.pack} editable={selected.editable}
+          onClose={() => setSelected(null)} onBlocked={onBlocked} />
       )}
 
-      {/* Paywall */}
       {paywall && (
-        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setPaywall(null)}>
-          <div className="card p-6 max-w-sm w-full text-center animate-scaleIn" onClick={e => e.stopPropagation()}>
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
-              style={{ background: 'rgba(99,102,241,0.12)' }}>
-              {paywall.quota ? <Gauge size={26} style={{ color: '#818CF8' }} /> : <Lock size={24} style={{ color: '#818CF8' }} />}
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" role="dialog" aria-modal="true"
+          style={{ background: 'rgba(43,26,16,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setPaywall(null)}>
+          <div className="card p-6 max-w-sm w-full text-center animate-pop" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(255,194,61,0.28)' }}>
+              {paywall.quota ? <Gauge size={26} style={{ color: '#C98A00' }} /> : <Lock size={24} style={{ color: '#C98A00' }} />}
             </div>
-            <h3 className="text-lg font-bold mb-1.5" style={{ color: 'var(--text)' }}>
-              {paywall.quota ? 'Tu as fait le plein ce mois-ci 🎉' : 'Pack réservé'}
+            <h3 className="text-lg font-extrabold mb-1.5" style={{ color: 'var(--text)' }}>
+              {paywall.quota ? 'Tu as fait le plein ce mois-ci 🎉' : 'Réservé à une offre'}
             </h3>
             <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{paywall.reason}</p>
-            {paywall.quota ? (
-              // Temps 1 : pas de paiement. Message doux + le solo reste illimité.
-              <div className="flex flex-col gap-2">
-                <button onClick={() => { setPaywall(null); navigate('/parties/new') }} className="btn-primary w-full gap-2">
-                  <Play size={15} />Jouer en solo (illimité)
-                </button>
-                <button onClick={() => setPaywall(null)} className="btn-ghost w-full">Compris</button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <Link to="/abonnement" className="btn-primary w-full gap-2">
-                  <Crown size={15} />Découvrir les offres
-                </Link>
-                <button onClick={() => setPaywall(null)} className="btn-ghost w-full">Plus tard</button>
-              </div>
-            )}
+            <div className="flex flex-col gap-2">
+              <Link to="/abonnement" className="btn-primary w-full"><Crown size={15} />Voir les offres</Link>
+              <button onClick={() => setPaywall(null)} className="btn-ghost w-full">
+                {paywall.quota ? 'Continuer en solo (illimité)' : 'Plus tard'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -488,208 +317,96 @@ export default function Dashboard() {
   )
 }
 
-// Bandeau plan + quotas. Visibilité discrète mais claire (point 7 du brief).
-function QuotaBanner({ quota }) {
+function Titre({ children, action }) {
+  return (
+    <div className="flex items-end justify-between mb-3">
+      <h2 className="text-lg font-extrabold" style={{ color: 'var(--text)' }}>{children}</h2>
+      {action}
+    </div>
+  )
+}
+
+// Ce que l'utilisateur peut attendre de l'IA, dit honnêtement selon son état réel.
+function IaBadge({ ia }) {
+  if (!ia) return null
+  const style = { background: 'rgba(255,194,61,0.95)', color: '#2B1A10' }
+  let texte
+  if (!ia.disponible) texte = 'Bientôt'
+  else if (ia.mode === 'illimite') texte = 'Illimité'
+  else if (ia.mode === 'essai') texte = ia.restantes > 0 ? `${ia.restantes} essai offert` : 'Premium'
+  else texte = `${ia.restantes} ce mois`
+  return <span className="badge shrink-0" style={style}><Crown size={10} />{texte}</span>
+}
+
+function PackCard({ pack, onPick }) {
+  const n = (pack.nbManches ?? 1) * (pack.nbQuestions ?? 0)
+  return (
+    <button onClick={() => onPick(pack)} className="card card-hover text-left overflow-hidden flex flex-col">
+      <div className="h-20 flex items-center justify-center relative" style={{ background: tint(pack.couleur, 0.16) }}>
+        <span className="text-4xl" aria-hidden="true">{pack.emoji ?? '🎯'}</span>
+        {pack.verrouille && (
+          <span className="absolute top-2 right-2 badge" style={{ background: 'var(--surface)', color: 'var(--text)' }}>
+            <Lock size={9} />{pack.tier === 'PREMIUM' || pack.tier === 'EVENEMENT' ? 'Premium' : pack.tier === 'ECOLE' ? 'École' : 'Pro'}
+          </span>
+        )}
+      </div>
+      <div className="p-3 flex-1 flex flex-col">
+        <p className="font-bold text-sm leading-snug" style={{ color: 'var(--text)' }}>{pack.nom}</p>
+        <p className="text-xs mt-1 line-clamp-2 flex-1" style={{ color: 'var(--text-muted)' }}>{pack.description}</p>
+        <p className="text-2xs font-semibold mt-2 flex items-center gap-2" style={{ color: 'var(--text-dim)' }}>
+          <span>{n} questions</span>
+          {pack.nbAvis > 0 && <span className="flex items-center gap-0.5"><Star size={10} style={{ color: 'var(--mango)', fill: 'var(--mango)' }} />{pack.noteMoyenne}</span>}
+        </p>
+      </div>
+    </button>
+  )
+}
+
+function PackVedette({ pack, onPick }) {
+  return (
+    <button onClick={() => onPick(pack)}
+      className="shrink-0 w-64 sm:w-72 h-32 p-4 text-left flex flex-col justify-between relative overflow-hidden transition-transform hover:-translate-y-0.5"
+      style={{ background: pack.couleur ?? 'var(--brand)', borderRadius: 18, color: '#fff' }}>
+      <span className="absolute -right-3 -bottom-5 text-8xl opacity-25 select-none" aria-hidden="true">{pack.emoji}</span>
+      <span className="badge self-start" style={{ background: 'rgba(255,255,255,0.22)', color: '#fff' }}>
+        {pack.signature ? 'Signature' : 'À la une'}
+      </span>
+      <div className="relative">
+        <p className="font-display font-extrabold text-lg leading-tight">{pack.nom}</p>
+        <p className="text-xs flex items-center gap-1 mt-0.5" style={{ opacity: 0.9 }}><Play size={11} fill="currentColor" />Jouer</p>
+      </div>
+    </button>
+  )
+}
+
+// Plan + parties à plusieurs du mois. Le solo n'est jamais décompté.
+function QuotaCard({ quota }) {
   const org = quota.organisation
   const illimite = quota.limites.partiesParMois == null
   const used = quota.usage.partiesCeMois
   const max = quota.limites.partiesParMois
-  const credits = quota.credits ?? 0
-  const pct = illimite ? 0 : Math.min(100, Math.round((used / max) * 100))
-  const presduMax = !illimite && used / max >= 0.8
-  const renouvellement = org?.expireAt ?? quota.expireAt
-
+  const pct = org ? Math.round((org.siegesUtilises / Math.max(1, org.sieges)) * 100) : illimite ? 100 : Math.min(100, Math.round((used / max) * 100))
+  const proche = !org && !illimite && used / max >= 0.8
+  const Icon = org ? Building2 : Crown
   return (
-    <div className="card p-4 mb-7 flex flex-col sm:flex-row sm:items-center gap-4">
-      <div className="flex items-center gap-2.5 shrink-0">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center"
-          style={{ background: quota.plan === 'FREE' ? 'rgba(144,144,160,0.15)' : 'rgba(99,102,241,0.15)' }}>
-          <Crown size={16} style={{ color: quota.plan === 'FREE' ? 'var(--text-muted)' : '#818CF8' }} />
-        </div>
-        <div>
-          {org ? (
-            <>
-              <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{org.nom}</p>
-              <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Plan Organisation {org.sieges} utilisateurs</p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Plan {quota.planNom}</p>
-              <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
-                Joueurs max : {quota.limites.joueursMax ?? '∞'}
-                {renouvellement && <> · renouvellement le {new Date(renouvellement).toLocaleDateString('fr-FR')}</>}
-              </p>
-            </>
-          )}
-        </div>
+    <div className="card p-4 flex items-center gap-3">
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(255,194,61,0.28)' }}>
+        <Icon size={18} style={{ color: '#C98A00' }} />
       </div>
       <div className="flex-1 min-w-0">
-        {org ? (
-          <>
-            <div className="flex items-center justify-between text-2xs mb-1">
-              <span style={{ color: 'var(--text-muted)' }}>Utilisateurs actifs</span>
-              <span style={{ color: 'var(--text-muted)' }}>{org.siegesUtilises} / {org.sieges}</span>
-            </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--hover-overlay)' }}>
-              <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((org.siegesUtilises / org.sieges) * 100)}%`, background: '#38BDF8' }} />
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between text-2xs mb-1">
-              <span style={{ color: 'var(--text-muted)' }}>Parties à plusieurs ce mois</span>
-              <span style={{ color: presduMax ? '#F59E0B' : 'var(--text-muted)' }}>{illimite ? `${used} · illimité` : `${used} / ${max}`}</span>
-            </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--hover-overlay)' }}>
-              <div className="h-full rounded-full transition-all"
-                style={{ width: illimite ? '100%' : `${pct}%`, background: illimite ? '#22C55E' : presduMax ? '#F59E0B' : '#6366F1' }} />
-            </div>
-            <p className="text-2xs mt-1.5" style={{ color: 'var(--text-dim)' }}>
-              Le solo est toujours gratuit et illimité{credits > 0 ? ` · ${credits} crédit${credits > 1 ? 's' : ''} de jeu` : ''}.
-            </p>
-          </>
-        )}
-      </div>
-      {org ? (
-        <Link to="/organisation" className="btn-secondary btn-sm gap-1.5 shrink-0"><Crown size={13} />Mon Organisation</Link>
-      ) : null}
-    </div>
-  )
-}
-
-// Notation inline d'un pack (étoiles cliquables).
-function PackRating({ pack, apiFetch }) {
-  const [data, setData] = useState(null)
-  const [hover, setHover] = useState(0)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    let alive = true
-    apiFetch(`/packs/${pack.id}/ratings`).then(r => r?.json()).then(d => { if (alive) setData(d) }).catch(() => {})
-    return () => { alive = false }
-  }, [pack.id])
-
-  async function rate(note) {
-    setSaving(true)
-    const res = await apiFetch(`/packs/${pack.id}/ratings`, { method: 'POST', body: { note } })
-    if (res?.ok) {
-      const agg = await res.json()
-      setData(d => ({ ...(d ?? {}), ...agg, mien: { ...(d?.mien ?? {}), note } }))
-    }
-    setSaving(false)
-  }
-
-  const mien = data?.mien?.note ?? 0
-  return (
-    <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
-      <div>
-        <p className="text-2xs mb-0.5" style={{ color: 'var(--text-dim)' }}>
-          {data?.nbAvis ? <><Star size={12} className="inline -mt-0.5 mr-1" fill="#EAB308" color="#EAB308" />{data.noteMoyenne} / 5 · {data.nbAvis} avis</> : 'Aucun avis — sois le premier !'}
+        <p className="text-sm font-bold truncate" style={{ color: 'var(--text)' }}>
+          {org ? org.nom : quota.plan === 'FREE' ? 'Offre gratuite' : `Offre ${quota.plan === 'PRO' ? 'Premium' : quota.planNom}`}
         </p>
-        <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Ta note :</p>
+        <p className="text-xs" style={{ color: proche ? '#C0392B' : 'var(--text-muted)' }}>
+          {org ? `${org.siegesUtilises} / ${org.sieges} membres`
+            : illimite ? 'Parties à plusieurs illimitées'
+            : `${used} / ${max} parties à plusieurs ce mois · solo illimité`}
+        </p>
+        <div className="h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: 'var(--hover-overlay)' }}>
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: proche ? '#E67E22' : 'var(--leaf)' }} />
+        </div>
       </div>
-      <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map(n => (
-          <button key={n} disabled={saving} onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
-            onClick={() => rate(n)}>
-            <Star size={18} style={{ color: '#EAB308', fill: (hover || mien) >= n ? '#EAB308' : 'transparent' }} />
-          </button>
-        ))}
-      </div>
+      <Link to={org ? '/organisation' : '/abonnement'} className="btn-secondary btn-sm shrink-0">{org ? 'Gérer' : 'Offres'}</Link>
     </div>
   )
-}
-
-// Section avec grille de packs.
-function Section({ icon, title, subtitle, packs, launching, onPick, highlight }) {
-  if (!packs?.length) return null
-  return (
-    <section className="mb-9">
-      <SectionTitle icon={icon} title={title} subtitle={subtitle} />
-      <PackGrid packs={packs} launching={launching} onPick={onPick} highlight={highlight} />
-    </section>
-  )
-}
-
-function PackGrid({ packs, launching, onPick, highlight }) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-      {packs.map(pack => (
-        <button key={pack.id} onClick={() => onPick(pack)}
-          className="group relative text-left rounded-2xl p-4 h-32 flex flex-col justify-between overflow-hidden transition-all"
-          style={{
-            background: `linear-gradient(135deg, ${hex(pack.couleur, highlight ? 0.22 : 0.16)} 0%, var(--card-tint) 70%)`,
-            border: `1px solid ${hex(pack.couleur, highlight ? 0.35 : 0.25)}`,
-          }}>
-          <div className="absolute -right-4 -top-3 text-6xl opacity-20 group-hover:opacity-30 group-hover:scale-110 transition-all">
-            {pack.emoji}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-3xl">{pack.emoji}</span>
-            <div className="flex items-center gap-1.5 relative z-10">
-              {pack.tier && pack.tier !== 'GRATUIT' && (
-                <span className="text-2xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
-                  style={{ background: 'rgba(99,102,241,0.18)', color: '#A5B4FC' }}>
-                  {pack.verrouille && <Lock size={9} />}{pack.tier === 'PREMIUM' ? 'PRO' : pack.tier}
-                </span>
-              )}
-              {pack.vedette && <Star size={13} style={{ color: '#EAB308', fill: '#EAB308' }} />}
-            </div>
-          </div>
-          <div className="relative z-10">
-            <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>{pack.nom}</p>
-            <p className="text-2xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{pack.description}</p>
-            {pack.nbAvis > 0 && (
-              <p className="text-2xs mt-1 flex items-center gap-1" style={{ color: '#EAB308' }}>
-                <Star size={9} style={{ fill: '#EAB308' }} />{pack.noteMoyenne} <span style={{ color: 'var(--text-dim)' }}>({pack.nbAvis})</span>
-              </p>
-            )}
-          </div>
-          {launching === pack.id && (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(14,14,18,0.6)' }}>
-              <Loader2 size={20} className="animate-spin" style={{ color: pack.couleur }} />
-            </div>
-          )}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// Filtre à choix unique sous forme de menu déroulant compact.
-function FilterChips({ value, onChange, options, placeholder }) {
-  return (
-    <select value={value} onChange={e => onChange(e.target.value)}
-      className="input text-xs font-medium cursor-pointer"
-      style={{
-        padding: '0.375rem 2rem 0.375rem 0.625rem',
-        background: value ? 'rgba(99,102,241,0.15)' : 'var(--input-bg)',
-        color: value ? '#818CF8' : 'var(--text-muted)',
-        border: `1px solid ${value ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
-      }}>
-      <option value="">{placeholder}</option>
-      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-    </select>
-  )
-}
-
-function SectionTitle({ icon: Icon, title, subtitle, inline }) {
-  return (
-    <div className={inline ? '' : 'mb-3'}>
-      <div className="flex items-center gap-2">
-        <Icon size={15} style={{ color: '#818CF8' }} />
-        <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>{title}</h2>
-      </div>
-      {subtitle && <p className="text-xs mt-0.5 ml-6" style={{ color: 'var(--text-dim)' }}>{subtitle}</p>}
-    </div>
-  )
-}
-
-// Convertit un hex "#RRGGBB" en rgba avec alpha.
-function hex(color, alpha) {
-  const c = (color ?? '#6366F1').replace('#', '')
-  const r = parseInt(c.slice(0, 2), 16)
-  const g = parseInt(c.slice(2, 4), 16)
-  const b = parseInt(c.slice(4, 6), 16)
-  return `rgba(${r},${g},${b},${alpha})`
 }

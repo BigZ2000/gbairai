@@ -4,7 +4,7 @@ import { Volume2, Play, CheckCircle, XCircle } from 'lucide-react'
 const LETTER = ['A', 'B', 'C', 'D', 'E', 'F']
 
 const CHOICE_COLORS = [
-  { bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.35)', text: '#818CF8' },
+  { bg: 'rgba(242,106,27,0.12)', border: 'rgba(242,106,27,0.35)', text: 'var(--brand-text)' },
   { bg: 'rgba(34,197,94,0.10)', border: 'rgba(34,197,94,0.3)',  text: '#4ADE80' },
   { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', text: '#FCD34D' },
   { bg: 'rgba(239,68,68,0.10)', border: 'rgba(239,68,68,0.3)',  text: '#F87171' },
@@ -29,7 +29,7 @@ export default function QuestionDisplay({ question, revealed = false, showAnswer
 
   return (
     <div className={`rounded-2xl w-full ${padding} text-center`}
-      style={{ background: '#18181C', border: '1px solid var(--border)' }}>
+      style={{ background: '#231913', border: '1px solid var(--border)' }}>
 
       {/* Question text */}
       <p className={`font-bold leading-tight mb-6 ${enoneSize}`} style={{ color: 'var(--text)' }}>
@@ -97,9 +97,9 @@ export default function QuestionDisplay({ question, revealed = false, showAnswer
       {question.type === 'AUDIO' && question.audioUrl && (
         <div className="mt-4 flex flex-col items-center gap-3">
           <div className="flex items-center gap-2 rounded-full px-5 py-3"
-            style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)' }}>
-            <Volume2 size={18} style={{ color: '#818CF8' }} />
-            <span className="text-sm font-medium" style={{ color: '#818CF8' }}>Audio en cours…</span>
+            style={{ background: 'rgba(242,106,27,0.12)', border: '1px solid rgba(242,106,27,0.25)' }}>
+            <Volume2 size={18} style={{ color: 'var(--brand-text)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--brand-text)' }}>Audio en cours…</span>
           </div>
           <audio ref={audioRef} controls className="w-full max-w-sm" style={{ borderRadius: '8px' }}>
             <source src={question.audioUrl} />

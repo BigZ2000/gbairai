@@ -26,7 +26,7 @@ export default function Paiements() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text)' }}>
-            <Receipt size={20} style={{ color: '#818CF8' }} />Mes paiements
+            <Receipt size={20} style={{ color: 'var(--brand-text)' }} />Mes paiements
           </h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-dim)' }}>Historique de tes abonnements et achats.</p>
         </div>
@@ -37,7 +37,7 @@ export default function Paiements() {
         <Loader2 size={22} className="animate-spin mx-auto my-12" style={{ color: 'var(--text-dim)' }} />
       ) : items.length === 0 ? (
         <div className="card p-10 text-center">
-          <Receipt size={28} className="mx-auto mb-3" style={{ color: '#2A2A35' }} />
+          <Receipt size={28} className="mx-auto mb-3" style={{ color: '#4A382C' }} />
           <p className="text-sm mb-4" style={{ color: 'var(--text-dim)' }}>Aucun paiement pour le moment.</p>
           <Link to="/abonnement" className="btn-primary btn-sm">Découvrir les offres</Link>
         </div>

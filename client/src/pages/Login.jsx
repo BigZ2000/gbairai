@@ -61,7 +61,7 @@ export default function Login() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg mb-4"
-            style={{ background: '#6366F1', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>G</div>
+            style={{ background: '#F26A1B', boxShadow: '0 4px 20px rgba(242,106,27,0.4)' }}>G</div>
           <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Bon retour</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Connectez-vous à votre compte</p>
         </div>
@@ -69,7 +69,7 @@ export default function Login() {
         {/* Join-first : rejoindre une partie sans compte (un pseudo suffira). */}
         <form onSubmit={handleJoin} className="card p-4 mb-4">
           <p className="text-sm font-semibold mb-2 flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
-            <Gamepad2 size={15} style={{ color: '#818CF8' }} />On t'a donné un code ?
+            <Gamepad2 size={15} style={{ color: 'var(--brand-text)' }} />On t'a donné un code ?
           </p>
           <div className="flex gap-2">
             <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
@@ -133,7 +133,7 @@ export default function Login() {
               <div className="flex items-center justify-between mb-1">
                 <label className="label mb-0">Mot de passe</label>
                 <Link to="/mot-de-passe-oublie" className="text-xs transition-colors"
-                  style={{ color: '#818CF8' }}>
+                  style={{ color: 'var(--brand-text)' }}>
                   Mot de passe oublié ?
                 </Link>
               </div>
@@ -164,7 +164,7 @@ export default function Login() {
 
         <p className="text-center text-sm mt-5" style={{ color: 'var(--text-dim)' }}>
           Pas de compte ?{' '}
-          <Link to="/register" className="font-medium transition-colors" style={{ color: '#818CF8' }}>
+          <Link to="/register" className="font-medium transition-colors" style={{ color: 'var(--brand-text)' }}>
             S'inscrire
           </Link>
         </p>

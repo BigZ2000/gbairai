@@ -102,7 +102,7 @@ export default function AdminUsers() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center"><Loader2 size={18} className="animate-spin mx-auto" style={{ color: '#6366F1' }} /></td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center"><Loader2 size={18} className="animate-spin mx-auto" style={{ color: '#F26A1B' }} /></td></tr>
             ) : users.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-dim)' }}>Aucun utilisateur</td></tr>
             ) : users.map(u => (
@@ -114,7 +114,7 @@ export default function AdminUsers() {
                   <div className="flex items-center gap-2.5">
                     {u.avatarUrl
                       ? <img src={u.avatarUrl} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                      : <div className="w-8 h-8 rounded-lg flex items-center justify-center text-2xs font-bold text-white" style={{ background: '#6366F1' }}>
+                      : <div className="w-8 h-8 rounded-lg flex items-center justify-center text-2xs font-bold text-white" style={{ background: '#F26A1B' }}>
                           {(u.username?.[0] ?? u.prenom?.[0] ?? '?').toUpperCase()}
                         </div>}
                     <div className="min-w-0">
@@ -122,7 +122,7 @@ export default function AdminUsers() {
                         {u.prenom}{u.nom ? ` ${u.nom}` : ''}
                         {u.isAdmin && <Crown size={11} style={{ color: '#F59E0B' }} />}
                       </p>
-                      {u.username && <p className="text-2xs" style={{ color: '#818CF8' }}>@{u.username}</p>}
+                      {u.username && <p className="text-2xs" style={{ color: 'var(--brand-text)' }}>@{u.username}</p>}
                     </div>
                   </div>
                 </td>
@@ -130,8 +130,8 @@ export default function AdminUsers() {
                 <td className="px-4 py-3">
                   <span className="text-xs px-1.5 py-0.5 rounded font-medium"
                     style={{
-                      background: u.plan === 'FREE' ? 'var(--hover-overlay)' : 'rgba(99,102,241,0.15)',
-                      color: u.plan === 'FREE' ? 'var(--text-muted)' : '#818CF8',
+                      background: u.plan === 'FREE' ? 'var(--hover-overlay)' : 'rgba(242,106,27,0.15)',
+                      color: u.plan === 'FREE' ? 'var(--text-muted)' : 'var(--brand-text)',
                     }}>{u.plan}</span>
                 </td>
                 <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
@@ -204,7 +204,7 @@ function CreateUserModal({ apiFetch, onClose, onCreated, onError }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
       <form onSubmit={submit} className="card p-6 max-w-md w-full animate-scaleIn space-y-3 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text)' }}><UserPlus size={16} style={{ color: '#6366F1' }} />Nouvel utilisateur</h3>
+          <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text)' }}><UserPlus size={16} style={{ color: '#F26A1B' }} />Nouvel utilisateur</h3>
           <button type="button" onClick={onClose} className="btn-ghost btn-sm"><X size={14} /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -297,14 +297,14 @@ function UserDetailPanel({ id, me, apiFetch, onClose, onChanged, showToast }) {
       <div className="h-full w-full max-w-md overflow-y-auto animate-fadeUp" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}
         onClick={e => e.stopPropagation()}>
         {!u || !form ? (
-          <div className="flex justify-center py-20"><Loader2 size={20} className="animate-spin" style={{ color: '#6366F1' }} /></div>
+          <div className="flex justify-center py-20"><Loader2 size={20} className="animate-spin" style={{ color: '#F26A1B' }} /></div>
         ) : (
           <div className="p-5 space-y-5">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 {u.avatarUrl
                   ? <img src={u.avatarUrl} alt="" className="w-12 h-12 rounded-xl object-cover" />
-                  : <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black text-white" style={{ background: '#6366F1' }}>
+                  : <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black text-white" style={{ background: '#F26A1B' }}>
                       {(u.username?.[0] ?? u.prenom?.[0] ?? '?').toUpperCase()}
                     </div>}
                 <div>
@@ -319,7 +319,7 @@ function UserDetailPanel({ id, me, apiFetch, onClose, onChanged, showToast }) {
 
             {/* Méta */}
             <div className="grid grid-cols-3 gap-2">
-              <div className="card p-3 text-center"><Gamepad2 size={14} className="mx-auto" style={{ color: '#6366F1' }} /><p className="text-lg font-black mt-1" style={{ color: 'var(--text)' }}>{u._count?.partiesCreees ?? 0}</p><p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Créées</p></div>
+              <div className="card p-3 text-center"><Gamepad2 size={14} className="mx-auto" style={{ color: '#F26A1B' }} /><p className="text-lg font-black mt-1" style={{ color: 'var(--text)' }}>{u._count?.partiesCreees ?? 0}</p><p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Créées</p></div>
               <div className="card p-3 text-center"><Gamepad2 size={14} className="mx-auto" style={{ color: '#8B5CF6' }} /><p className="text-lg font-black mt-1" style={{ color: 'var(--text)' }}>{u._count?.participations ?? 0}</p><p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Jouées</p></div>
               <div className="card p-3 text-center"><Trophy size={14} className="mx-auto" style={{ color: '#F59E0B' }} /><p className="text-lg font-black mt-1" style={{ color: 'var(--text)' }}>{u.victoires ?? 0}</p><p className="text-2xs" style={{ color: 'var(--text-dim)' }}>Victoires</p></div>
             </div>

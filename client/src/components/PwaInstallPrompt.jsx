@@ -69,7 +69,7 @@ export default function PwaInstallPrompt() {
       <div className="pointer-events-auto w-full max-w-md rounded-2xl p-4 flex items-center gap-3 animate-fadeUp"
         style={{ background: 'var(--surface, #1b1e28)', border: '1px solid var(--border, #2f3546)', boxShadow: '0 10px 40px rgba(0,0,0,0.35)' }}>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white font-black"
-          style={{ background: '#6366F1' }}>G</div>
+          style={{ background: '#F26A1B' }}>G</div>
 
         {iosHelp ? (
           <div className="min-w-0 flex-1">

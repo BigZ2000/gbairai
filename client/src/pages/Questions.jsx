@@ -8,7 +8,7 @@ import {
 
 const TYPE_LABELS = { BUZZER: 'Buzzer', QCM: 'QCM', VRAI_FAUX: 'Vrai/Faux', IMAGE: 'Image', AUDIO: 'Audio' }
 const TYPE_COLORS = {
-  BUZZER: { bg: 'rgba(99,102,241,0.1)', color: '#818CF8' },
+  BUZZER: { bg: 'rgba(242,106,27,0.1)', color: 'var(--brand-text)' },
   QCM: { bg: 'rgba(245,158,11,0.1)', color: '#FCD34D' },
   VRAI_FAUX: { bg: 'rgba(34,197,94,0.1)', color: '#4ADE80' },
   IMAGE: { bg: 'rgba(236,72,153,0.1)', color: '#F472B6' },
@@ -201,11 +201,11 @@ export default function Questions() {
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} />
+          <Loader2 size={24} className="animate-spin" style={{ color: '#F26A1B' }} />
         </div>
       ) : questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <BookOpen size={40} className="mb-4" style={{ color: '#2A2A35' }} />
+          <BookOpen size={40} className="mb-4" style={{ color: '#4A382C' }} />
           <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text)' }}>Aucune question</h2>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Créez votre première question pour commencer.</p>
           <button onClick={openNew} className="btn-primary gap-1.5"><Plus size={14} />Créer une question</button>
@@ -455,7 +455,7 @@ export default function Questions() {
                   onClick={() => setForm(f => ({ ...f, publique: !f.publique }))}
                   className="w-10 h-5.5 rounded-full relative transition-colors flex items-center cursor-pointer"
                   style={{
-                    background: form.publique ? '#6366F1' : 'rgba(255,255,255,0.1)',
+                    background: form.publique ? '#F26A1B' : 'rgba(255,255,255,0.1)',
                     padding: '2px',
                     minWidth: '2.5rem',
                     height: '1.375rem',
