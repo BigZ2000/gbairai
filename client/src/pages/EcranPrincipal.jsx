@@ -5,6 +5,10 @@ import { useWs } from '../context/WsContext.jsx'
 import BuzzerAnime from '../components/buzzer/BuzzerAnime.jsx'
 import QuestionMedia from '../components/QuestionMedia.jsx'
 import Podium from '../components/Podium.jsx'
+import { BrandMark } from '../components/Brand.jsx'
+import { useLienRejoindre } from '../components/JoinInvite.jsx'
+import { ClassementEquipes, classementLocal } from '../components/Equipes.jsx'
+import { QRCodeSVG } from 'qrcode.react'
 import { Trophy, Hash, Eye, Timer, Zap, Heart, Skull, AlertTriangle, Check, X } from 'lucide-react'
 
 // Palette stable pour les buzzers virtuels (joueurs sur téléphone, sans matériel).
@@ -33,22 +37,26 @@ export default function EcranPrincipal() {
   const [nowTick, setNowTick] = useState(Date.now())
   // Récapitulatif de fin de manche (classement intermédiaire) affiché ~7 s.
   const [mancheRecap, setMancheRecap] = useState(null)
+  const [equipesLive, setEquipesLive] = useState(null)
   const prevMancheRef = useRef(null)
   const prevMancheNomRef = useRef(null)
   const recapTimerRef = useRef(null)
 
-  useEffect(() => {
-    apiFetch(`/parties/by-code/${partieCode.toUpperCase()}`)
+  function charger() {
+    return apiFetch(`/parties/by-code/${partieCode.toUpperCase()}`)
       .then(r => r?.json())
       .then(p => {
-        if (!p) return
+        if (!p?.id) return
         setPartie(p)
         setParticipants(p.participants ?? [])
         const init = {}
         p.participants.forEach(pt => { if (pt.buzzer?.mac) init[pt.buzzer.mac] = 'ready' })
         setBuzzerStatuts(init)
       })
+  }
 
+  useEffect(() => {
+    charger()
     joinRoom(partieCode)
 
     const unsub = subscribe('ecran_principal', (msg) => {
@@ -112,7 +120,18 @@ export default function EcranPrincipal() {
         setRevealData({ reponse: msg.reponse, explication: msg.explication, correctIndex: msg.correctIndex ?? -1 })
       }
       if (msg.type === 'vote_update') setVotes({ pour: msg.pour, contre: msg.contre, total: msg.total })
-      if (msg.type === 'participant_update') setParticipants(msg.participants ?? [])
+      if (msg.type === 'participant_update') {
+        setParticipants(msg.participants ?? [])
+        if (msg.equipes) setEquipesLive(msg.equipes)
+      }
+      // Salle d'attente projetée : arrivées, départs, changements d'équipe.
+      if (msg.type === 'participant_joined' && msg.participant) {
+        setParticipants(prev => prev.some(p => p.id === msg.participant.id) ? prev : [...prev, msg.participant])
+      }
+      if (msg.type === 'participant_removed') setParticipants(prev => prev.filter(p => p.id !== msg.participantId))
+      if (msg.type === 'participant_equipe') setParticipants(prev => prev.map(p => p.id === msg.participantId ? { ...p, equipe: msg.equipe } : p))
+      if (msg.type === 'partie_updated') charger()
+      if (msg.type === 'game_started') setPartie(p => p ? { ...p, status: 'EN_COURS' } : p)
       if (msg.type === 'auto_next_question') {
         let cd = msg.countdown ?? 3
         setAutoCountdown(cd)
@@ -125,7 +144,10 @@ export default function EcranPrincipal() {
       if (msg.type === 'buzzer_status_update') {
         setBuzzerStatuts(prev => ({ ...prev, [msg.mac]: msg.status === 'OFFLINE' ? 'offline' : 'ready' }))
       }
-      if (msg.type === 'game_ended') setFinalClassement(msg.classement ?? [])
+      if (msg.type === 'game_ended') {
+        if (msg.equipes) setEquipesLive(msg.equipes)
+        setFinalClassement(msg.classement ?? [])
+      }
     })
 
     return () => { unsub(); leaveRoom(partieCode) }
@@ -146,8 +168,13 @@ export default function EcranPrincipal() {
     return () => clearInterval(t)
   }, [deadline])
 
-  const sortedParticipants = [...participants].sort((a, b) => b.score - a.score)
+  // Le maître du jeu n'est pas un joueur : ni buzzer, ni classement.
+  const joueurs = participants.filter(p => !p.isAnimateur)
+  const sortedParticipants = [...joueurs].sort((a, b) => b.score - a.score)
+  const equipes = equipesLive ?? classementLocal(partie, joueurs)
   const q = currentQuestion
+  const enAttente = partie?.status === 'EN_ATTENTE' && !q
+  const logo = partie?.branding?.logoUrl
 
   // Progression globale : nombre total de questions tirées (somme des manches).
   const totalQuestions = (partie?.manches ?? []).reduce((s, m) => s + (m.nbQuestions ?? 0), 0)
@@ -159,6 +186,18 @@ export default function EcranPrincipal() {
   // Temps de réaction du buzz (en secondes, 1 décimale).
   const reactionSec = winner?.responseMs != null ? (winner.responseMs / 1000).toFixed(1) : null
 
+  if (partie?.status === 'ANNULEE') {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <p className="text-3xl font-bold" style={{ color: 'var(--text)' }}>Partie annulée</p>
+      </div>
+    )
+  }
+
+  if (enAttente) {
+    return <AccueilEcran partie={partie} joueurs={joueurs} code={partieCode.toUpperCase()} />
+  }
+
   if (finalClassement) {
     const champion = finalClassement[0]
     const stats = [
@@ -168,9 +207,22 @@ export default function EcranPrincipal() {
       { label: 'Meilleur score', value: `${champion?.score ?? 0} pts` },
     ]
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-10 p-10 overflow-y-auto select-none"
+      <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-8 overflow-y-auto select-none"
         style={{ background: 'var(--bg)' }}>
-        <Podium classement={finalClassement} variant="tv" title={partie?.nom ?? 'Partie terminée'} />
+        {logo && <img src={logo} alt={partie?.branding?.nom ?? ''} className="max-h-16 max-w-xs object-contain" />}
+        {equipes ? (
+          // En équipes : le classement des équipes à gauche, le podium individuel à droite.
+          <div className="w-full max-w-7xl grid grid-cols-2 gap-14 items-center">
+            <div className="flex flex-col items-center gap-5">
+              <p className="text-xl uppercase tracking-[0.3em] font-semibold" style={{ color: 'var(--text-dim)' }}>Classement des équipes</p>
+              <p className="font-display text-5xl font-extrabold" style={{ color: equipes[0].couleur }}>{equipes[0].nom} gagne !</p>
+              <ClassementEquipes equipes={equipes} variant="tv" />
+            </div>
+            <Podium classement={finalClassement} variant="tv" title="Meilleurs joueurs" />
+          </div>
+        ) : (
+          <Podium classement={finalClassement} variant="tv" title={partie?.nom ?? 'Partie terminée'} />
+        )}
         <div className="flex flex-wrap justify-center gap-6">
           {stats.map(s => (
             <div key={s.label} className="rounded-2xl px-8 py-5 text-center min-w-[160px]"
@@ -193,8 +245,9 @@ export default function EcranPrincipal() {
           style={{ background: 'rgba(10,10,15,0.96)', backdropFilter: 'blur(6px)' }}>
           <p className="text-base uppercase tracking-[0.3em] mb-2" style={{ color: 'var(--brand-text)' }}>Fin de manche</p>
           <h2 className="text-5xl font-black mb-10" style={{ color: 'var(--text)' }}>{mancheRecap.nom}</h2>
+          {equipes && <div className="w-full max-w-2xl mb-6"><ClassementEquipes equipes={equipes} variant="tv" /></div>}
           <div className="w-full max-w-2xl space-y-3">
-            {sortedParticipants.map((p, i) => (
+            {sortedParticipants.slice(0, equipes ? 5 : 12).map((p, i) => (
               <div key={p.id} className="flex items-center gap-5 rounded-2xl px-7 py-4 transition-all"
                 style={{
                   background: i === 0 ? 'rgba(245,158,11,0.12)' : 'var(--surface)',
@@ -224,8 +277,9 @@ export default function EcranPrincipal() {
       <header className="flex items-center justify-between px-10 py-5"
         style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl font-black text-white"
-            style={{ background: '#F26A1B' }}>G</div>
+          {logo
+            ? <img src={logo} alt={partie?.branding?.nom ?? ''} className="h-12 max-w-[180px] object-contain" />
+            : <BrandMark size={44} />}
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{partie?.nom ?? 'Gbairai'}</h1>
             {q && (
@@ -272,13 +326,13 @@ export default function EcranPrincipal() {
         </div>
       )}
 
-      <main className="flex-1 flex flex-col items-center justify-center px-10 py-10 gap-10">
+      <main className="flex-1 flex flex-col items-center justify-center px-10 py-6 gap-6">
 
         {/* Auto countdown */}
         {autoCountdown && !winner && (
-          <div className="text-center">
-            <p className="text-sm uppercase tracking-widest mb-3" style={{ color: 'var(--text-dim)' }}>Prochaine question dans</p>
-            <p className="text-[9rem] font-black leading-none" style={{ color: '#F59E0B' }}>{autoCountdown}</p>
+          <div className="flex items-center gap-4 px-6 py-2 rounded-full" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <p className="text-lg uppercase tracking-widest font-semibold" style={{ color: 'var(--text-dim)' }}>Prochaine question dans</p>
+            <p className="text-5xl font-black leading-none tabular-nums" style={{ color: '#D99A00' }}>{autoCountdown}</p>
           </div>
         )}
 
@@ -455,7 +509,7 @@ export default function EcranPrincipal() {
         {/* Buzzers — matériel (mac) ET téléphone (buzzer virtuel WEB-<id>) */}
         {!winner && (
           <div className="flex flex-wrap justify-center gap-10">
-            {participants.map((p, i) => {
+            {joueurs.map((p, i) => {
               // Identité de buzz : mac physique si présent, sinon buzzer virtuel.
               const mac = p.buzzer?.mac ?? `WEB-${p.id}`
               // Un joueur web est toujours « présent » (ready) une fois rejoint ;
@@ -471,6 +525,7 @@ export default function EcranPrincipal() {
       {/* Scoreboard */}
       <footer style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}
         className="px-10 py-5">
+        {equipes ? <ClassementEquipes equipes={equipes} variant="bar" /> : (
         <div className="flex justify-center gap-10 flex-wrap">
           {sortedParticipants.map((p, i) => (
             <div key={p.id} className="flex items-center gap-2.5">
@@ -482,11 +537,67 @@ export default function EcranPrincipal() {
               <span className="text-lg font-black" style={{ color: '#F59E0B' }}>{p.score} pt{p.score !== 1 ? 's' : ''}</span>
             </div>
           ))}
-          {participants.length === 0 && (
+          {joueurs.length === 0 && (
             <p className="text-base" style={{ color: 'var(--text-dim)' }}>En attente de joueurs…</p>
           )}
         </div>
+        )}
       </footer>
+    </div>
+  )
+}
+
+// ── Accueil de l'écran public avant le lancement ─────────────────────────────
+// Ce que la salle voit pendant qu'elle s'installe : un QR géant, le code, et
+// les prénoms qui arrivent (rangés par équipe le cas échéant).
+function AccueilEcran({ partie, joueurs, code }) {
+  const lien = useLienRejoindre(code)
+  const eq = Array.isArray(partie?.equipes) && partie.equipes.length >= 2 ? partie.equipes : null
+  const logo = partie?.branding?.logoUrl
+  const Prenom = ({ p }) => (
+    <span className="px-4 py-2 rounded-full text-2xl font-semibold animate-scaleIn"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}>{p.prenom}</span>
+  )
+  return (
+    <div className="min-h-screen flex flex-col select-none" style={{ background: 'var(--bg)' }}>
+      <header className="flex items-center justify-between px-12 py-6">
+        <div className="flex items-center gap-4 min-w-0">
+          {logo ? <img src={logo} alt={partie.branding.nom ?? ''} className="h-14 max-w-[220px] object-contain" /> : <BrandMark size={52} />}
+          <h1 className="font-display text-4xl font-extrabold truncate" style={{ color: 'var(--text)' }}>{partie.nom}</h1>
+        </div>
+        <p className="text-xl" style={{ color: 'var(--text-dim)' }}>{joueurs.length} joueur{joueurs.length !== 1 ? 's' : ''}</p>
+      </header>
+      <main className="flex-1 grid grid-cols-[auto_1fr] gap-16 items-center px-16 pb-12">
+        <div className="flex flex-col items-center gap-6">
+          <div className="bg-white rounded-3xl p-6 shadow-lg"><QRCodeSVG value={lien} size={300} level="M" /></div>
+          <div className="text-center">
+            <p className="text-lg uppercase tracking-[0.3em] mb-1" style={{ color: 'var(--text-dim)' }}>Code</p>
+            <p className="font-mono text-7xl font-black tracking-[0.2em]" style={{ color: 'var(--brand-text)' }}>{code}</p>
+          </div>
+        </div>
+        <div className="min-w-0">
+          <p className="font-display text-5xl font-extrabold mb-3" style={{ color: 'var(--text)' }}>Scanne et joue avec ton téléphone</p>
+          <p className="text-2xl mb-10" style={{ color: 'var(--text-muted)' }}>Pas d'application, pas de compte : un prénom suffit.</p>
+          {joueurs.length === 0 ? (
+            <p className="text-2xl" style={{ color: 'var(--text-dim)' }}>Les prénoms apparaîtront ici…</p>
+          ) : eq ? (
+            <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${Math.min(eq.length, 3)}, minmax(0, 1fr))` }}>
+              {eq.map((e, i) => (
+                <div key={i} className="rounded-3xl p-5" style={{ background: `${e.couleur}12`, border: `2px solid ${e.couleur}55` }}>
+                  <p className="text-2xl font-black mb-4 flex items-center gap-2" style={{ color: e.couleur }}>
+                    <span className="w-4 h-4 rounded-full" style={{ background: e.couleur }} />{e.nom}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {joueurs.filter(p => p.equipe === i).map(p => <Prenom key={p.id} p={p} />)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">{joueurs.map(p => <Prenom key={p.id} p={p} />)}</div>
+          )}
+        </div>
+      </main>
     </div>
   )
 }

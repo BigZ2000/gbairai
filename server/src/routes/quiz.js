@@ -18,6 +18,7 @@ import crypto from 'crypto'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { getLimites, effectivePlan, INF } from '../config/plans.js'
+import { recevoirImagePerso, supprimerFichiersMedia } from './media.js'
 import { getFournisseur, IaRefus, IaIndisponible } from '../services/ai/provider.js'
 import { peutGenerer, etatIa, etatPublic, journaliser } from '../services/ai/aiQuota.js'
 import {
@@ -176,6 +177,59 @@ router.get('/medias', requireAuth, loadUser, async (req, res) => {
   res.json({ medias: medias.map(mediaPublic) })
 })
 
+// ── Mes images (envoyées pour mes propres quiz) ──────────────────────────────
+// Privées : hors médiathèque publique, invisibles des autres comptes et de l'IA.
+function quotaImages(user) {
+  const max = user.isAdmin ? INF : (getLimites(effectivePlan(user)).imagesPersoMax ?? 0)
+  return max === INF ? null : max
+}
+// Le logo d'organisation est aussi une image privée : il ne compte ni ne
+// s'affiche parmi les images de quiz.
+const mesImages = (userId) => ({ type: 'IMAGE', prive: true, createdById: userId })
+async function filtreMesImages(userId) {
+  const logos = await prisma.organisation.findMany({ where: { logoUrl: { not: null }, membres: { some: { userId } } }, select: { logoUrl: true } })
+  return { ...mesImages(userId), NOT: { url: { in: logos.map(o => o.logoUrl) } } }
+}
+
+router.get('/images', requireAuth, loadUser, async (req, res) => {
+  const images = await prisma.media.findMany({
+    where: await filtreMesImages(req.userId), orderBy: { createdAt: 'desc' }, take: 200,
+    select: { id: true, type: true, url: true, thumbUrl: true, titre: true, filename: true },
+  })
+  res.json({
+    images: images.map(m => mediaPublic({ ...m, titre: m.titre ?? m.filename })),
+    max: quotaImages(req.fullUser),
+  })
+})
+
+router.post('/images', requireAuth, loadUser, async (req, res) => {
+  const max = quotaImages(req.fullUser)
+  if (max === 0) {
+    return res.status(402).json({ error: 'Ajouter tes propres images fait partie de Premium.', code: 'IMAGES_PREMIUM' })
+  }
+  if (max != null) {
+    const n = await prisma.media.count({ where: await filtreMesImages(req.userId) })
+    if (n >= max) return res.status(402).json({ error: `Tu as atteint ${max} images. Supprime-en une pour en ajouter.`, code: 'IMAGES_QUOTA' })
+  }
+  try {
+    const { media } = await recevoirImagePerso(req, res)
+    res.status(201).json({ image: mediaPublic({ ...media, titre: media.titre ?? media.filename }) })
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Image refusée' })
+  }
+})
+
+router.delete('/images/:id', requireAuth, loadUser, async (req, res) => {
+  const media = await prisma.media.findFirst({ where: { id: req.params.id, ...(await filtreMesImages(req.userId)) }, include: { _count: { select: { questions: true } } } })
+  if (!media) return res.status(404).json({ error: 'Image introuvable' })
+  if (media._count.questions > 0) {
+    return res.status(409).json({ error: 'Cette image illustre encore une question. Retire-la du quiz d\'abord.', code: 'IMAGE_UTILISEE' })
+  }
+  await prisma.media.delete({ where: { id: media.id } })
+  supprimerFichiersMedia(media)
+  res.json({ ok: true })
+})
+
 // ── Enregistrement ───────────────────────────────────────────────────────────
 const QuizSchema = z.object({
   titre: z.string().trim().min(1, 'Donne un titre à ton quiz.').max(LIMITES.titreMax),
@@ -188,11 +242,14 @@ const QuizSchema = z.object({
 
 // Rejoue le contrôle du moteur sur ce que le client envoie et résout les médias
 // en base : un identifiant inconnu est simplement ignoré.
-async function controler(body) {
+async function controler(body, userId) {
   const parsed = QuizSchema.safeParse(body)
   if (!parsed.success) return { erreur: parsed.error.issues[0]?.message ?? 'Quiz invalide' }
   const ids = [...new Set(parsed.data.questions.map(q => q?.media?.id ?? q?.mediaId).filter(x => typeof x === 'string'))]
-  const medias = ids.length ? await prisma.media.findMany({ where: { id: { in: ids } } }) : []
+  // Médiathèque publique, ou images personnelles de CE compte uniquement.
+  const medias = ids.length
+    ? await prisma.media.findMany({ where: { id: { in: ids }, OR: [{ prive: false }, { createdById: userId }] } })
+    : []
   const mediasParId = new Map(medias.map(m => [m.id, m]))
   const b = validerBrouillon({ ...parsed.data, questions: parsed.data.questions }, { mediasParId, max: 60 })
   if (b.rejets.length) {
@@ -245,7 +302,7 @@ router.post('/', requireAuth, loadUser, async (req, res) => {
       })
     }
   }
-  const c = await controler(req.body)
+  const c = await controler(req.body, req.userId)
   if (c.erreur) return res.status(400).json({ error: c.erreur, code: 'QUIZ_INVALIDE', index: c.index })
   const { quiz, mediasParId } = c
 
@@ -282,7 +339,7 @@ router.get('/:id', requireAuth, loadUser, async (req, res) => {
 router.put('/:id', requireAuth, loadUser, async (req, res) => {
   const pack = await monQuiz(req, res)
   if (!pack) return
-  const c = await controler({ ...req.body, origine: pack.origine ?? 'MANUEL' })
+  const c = await controler({ ...req.body, origine: pack.origine ?? 'MANUEL' }, req.userId)
   if (c.erreur) return res.status(400).json({ error: c.erreur, code: 'QUIZ_INVALIDE', index: c.index })
   const { quiz, mediasParId } = c
   const anciennes = pack.questions.map(pq => pq.questionId)

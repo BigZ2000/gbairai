@@ -141,8 +141,8 @@ test('enregistrement : le serveur rejoue le contrôle sur ce que l\'utilisateur 
   const ko = await api('pro', 'POST', '/api/quiz', casse)
   assert.deepEqual([ko.status, ko.body.index], [400, 0])
 
-  const media = await prisma.media.findFirst({ where: { type: 'AUDIO' } })
-  const img = await prisma.media.findFirst({ where: { type: 'IMAGE' } })
+  const media = await prisma.media.findFirst({ where: { type: 'AUDIO', prive: false } })
+  const img = await prisma.media.findFirst({ where: { type: 'IMAGE', prive: false } })
   const ok = structuredClone(brouillon)
   if (media) ok.questions[1].media = { id: media.id }      // Vrai/Faux + audio
   if (img) ok.questions[0].media = { id: img.id }          // QCM + image

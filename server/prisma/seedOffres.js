@@ -15,7 +15,7 @@ const OFFRES = [
     fonctionnalites: PLANS.FREE.avantages,
   },
   {
-    code: 'PRO', nom: 'Pro', categorie: 'PERSONNEL', plan: 'PRO',
+    code: 'PRO', nom: 'Premium', categorie: 'PERSONNEL', plan: 'PRO',
     prix: 5000, dureeJours: 30, sieges: 1, couleur: '#F26A1B', ordre: 1, populaire: true,
     description: 'Pour les animateurs, associations, événements et créateurs.',
     fonctionnalites: PLANS.PRO.avantages,

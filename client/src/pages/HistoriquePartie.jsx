@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
+import { ClassementEquipes } from '../components/Equipes.jsx'
+import { BrandMark } from '../components/Brand.jsx'
 import {
   ArrowLeft, Trophy, Users, Clock, Zap, HelpCircle, Timer, Medal,
-  CheckCircle2, ChevronDown, Loader2, Hash, LogIn, Activity,
+  CheckCircle2, ChevronDown, Loader2, Hash, LogIn, Activity, Printer, Target, Flame, Feather,
 } from 'lucide-react'
 
 const RANK_COLORS = ['#F59E0B', '#94A3B8', '#B45309']
@@ -21,6 +23,13 @@ export default function HistoriquePartie() {
   const [data, setData] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [openManche, setOpenManche] = useState(0)
+  // À l'impression, tout le déroulé est déplié.
+  const [impression, setImpression] = useState(false)
+  useEffect(() => {
+    const avant = () => setImpression(true), apres = () => setImpression(false)
+    window.addEventListener('beforeprint', avant); window.addEventListener('afterprint', apres)
+    return () => { window.removeEventListener('beforeprint', avant); window.removeEventListener('afterprint', apres) }
+  }, [])
 
   useEffect(() => {
     apiFetch(`/history/${id}`).then(async r => {
@@ -59,33 +68,54 @@ export default function HistoriquePartie() {
       ]
     : [
         { label: 'Joueurs', value: data.participants.length, icon: Users, color: '#F26A1B' },
-        { label: 'Questions', value: data.totalQuestions, icon: HelpCircle, color: '#8B5CF6' },
-        { label: 'Buzz total', value: data.totalBuzz, icon: Zap, color: '#F59E0B' },
-        { label: 'Temps moyen', value: fmtMs(data.tempsMoyenMs), icon: Timer, color: '#06B6D4' },
+        {
+          label: data.bilan?.questionsJouees != null && data.bilan.questionsJouees < data.totalQuestions ? `Questions jouées sur ${data.totalQuestions}` : 'Questions',
+          value: data.bilan?.questionsJouees ?? data.totalQuestions, icon: HelpCircle, color: '#8B5CF6',
+        },
+        // Partie sans buzz (réponses au téléphone) : on montre les réponses, pas des « 0 buzz ».
+        ...(data.totalBuzz > 0
+          ? [{ label: 'Buzz total', value: data.totalBuzz, icon: Zap, color: '#F59E0B' }, { label: 'Temps de buzz moyen', value: fmtMs(data.tempsMoyenMs), icon: Timer, color: '#06B6D4' }]
+          : [{ label: 'Réponses données', value: data.bilan?.totalReponses ?? 0, icon: CheckCircle2, color: '#06B6D4' }]),
         { label: 'Durée', value: data.durationMin != null ? `${data.durationMin} min` : '—', icon: Clock, color: '#22C55E' },
       ]
 
+  const bilan = data.bilan
+  const logo = data.branding?.logoUrl
+
   return (
     <Layout>
-      <button onClick={() => navigate('/historique')} className="btn-ghost btn-sm gap-1 mb-4"><ArrowLeft size={14} />Retour à l'historique</button>
+      <div className="flex items-center justify-between gap-2 mb-4 no-print">
+        <button onClick={() => navigate('/historique')} className="btn-ghost btn-sm gap-1"><ArrowLeft size={14} />Historique</button>
+        {finished && (
+          <button onClick={() => window.print()} className="btn-secondary btn-sm gap-1.5">
+            <Printer size={14} />Imprimer ou PDF
+          </button>
+        )}
+      </div>
 
       {/* En-tête */}
       <div className="card p-5 mb-5">
         <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3 min-w-0">
+            {logo
+              ? <img src={logo} alt={data.branding.nom ?? ''} className="h-12 max-w-[140px] object-contain shrink-0" />
+              : <span className="print-only"><BrandMark size={40} /></span>}
+          <div className="min-w-0">
+            {finished && <p className="text-2xs uppercase tracking-widest font-semibold" style={{ color: 'var(--brand-text)' }}>Bilan de la partie</p>}
             <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>{data.nom}</h1>
-            <div className="flex items-center gap-3 mt-1.5 text-2xs" style={{ color: 'var(--text-dim)' }}>
+            <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-1.5 text-2xs" style={{ color: 'var(--text-dim)' }}>
               <span className="code-tag flex items-center gap-1"><Hash size={9} />{data.code}</span>
               <span>{new Date(data.createdAt).toLocaleString('fr-FR')}</span>
-              {data.pack && <span>{data.pack}</span>}
+              {data.pack && data.pack !== data.nom && <span>{data.pack}</span>}
             </div>
+          </div>
           </div>
           <span className={data.status === 'TERMINEE' ? 'badge-done' : 'badge-active'}>
             {data.status === 'TERMINEE' ? 'Terminée' : data.status === 'EN_COURS' ? 'En cours' : data.status}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 mt-5">
           {summary.map(s => {
             const Icon = s.icon
             return (
@@ -118,6 +148,31 @@ export default function HistoriquePartie() {
           </div>
           <ChevronDown size={16} style={{ color: '#4ADE80', transform: 'rotate(-90deg)' }} className="shrink-0" />
         </button>
+      )}
+
+      {/* Bilan d'événement : ce qu'on retient de la partie */}
+      {finished && bilan && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+          <Fait icon={Target} couleur="var(--leaf)" titre="Taux de bonnes réponses"
+            valeur={bilan.tauxReussite != null ? `${bilan.tauxReussite} %` : '—'}
+            detail={bilan.totalReponses ? `${bilan.totalReponses} réponses jugées` : 'Aucune réponse jugée'} />
+          {bilan.plusDeBonnes && <Fait icon={Trophy} couleur="#D99A00" titre="Le plus de bonnes réponses" valeur={bilan.plusDeBonnes.prenom} detail={`${bilan.plusDeBonnes.bonnes} bonne${bilan.plusDeBonnes.bonnes > 1 ? 's' : ''} réponse${bilan.plusDeBonnes.bonnes > 1 ? 's' : ''}`} />}
+          {bilan.plusRapide && <Fait icon={Zap} couleur="var(--brand)" titre="Buzz le plus rapide (en moyenne)" valeur={bilan.plusRapide.prenom} detail={fmtMs(bilan.plusRapide.ms)} />}
+          {bilan.questionPlusDure && <Fait icon={Flame} couleur="#C0392B" titre="La question qui a piégé la salle" valeur={`${bilan.questionPlusDure.taux} % de réussite`} detail={bilan.questionPlusDure.enonce} />}
+          {bilan.questionPlusFacile && bilan.questionPlusFacile.taux > (bilan.questionPlusDure?.taux ?? -1) && (
+            <Fait icon={Feather} couleur="var(--leaf)" titre="La plus réussie" valeur={`${bilan.questionPlusFacile.taux} % de réussite`} detail={bilan.questionPlusFacile.enonce} />
+          )}
+        </div>
+      )}
+
+      {/* Équipes */}
+      {data.equipes?.length > 0 && (
+        <div className="card p-5 mb-5">
+          <h2 className="font-semibold text-sm flex items-center gap-2 mb-4" style={{ color: 'var(--text)' }}>
+            <Users size={15} style={{ color: 'var(--brand)' }} />Classement des équipes
+          </h2>
+          <ClassementEquipes equipes={data.equipes} />
+        </div>
       )}
 
       {/* Classement / participants */}
@@ -166,7 +221,7 @@ export default function HistoriquePartie() {
         ) : (
         <div className="space-y-2">
           {data.manches.map((m, idx) => {
-            const open = openManche === idx
+            const open = impression || openManche === idx
             return (
               <div key={m.id} className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                 <button onClick={() => setOpenManche(open ? -1 : idx)}
@@ -187,6 +242,13 @@ export default function HistoriquePartie() {
                         <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                           <span style={{ color: 'var(--text-dim)' }}>{qi + 1}. </span>{qq.enonce}
                         </p>
+                        {finished && qq.tauxReussite != null && (
+                          <p className="text-2xs mt-1.5 flex items-center gap-2 flex-wrap" style={{ color: 'var(--text-dim)' }}>
+                            <span className="font-semibold" style={{ color: qq.tauxReussite >= 50 ? 'var(--leaf)' : '#C0392B' }}>{qq.tauxReussite} % de réussite</span>
+                            <span>{qq.bonnes}/{qq.reponses} réponses justes</span>
+                            {qq.plusRapide && <span>· plus rapide : {qq.plusRapide.prenom} ({fmtMs(qq.plusRapide.ms)})</span>}
+                          </p>
+                        )}
                         {finished && qq.reponse && (
                           <p className="text-xs mt-1.5 flex items-start gap-1.5" style={{ color: '#4ADE80' }}>
                             <CheckCircle2 size={12} className="mt-0.5 shrink-0" />{qq.reponse}
@@ -206,5 +268,20 @@ export default function HistoriquePartie() {
         )}
       </div>
     </Layout>
+  )
+}
+
+function Fait({ icon: Icon, couleur, titre, valeur, detail }) {
+  return (
+    <div className="card p-4 print-bloc flex items-start gap-3">
+      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--hover-overlay)' }}>
+        <Icon size={17} style={{ color: couleur }} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-2xs uppercase tracking-wider font-semibold" style={{ color: 'var(--text-dim)' }}>{titre}</p>
+        <p className="text-lg font-extrabold leading-tight mt-0.5" style={{ color: 'var(--text)' }}>{valeur}</p>
+        {detail && <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{detail}</p>}
+      </div>
+    </div>
   )
 }

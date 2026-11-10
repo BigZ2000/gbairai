@@ -80,56 +80,56 @@ enum MediaType {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  password     String    @default("")
-  prenom       String    @default("")
-  nom          String?
-  username     String?   @unique
-  telephone    String?   @unique
-  phoneVerified Boolean  @default(false)
-  phoneCode    String?
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String    @default("")
+  prenom          String    @default("")
+  nom             String?
+  username        String?   @unique
+  telephone       String?   @unique
+  phoneVerified   Boolean   @default(false)
+  phoneCode       String?
   phoneCodeExpiry DateTime?
-  avatarUrl    String?
-  theme        String    @default("dark")
-  langue       String    @default("fr")
-  googleId     String?   @unique
-  plan          Plan      @default(FREE)
-  planStartedAt DateTime?
-  planExpireAt  DateTime?
+  avatarUrl       String?
+  theme           String    @default("dark")
+  langue          String    @default("fr")
+  googleId        String?   @unique
+  plan            Plan      @default(FREE)
+  planStartedAt   DateTime?
+  planExpireAt    DateTime?
   // Crédits de jeu : parties multijoueurs prépayées (au-delà des 10 gratuites/mois).
   // Dormant au lancement (Temps 1) ; alimenté par l'achat (Temps 2). Solo non concerné.
-  credits       Int       @default(0)
-  isActive      Boolean   @default(true)
+  credits         Int       @default(0)
+  isActive        Boolean   @default(true)
   // Compte invité : créé sans mot de passe pour rejoindre une partie en 1 clic.
-  isGuest       Boolean   @default(false)
-  lastSeenAt   DateTime?
+  isGuest         Boolean   @default(false)
+  lastSeenAt      DateTime?
   // Vérification d'email (inscription par email ; Google = vérifié d'office).
-  emailVerified Boolean   @default(false)
-  verifyCode    String?   // code à 6 chiffres
-  verifyToken   String?   @unique // jeton du lien de confirmation
-  verifyExpiry  DateTime? // expiration du code/lien
+  emailVerified   Boolean   @default(false)
+  verifyCode      String? // code à 6 chiffres
+  verifyToken     String?   @unique // jeton du lien de confirmation
+  verifyExpiry    DateTime? // expiration du code/lien
   // Réinitialisation de mot de passe (forgot-password + OTP de changement en compte)
-  resetCode     String?   // OTP à 6 chiffres
-  resetExpiry   DateTime? // expiration 15 min
-  createdAt    DateTime  @default(now())
+  resetCode       String? // OTP à 6 chiffres
+  resetExpiry     DateTime? // expiration 15 min
+  createdAt       DateTime  @default(now())
 
-  isAdmin         Boolean        @default(false)
+  isAdmin Boolean @default(false)
 
-  buzzers         Buzzer[]
-  partiesCreees   Partie[]       @relation("AnimateurParties")
-  participations  Participant[]
-  paiements       Paiement[]
-  subscriptions   Subscription[]
-  packRatings     PackRating[]
-  refreshTokens   RefreshToken[]
-  questionsCreees Question[]     @relation("QuestionsCreees")
-  medias          Media[]        @relation("MediasCrees")
-  orgsPossedees   Organisation[]       @relation("OrgOwner")
-  orgMemberships  OrganisationMembre[]
+  buzzers            Buzzer[]
+  partiesCreees      Partie[]             @relation("AnimateurParties")
+  participations     Participant[]
+  paiements          Paiement[]
+  subscriptions      Subscription[]
+  packRatings        PackRating[]
+  refreshTokens      RefreshToken[]
+  questionsCreees    Question[]           @relation("QuestionsCreees")
+  medias             Media[]              @relation("MediasCrees")
+  orgsPossedees      Organisation[]       @relation("OrgOwner")
+  orgMemberships     OrganisationMembre[]
   userPacks          UserPack[]
   creditTransactions CreditTransaction[]
-  packsPerso         Pack[]         @relation("PacksPerso")
+  packsPerso         Pack[]               @relation("PacksPerso")
   aiGenerations      AiGeneration[]
 }
 
@@ -137,17 +137,20 @@ model User {
 model Media {
   id          String    @id @default(cuid())
   type        MediaType
-  url         String    // chemin servi, ex: /uploads/xxx.jpg
-  thumbUrl    String?   // miniature générée (images / vidéos)
-  filename    String    // nom de fichier original
+  url         String // chemin servi, ex: /uploads/xxx.jpg
+  thumbUrl    String? // miniature générée (images / vidéos)
+  filename    String // nom de fichier original
   mimeType    String
-  size        Int       // octets (après compression éventuelle)
+  size        Int // octets (après compression éventuelle)
   sha256      String    @unique // déduplication (hash du fichier original)
   titre       String?
-  width       Int?      // images
-  height      Int?      // images
-  duration    Int?      // secondes (audio/vidéo)
+  width       Int? // images
+  height      Int? // images
+  duration    Int? // secondes (audio/vidéo)
   tags        String[]
+  // Image envoyée par un utilisateur pour ses propres quiz : hors médiathèque
+  // publique (recherche, IA, catalogue), visible de son seul propriétaire.
+  prive       Boolean   @default(false)
   createdById String?
   createdBy   User?     @relation("MediasCrees", fields: [createdById], references: [id])
   createdAt   DateTime  @default(now())
@@ -155,42 +158,46 @@ model Media {
   questions Question[]
 
   @@index([type])
+  @@index([prive, createdById])
 }
 
 model Partie {
-  id          String       @id @default(cuid())
-  nom         String
-  code        String       @unique
-  status      PartieStatus @default(EN_ATTENTE)
-  animateurId String?
-  animateur   User?        @relation("AnimateurParties", fields: [animateurId], references: [id])
+  id                String       @id @default(cuid())
+  nom               String
+  code              String       @unique
+  status            PartieStatus @default(EN_ATTENTE)
+  animateurId       String?
+  animateur         User?        @relation("AnimateurParties", fields: [animateurId], references: [id])
   // Créateur (hôte) de la partie — distinct de l'animateur : en modes
   // automatique / vote collectif il n'y a pas d'animateur, mais le créateur
   // reste seul habilité à gérer (lancer, annuler, inviter…).
-  creatorId   String?
-  modeAuto    Boolean      @default(false)
-  modeVote    Boolean      @default(false)
+  creatorId         String?
+  modeAuto          Boolean      @default(false)
+  modeVote          Boolean      @default(false)
   // Partie solo (joueur seul) : toujours gratuite et illimitée, NON décomptée du
   // quota mensuel. Les parties multijoueurs (solo=false) sont seules décomptées.
-  solo        Boolean      @default(false)
+  solo              Boolean      @default(false)
   // Masquer les réponses à l'animateur jusqu'à la révélation (projection directe).
-  masquerReponses Boolean  @default(false)
+  masquerReponses   Boolean      @default(false)
   // Jeu à distance (en ligne) : les joueurs voient les médias sur leur téléphone
   // et les questions BUZZER ont un champ de saisie texte en mode auto (A4/D5).
-  modeDistanciel Boolean   @default(false)
+  modeDistanciel    Boolean      @default(false)
   // Élimination progressive activée pour cette partie (D6).
-  eliminationActive Boolean @default(false)
+  eliminationActive Boolean      @default(false)
   // Mode « vies » : nb de vies par joueur (0 = désactivé). Mauvaise réponse = −1 vie ;
   // éliminé à 0. Cumulable avec les autres mécaniques.
-  viesParJoueur     Int     @default(0)
-  timerBuzz   Int          @default(10)
-  timerVote   Int          @default(15)
-  packId      String?
-  packNom     String?
-  startedAt   DateTime?
-  endedAt     DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  viesParJoueur     Int          @default(0)
+  timerBuzz         Int          @default(10)
+  timerVote         Int          @default(15)
+  // Jeu par équipes : [{ nom, couleur }] (null = chacun pour soi). Le score
+  // d'une équipe est la somme des scores de ses membres (aucun barème dédié).
+  equipes           Json?
+  packId            String?
+  packNom           String?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   participants Participant[]
   votes        Vote[]
@@ -206,7 +213,7 @@ model GameEvent {
   questionIndex Int
   questionId    String?
   participantId String?
-  type          String   // 'buzz' | 'answer' | 'reveal'
+  type          String // 'buzz' | 'answer' | 'reveal'
   valide        Boolean?
   responseMs    Int?
   createdAt     DateTime @default(now())
@@ -215,17 +222,18 @@ model GameEvent {
 }
 
 model Participant {
-  id          String   @id @default(cuid())
-  partieId    String
-  partie      Partie   @relation(fields: [partieId], references: [id], onDelete: Cascade)
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id])
-  prenom      String
-  buzzerId    String?
-  buzzer      Buzzer?  @relation(fields: [buzzerId], references: [id])
+  id           String   @id @default(cuid())
+  partieId     String
+  partie       Partie   @relation(fields: [partieId], references: [id], onDelete: Cascade)
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  prenom       String
+  buzzerId     String?
+  buzzer       Buzzer?  @relation(fields: [buzzerId], references: [id])
   isAnimateur  Boolean  @default(false)
   isEliminated Boolean  @default(false) // D6 : exclu du buzz, reste spectateur
-  vies         Int?     // mode « vies » : nb de vies restantes (null = désactivé)
+  vies         Int? // mode « vies » : nb de vies restantes (null = désactivé)
+  equipe       Int? // index dans Partie.equipes (null = sans équipe)
   score        Int      @default(0)
   rang         Int?
   joinedAt     DateTime @default(now())
@@ -236,21 +244,21 @@ model Participant {
 }
 
 model Buzzer {
-  id         String       @id @default(cuid())
-  mac        String       @unique
-  nom        String?
-  couleur    String       @default("#3B82F6")
-  ownerId    String?
-  owner      User?        @relation(fields: [ownerId], references: [id])
-  claimedAt  DateTime?
-  status     BuzzerStatus @default(OFFLINE)
-  lastSeenAt DateTime?
-  firmware   String?
+  id              String       @id @default(cuid())
+  mac             String       @unique
+  nom             String?
+  couleur         String       @default("#3B82F6")
+  ownerId         String?
+  owner           User?        @relation(fields: [ownerId], references: [id])
+  claimedAt       DateTime?
+  status          BuzzerStatus @default(OFFLINE)
+  lastSeenAt      DateTime?
+  firmware        String?
   // Télémétrie (Étape 6) : remontée périodique de l'appareil.
-  battery         Int?      // niveau de batterie 0–100 %
-  rssi            Int?      // force du signal Wi-Fi (dBm)
+  battery         Int? // niveau de batterie 0–100 %
+  rssi            Int? // force du signal Wi-Fi (dBm)
   lastTelemetryAt DateTime?
-  createdAt  DateTime     @default(now())
+  createdAt       DateTime     @default(now())
 
   participations Participant[]
 }
@@ -275,15 +283,17 @@ model Paiement {
   userId        String
   user          User           @relation(fields: [userId], references: [id])
   reference     String         @unique @default(cuid()) // référence marchand (transaction_id CinetPay)
-  montant       Int            // FCFA
+  montant       Int // FCFA
   devise        String         @default("XOF")
   statut        PaiementStatut @default(PENDING)
-  plan          Plan?          // si achat d'un abonnement
-  offreId       String?        // offre commerciale souscrite
-  packId        String?        // si achat unitaire d'un pack
+  plan          Plan? // si achat d'un abonnement
+  offreId       String? // offre commerciale souscrite
+  packId        String? // si achat unitaire d'un pack
   description   String?
-  operateur     String?        // moyen de paiement (Orange Money, MTN, Wave…)
-  transactionId String?        // identifiant retourné par l'opérateur
+  operateur     String? // moyen de paiement (Orange Money, MTN, Wave…)
+  transactionId String? // identifiant retourné par l'opérateur
+  notifyToken   String? // jeton CinetPay attendu dans la notification (anti-usurpation)
+  paymentUrl    String? // page de paiement CinetPay (reprise d'un paiement en attente)
   metadata      Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -343,12 +353,12 @@ model RefreshToken {
 // ── BIBLIOTHÈQUE DE QUESTIONS ─────────────────────────────
 
 model Categorie {
-  id          String     @id @default(cuid())
-  nom         String     @unique
+  id          String   @id @default(cuid())
+  nom         String   @unique
   emoji       String?
   description String?
-  publique    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
+  publique    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
   rubriques Rubrique[]
   questions Question[]
@@ -408,25 +418,25 @@ model Question {
 // ── MANCHES ───────────────────────────────────────────────
 
 model Manche {
-  id          String   @id @default(cuid())
-  nom         String
-  ordre       Int
-  partieId    String
-  partie      Partie   @relation(fields: [partieId], references: [id], onDelete: Cascade)
-  pointsParQ  Int      @default(100)
-  tempsLimite Int      @default(30)
-  theme       String   @default("MELANGE")
-  difficulte  String   @default("MIXTE")
-  nbQuestions Int      @default(10)
+  id                   String   @id @default(cuid())
+  nom                  String
+  ordre                Int
+  partieId             String
+  partie               Partie   @relation(fields: [partieId], references: [id], onDelete: Cascade)
+  pointsParQ           Int      @default(100)
+  tempsLimite          Int      @default(30)
+  theme                String   @default("MELANGE")
+  difficulte           String   @default("MIXTE")
+  nbQuestions          Int      @default(10)
   // Types de questions autorisés pour cette manche (vide = tous).
-  typesAutorises String[] @default([])
-  createdAt   DateTime @default(now())
-  malusEnabled         Boolean @default(false)
-  malusPenalite        Int     @default(50)
-  multiplicateurPoints Float   @default(1.0)
-  eliminationActive    Boolean @default(false)
+  typesAutorises       String[] @default([])
+  createdAt            DateTime @default(now())
+  malusEnabled         Boolean  @default(false)
+  malusPenalite        Int      @default(50)
+  multiplicateurPoints Float    @default(1.0)
+  eliminationActive    Boolean  @default(false)
   // Type de manche spéciale : STANDARD | EXPRESS | RISQUE | DOUBLE | DUEL | RATTRAPAGE
-  typeManche           String  @default("STANDARD")
+  typeManche           String   @default("STANDARD")
 
   mancheQuestions MancheQuestion[]
 }
@@ -470,27 +480,27 @@ enum PackDuree {
 }
 
 model Pack {
-  id          String   @id @default(cuid())
-  slug        String   @unique // référence stable (ex: "actu-ci")
+  id          String @id @default(cuid())
+  slug        String @unique // référence stable (ex: "actu-ci")
   nom         String
-  description String   @default("")
+  description String @default("")
 
   // Présentation
-  emoji       String?  // icône
+  emoji       String? // icône
   couleur     String   @default("#6366F1")
-  imageUrl    String?  // vignette
-  banniereUrl String?  // bannière large
-  categorie   String?  // catégorie principale (filtre dashboard)
+  imageUrl    String? // vignette
+  banniereUrl String? // bannière large
+  categorie   String? // catégorie principale (filtre dashboard)
   tags        String[] // mots-clés pour la recherche
 
   // Paramètres de jeu
   difficulte        String          @default("MIXTE") // FACILE|MOYEN|DIFFICILE|MIXTE
   duree             PackDuree       @default(STANDARD)
-  categories        String[]        // catégories sources (mode dynamique)
+  categories        String[] // catégories sources (mode dynamique)
   // Tags de FILTRAGE des questions (ex. ["drapeaux","cedeao"]). Permet des packs
   // transverses aux catégories (CEDEAO, UEMOA, Francophonie, G20…). Vide = ignoré.
   filtreTags        String[]        @default([])
-  typesAutorises    String[]        // types de questions autorisés (vide = tous)
+  typesAutorises    String[] // types de questions autorisés (vide = tous)
   modeRecommande    String          @default("animateur") // animateur|auto|vote
   contentMode       PackContentMode @default(DYNAMIQUE)
   nbManches         Int             @default(2)
@@ -499,16 +509,16 @@ model Pack {
   pointsParQuestion Int             @default(100)
 
   // Configuration gameplay avancée (D3/D6/D8/D9)
-  modeDistanciel       Boolean @default(false) // suggestion mode distanciel
-  malusEnabled         Boolean @default(false) // malus si mauvaise réponse
-  malusPenalite        Int     @default(50)    // % pénalité malus
-  multiplicateurFinale Float   @default(1.0)   // bonus barème dernière manche
-  eliminationActive    Boolean @default(false) // élimination progressive
+  modeDistanciel        Boolean @default(false) // suggestion mode distanciel
+  malusEnabled          Boolean @default(false) // malus si mauvaise réponse
+  malusPenalite         Int     @default(50) // % pénalité malus
+  multiplicateurFinale  Float   @default(1.0) // bonus barème dernière manche
+  eliminationActive     Boolean @default(false) // élimination progressive
   masquerReponsesDefaut Boolean @default(false) // révéler la réponse après (true) ou en régie avant (false)
 
   // Monétisation
-  tier  PackTier @default(GRATUIT) // niveau / condition d'accès
-  prix  Int      @default(0)       // FCFA (achat unitaire = jeu illimité ; 0 = gratuit)
+  tier      PackTier @default(GRATUIT) // niveau / condition d'accès
+  prix      Int      @default(0) // FCFA (achat unitaire = jeu illimité ; 0 = gratuit)
   // Pack financé par une marque (sponsoring) : gratuit et illimité pour tous.
   // Dormant au lancement (Temps 1). Renseigné en Temps 2 via les campagnes.
   sponsorId String?
@@ -526,7 +536,7 @@ model Pack {
   origine String?
 
   // Promotion & cycle de vie
-  priorite  Int        @default(50)   // tri décroissant (100 = top)
+  priorite  Int        @default(50) // tri décroissant (100 = top)
   vedette   Boolean    @default(false) // carrousel principal / recommandations
   signature Boolean    @default(false) // section "Parties signature"
   statut    PackStatut @default(ACTIF)
@@ -551,14 +561,14 @@ model AiGeneration {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fournisseur   String   // 'anthropic'
+  fournisseur   String // 'anthropic'
   modele        String
-  demande       String   // demande de l'utilisateur (tronquée à 600 car.)
+  demande       String // demande de l'utilisateur (tronquée à 600 car.)
   nbQuestions   Int      @default(0) // questions valides rendues
   jetonsEntree  Int      @default(0)
   jetonsSortie  Int      @default(0)
   coutEstimeUsd Float    @default(0)
-  statut        String   // 'ok' | 'refus' | 'erreur' | 'invalide'
+  statut        String // 'ok' | 'refus' | 'erreur' | 'invalide'
   erreur        String?
   createdAt     DateTime @default(now())
 
@@ -575,7 +585,7 @@ model UserPack {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   packId     String
   pack       Pack     @relation(fields: [packId], references: [id], onDelete: Cascade)
-  paiementId String?  // paiement à l'origine de l'acquisition
+  paiementId String? // paiement à l'origine de l'acquisition
   acquisAt   DateTime @default(now())
 
   @@unique([userId, packId])
@@ -588,8 +598,8 @@ model CreditTransaction {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  delta      Int      // +N (achat/bonus), -1 (partie multijoueur consommée)
-  raison     String   // 'ACHAT' | 'PARTIE' | 'BONUS' | 'REMBOURSEMENT'
+  delta      Int // +N (achat/bonus), -1 (partie multijoueur consommée)
+  raison     String // 'ACHAT' | 'PARTIE' | 'BONUS' | 'REMBOURSEMENT'
   paiementId String?
   createdAt  DateTime @default(now())
 
@@ -622,23 +632,23 @@ enum OffreCategorie {
 }
 
 model Offre {
-  id             String         @id @default(cuid())
-  code           String         @unique // FREE, PRO, ORG_50, ORG_100…
-  nom            String
-  description    String         @default("")
-  categorie      OffreCategorie @default(PERSONNEL)
-  plan           Plan           @default(FREE) // plan interne appliqué (limites)
-  prix           Int            @default(0)    // FCFA
-  dureeJours     Int            @default(30)
-  sieges         Int            @default(1)    // nombre d'utilisateurs (1 = perso)
-  quotas         Json?          // surcharges éventuelles d'affichage
-  fonctionnalites String[]      // étiquettes d'avantages affichées
-  couleur        String         @default("#6366F1")
-  populaire      Boolean        @default(false)
-  visible        Boolean        @default(true)
-  ordre          Int            @default(0)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id              String         @id @default(cuid())
+  code            String         @unique // FREE, PRO, ORG_50, ORG_100…
+  nom             String
+  description     String         @default("")
+  categorie       OffreCategorie @default(PERSONNEL)
+  plan            Plan           @default(FREE) // plan interne appliqué (limites)
+  prix            Int            @default(0) // FCFA
+  dureeJours      Int            @default(30)
+  sieges          Int            @default(1) // nombre d'utilisateurs (1 = perso)
+  quotas          Json? // surcharges éventuelles d'affichage
+  fonctionnalites String[] // étiquettes d'avantages affichées
+  couleur         String         @default("#6366F1")
+  populaire       Boolean        @default(false)
+  visible         Boolean        @default(true)
+  ordre           Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([categorie])
 }
@@ -685,10 +695,11 @@ model Organisation {
   owner       User      @relation("OrgOwner", fields: [ownerId], references: [id])
   offreId     String?
   plan        Plan      @default(ENTREPRISE)
-  sieges      Int       @default(0)     // sièges disponibles
+  sieges      Int       @default(0) // sièges disponibles
   statut      OrgStatut @default(ACTIVE)
   expireAt    DateTime?
-  inviteToken String    @unique         // lien d'invitation permanent
+  inviteToken String    @unique // lien d'invitation permanent
+  logoUrl     String? // logo affiché sur l'écran public, la salle d'attente et le bilan
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -700,16 +711,16 @@ model Organisation {
 }
 
 model OrganisationMembre {
-  id             String       @id @default(cuid())
+  id             String              @id @default(cuid())
   organisationId String
-  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  organisation   Organisation        @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           OrgRole      @default(MEMBRE)
-  statut         MembreStatut @default(ACTIF)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole             @default(MEMBRE)
+  statut         MembreStatut        @default(ACTIF)
   groupeId       String?
   groupe         OrganisationGroupe? @relation(fields: [groupeId], references: [id])
-  joinedAt       DateTime     @default(now())
+  joinedAt       DateTime            @default(now())
 
   @@unique([organisationId, userId])
   @@index([organisationId])
@@ -735,9 +746,9 @@ model OrganisationGroupe {
 model BuzzerEvent {
   id        String   @id @default(cuid())
   mac       String
-  type      String   // CONNECT | DISCONNECT | FACTORY_RESET_ADMIN | FACTORY_RESET_DEVICE | CLAIM | RELEASE | RELEASE_ADMIN | FORGET
+  type      String // CONNECT | DISCONNECT | FACTORY_RESET_ADMIN | FACTORY_RESET_DEVICE | CLAIM | RELEASE | RELEASE_ADMIN | FORGET
   ip        String?
-  ville     String?  // résolu par géolocalisation IP (best-effort, peut être null)
+  ville     String? // résolu par géolocalisation IP (best-effort, peut être null)
   pays      String?
   firmware  String?
   meta      Json?
@@ -748,17 +759,17 @@ model BuzzerEvent {
 }
 
 model Invitation {
-  id              String       @id @default(cuid())
-  organisationId  String
-  organisation    Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  email           String?      // invitation nominative (optionnelle)
-  token           String       @unique
-  role            OrgRole      @default(MEMBRE)
-  statut          InvitStatut  @default(PENDING)
-  invitedById     String?
+  id               String       @id @default(cuid())
+  organisationId   String
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  email            String? // invitation nominative (optionnelle)
+  token            String       @unique
+  role             OrgRole      @default(MEMBRE)
+  statut           InvitStatut  @default(PENDING)
+  invitedById      String?
   acceptedByUserId String?
-  expiresAt       DateTime?
-  createdAt       DateTime     @default(now())
+  expiresAt        DateTime?
+  createdAt        DateTime     @default(now())
 
   @@index([organisationId])
 }

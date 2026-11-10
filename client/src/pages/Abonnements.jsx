@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
-import { Check, Loader2, Crown, Building2, Sparkles, ArrowLeft, ChevronRight, MailWarning } from 'lucide-react'
+import { Check, Loader2, Crown, Building2, Sparkles, ArrowLeft, ChevronRight, MailWarning, Info } from 'lucide-react'
 
 export function fmtFCFA(n) {
   return (n ?? 0).toLocaleString('fr-FR') + ' FCFA'
@@ -23,12 +23,15 @@ export default function Abonnements() {
   const [loading, setLoading] = useState(true)
   const [subscribing, setSubscribing] = useState(null)
   const [orgSize, setOrgSize] = useState(null) // offre Org sélectionnée
+  const [modePaiement, setModePaiement] = useState('reel') // 'reel' | 'simulation' | 'ferme'
+  const [erreurPaiement, setErreurPaiement] = useState('')
 
   useEffect(() => {
     apiFetch('/billing/plans').then(r => r?.json()).then(d => {
       if (d) {
         setOffres(d.offres ?? [])
         setCurrent(d.current ?? 'FREE')
+        setModePaiement(d.modePaiement ?? (d.paiementsActifs ? 'reel' : 'simulation'))
         const orgs = (d.offres ?? []).filter(o => o.categorie === 'ORGANISATION')
         if (orgs.length) setOrgSize(orgs[0])
       }
@@ -42,15 +45,19 @@ export default function Abonnements() {
   async function subscribe(offre) {
     if (user?.isGuest) { navigate('/register'); return }           // invité → créer un compte
     if (!offre) return
-    setSubscribing(offre.id)
+    setSubscribing(offre.id); setErreurPaiement('')
     const res = await apiFetch('/billing/subscribe', { method: 'POST', body: { offreId: offre.id } })
-    setSubscribing(null)
-    if (res?.status === 403) {                                     // email non vérifié
-      const e = await res.json().catch(() => ({}))
-      if (e.code === 'EMAIL_NOT_VERIFIED' || e.code === 'NOT_VERIFIED') { navigate(verifyPath); return }
+    if (!res?.ok) {
+      setSubscribing(null)
+      const e = await res?.json().catch(() => ({}))
+      if (e?.code === 'EMAIL_NOT_VERIFIED' || e?.code === 'NOT_VERIFIED') { navigate(verifyPath); return }
+      setErreurPaiement(e?.error ?? 'Paiement impossible pour le moment. Réessaie.')
+      return
     }
-    if (!res?.ok) return
     const data = await res.json()
+    // Paiement réel : la page sécurisée de CinetPay (Orange Money, MTN, Moov, Wave, carte).
+    if (data.checkout?.url) { window.location.assign(data.checkout.url); return }
+    setSubscribing(null)
     navigate('/abonnement/checkout', { state: { reference: data.reference, offre, montant: data.montant } })
   }
 
@@ -72,6 +79,21 @@ export default function Abonnements() {
         <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Choisis ton offre</h1>
         <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Un pass de 30 jours, payé une fois. Aucun prélèvement automatique.</p>
       </div>
+
+      {modePaiement === 'ferme' && (
+        <div className="card p-4 mb-6 flex items-center gap-3" role="status" style={{ border: '1px solid rgba(217,154,0,0.35)', background: 'rgba(255,194,61,0.10)' }}>
+          <Info size={18} style={{ color: '#B07D00' }} className="shrink-0" />
+          <p className="text-sm flex-1" style={{ color: 'var(--text-muted)' }}>
+            <strong style={{ color: 'var(--text)' }}>Le paiement en ligne ouvre très bientôt.</strong> En attendant, les offres sont présentées à titre indicatif.
+          </p>
+        </div>
+      )}
+      {modePaiement === 'simulation' && (
+        <p className="text-2xs text-center mb-4" style={{ color: 'var(--text-dim)' }}>Environnement de démonstration : aucun paiement réel.</p>
+      )}
+      {erreurPaiement && (
+        <p className="text-sm text-center mb-4 px-3 py-2 rounded-xl" role="alert" style={{ background: 'rgba(239,68,68,0.1)', color: '#C0392B' }}>{erreurPaiement}</p>
+      )}
 
       {/* Invité : consultation libre, mais il faut un compte pour s'abonner. */}
       {isGuest && (
@@ -104,7 +126,7 @@ export default function Abonnements() {
           {/* Pro */}
           <Carte famille="pro" populaire prixLabel={`${fmtFCFA(pro?.prix)} / 30 jours`}
             avantages={pro?.fonctionnalites ?? []}
-            cta={isPro ? { label: 'Offre actuelle', disabled: true } : { label: 'Passer en Premium', onClick: () => subscribe(pro), loading: subscribing === pro?.id }} />
+            cta={isPro ? { label: 'Offre actuelle', disabled: true } : modePaiement === 'ferme' ? { label: 'Bientôt disponible', disabled: true } : { label: 'Passer en Premium', onClick: () => subscribe(pro), loading: subscribing === pro?.id }} />
 
           {/* Organisation */}
           <Carte famille="org" prixLabel={orgSize ? `dès ${fmtFCFA(orgOffres[0]?.prix)} / 30 jours` : 'Sur mesure'}
@@ -128,7 +150,7 @@ export default function Abonnements() {
                 {orgSize && <p className="text-2xs mt-2" style={{ color: 'var(--text-muted)' }}>{fmtFCFA(orgSize.prix)} / 30 jours · {orgSize.sieges} utilisateurs</p>}
               </div>
             }
-            cta={isOrg ? { label: 'Offre actuelle', disabled: true } : { label: 'Choisir Organisation', onClick: () => subscribe(orgSize), loading: subscribing === orgSize?.id }} />
+            cta={isOrg ? { label: 'Offre actuelle', disabled: true } : modePaiement === 'ferme' ? { label: 'Bientôt disponible', disabled: true } : { label: 'Choisir Organisation', onClick: () => subscribe(orgSize), loading: subscribing === orgSize?.id }} />
         </div>
       )}
 

@@ -8,6 +8,9 @@ import { drawAndStoreQuestions, flattenManchesServer } from '../services/gameSer
 import { joueursMax, canCreatePartie } from '../services/quotaService.js'
 import { debitOne } from '../services/creditService.js'
 import { markBuzzersInGame, releaseBuzzerToOnline } from '../services/buzzerService.js'
+import { construireEquipes, equipesDe, equipePourNouveauJoueur, repartirJoueurs, EQUIPES_MAX } from '../services/teamService.js'
+import { Prisma } from '@prisma/client'
+import { brandingDeUtilisateur } from '../services/orgService.js'
 import { setGameQuestions, startAutoQuestion, mediaStateMessage, questionDisplayMessage, pushLedToBuzzers } from '../ws/gameHandler.js'
 
 const router = Router()
@@ -69,6 +72,9 @@ const CreatePartieSchema = z.object({
   viesParJoueur: z.number().int().min(0).max(10).default(0),
   // Partie solo (joueur seul) : gratuite, illimitée, non décomptée du quota.
   solo: z.boolean().default(false),
+  // Jeu par équipes : 0 = chacun pour soi, sinon 2 à 6 équipes.
+  equipes: z.number().int().min(0).max(EQUIPES_MAX).default(0),
+  equipesNoms: z.array(z.string().max(24)).max(EQUIPES_MAX).optional(),
 })
 
 // ── Routes statiques AVANT /:partieId ───────────────────────────────────────
@@ -77,7 +83,9 @@ router.post('/', requireAuth, async (req, res) => {
   const parsed = CreatePartieSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, eliminationActive, viesParJoueur, solo } = parsed.data
+  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, eliminationActive, viesParJoueur, solo, equipesNoms } = parsed.data
+  // Une partie solo n'a pas d'équipes.
+  const equipes = solo ? null : construireEquipes(parsed.data.equipes, equipesNoms)
 
   // Quota : seules les parties MULTIJOUEURS sont décomptées. Le solo est illimité.
   const user = await prisma.user.findUnique({
@@ -112,6 +120,7 @@ router.post('/', requireAuth, async (req, res) => {
       eliminationActive: !!eliminationActive,
       viesParJoueur: viesParJoueur ?? 0,
       timerBuzz, timerVote,
+      ...(equipes ? { equipes } : {}),
     },
   })
 
@@ -124,6 +133,7 @@ router.post('/', requireAuth, async (req, res) => {
       userId: req.userId,
       prenom: user?.prenom ?? 'Créateur',
       isAnimateur: mode === 'animateur',
+      equipe: equipes && mode !== 'animateur' ? 0 : null,
     },
   })
 
@@ -145,7 +155,8 @@ router.get('/by-code/:code', requireAuth, async (req, res) => {
     ...partieFull,
   })
   if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
-  res.json(sanitizePartie(partie))
+  // Habillage de l'organisation de l'hôte (logo sur l'écran public et la salle).
+  res.json({ ...sanitizePartie(partie), branding: await brandingDeUtilisateur(partie.creatorId ?? partie.animateurId) })
 })
 
 // Réponses réservées à l'animateur de la partie (pour valider les buzz).
@@ -237,6 +248,7 @@ router.post('/join', requireAuth, async (req, res) => {
       userId: req.userId,
       prenom: user?.prenom ?? 'Joueur',
       buzzerId: buzzerOwned?.id ?? null,
+      equipe: await equipePourNouveauJoueur(partie.id),
     },
   })
 
@@ -256,7 +268,8 @@ router.get('/:partieId', requireAuth, async (req, res) => {
     ...partieFull,
   })
   if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
-  res.json(sanitizePartie(partie))
+  // Habillage de l'organisation de l'hôte (logo sur l'écran public et la salle).
+  res.json({ ...sanitizePartie(partie), branding: await brandingDeUtilisateur(partie.creatorId ?? partie.animateurId) })
 })
 
 // Édition d'une partie tant qu'elle est en attente (nom, mode, minuteurs).
@@ -267,6 +280,8 @@ const EditPartieSchema = z.object({
   timerVote: z.number().int().min(5).max(60).optional(),
   masquerReponses: z.boolean().optional(),
   modeDistanciel: z.boolean().optional(),
+  equipes: z.number().int().min(0).max(EQUIPES_MAX).optional(),
+  equipesNoms: z.array(z.string().max(24)).max(EQUIPES_MAX).optional(),
 })
 
 router.patch('/:partieId', requireAuth, async (req, res) => {
@@ -286,8 +301,13 @@ router.patch('/:partieId', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Seule une partie non démarrée peut être modifiée' })
   }
 
-  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel } = parsed.data
+  const { nom, mode, timerBuzz, timerVote, masquerReponses, modeDistanciel, equipes, equipesNoms } = parsed.data
   const data = {}
+  if (equipes !== undefined || equipesNoms !== undefined) {
+    const n = equipes ?? equipesDe(partie)?.length ?? 0
+    const noms = equipesNoms ?? (equipesDe(partie) ?? []).map(e => e.nom)
+    data.equipes = partie.solo ? Prisma.DbNull : (construireEquipes(n, noms) ?? Prisma.DbNull)
+  }
   if (nom !== undefined) data.nom = nom
   if (timerBuzz !== undefined) data.timerBuzz = timerBuzz
   if (timerVote !== undefined) data.timerVote = timerVote
@@ -318,6 +338,8 @@ router.patch('/:partieId', requireAuth, async (req, res) => {
   if (effectiveMode !== 'animateur') data.masquerReponses = false
 
   await prisma.partie.update({ where: { id: partieId }, data })
+  // Nombre d'équipes ou maître du jeu changé : chaque joueur retrouve une équipe valide.
+  if (data.equipes !== undefined || mode !== undefined) await repartirJoueurs(partieId)
 
   const full = await prisma.partie.findUnique({ where: { id: partieId }, ...partieFull })
   broadcast(partie.code, { type: 'partie_updated', partieCode: partie.code })
@@ -333,7 +355,7 @@ router.post('/:partieId/participants/invite', requireAuth, async (req, res) => {
   if (!prenom?.trim()) return res.status(400).json({ error: 'Prénom requis' })
 
   const participant = await prisma.participant.create({
-    data: { partieId, prenom: prenom.trim(), userId: null },
+    data: { partieId, prenom: prenom.trim(), userId: null, equipe: await equipePourNouveauJoueur(partieId) },
   })
 
   const partie = await prisma.partie.findUnique({ where: { id: partieId }, select: { code: true } })
@@ -396,11 +418,38 @@ router.post('/:partieId/participants/add-user', requireAuth, async (req, res) =>
   if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' })
 
   const participant = await prisma.participant.create({
-    data: { partieId, userId, prenom: user.prenom || 'Joueur' },
+    data: { partieId, userId, prenom: user.prenom || 'Joueur', equipe: await equipePourNouveauJoueur(partieId) },
   })
 
   broadcast(partie.code, { type: 'participant_joined', participant })
   res.status(201).json(participant)
+})
+
+// Changer un joueur d'équipe avant le démarrage : l'hôte pour n'importe qui,
+// un joueur pour lui-même (il choisit son camp en salle d'attente).
+router.patch('/:partieId/participants/:participantId/equipe', requireAuth, async (req, res) => {
+  const { partieId, participantId } = req.params
+  const parsed = z.object({ equipe: z.number().int().min(0).max(EQUIPES_MAX - 1) }).safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Équipe invalide' })
+
+  const partie = await prisma.partie.findUnique({ where: { id: partieId }, select: { code: true, status: true, equipes: true } })
+  if (!partie) return res.status(404).json({ error: 'Partie introuvable' })
+  const equipes = equipesDe(partie)
+  if (!equipes) return res.status(400).json({ error: 'Cette partie se joue sans équipes' })
+  if (parsed.data.equipe >= equipes.length) return res.status(400).json({ error: 'Équipe invalide' })
+  if (partie.status !== 'EN_ATTENTE') return res.status(400).json({ error: 'La partie a déjà commencé' })
+
+  const participant = await prisma.participant.findUnique({ where: { id: participantId } })
+  if (!participant || participant.partieId !== partieId) return res.status(404).json({ error: 'Participant introuvable' })
+  if (participant.isAnimateur) return res.status(400).json({ error: 'Le maître du jeu n\'a pas d\'équipe' })
+  const estLui = participant.userId && participant.userId === req.userId
+  if (!estLui && !(await isHostDePartie(req.userId, partieId))) {
+    return res.status(403).json({ error: 'Seul l\'hôte peut changer un autre joueur d\'équipe' })
+  }
+
+  await prisma.participant.update({ where: { id: participantId }, data: { equipe: parsed.data.equipe } })
+  broadcast(partie.code, { type: 'participant_equipe', participantId, equipe: parsed.data.equipe })
+  res.json({ ok: true, participantId, equipe: parsed.data.equipe })
 })
 
 // Retirer un participant avant le démarrage.
@@ -555,6 +604,9 @@ router.post('/:partieId/start', requireAuth, async (req, res) => {
       data: { vies: partie.viesParJoueur },
     })
   }
+
+  // Équipes : tout joueur arrivé sans équipe est placé avant la 1re question.
+  await repartirJoueurs(partieId)
 
   // Les buzzers matériels assignés passent EN JEU (statut IN_GAME).
   await markBuzzersInGame(partieId)

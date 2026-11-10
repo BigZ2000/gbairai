@@ -12,7 +12,8 @@
     "db:studio": "prisma studio",
     "db:seed": "node prisma/seed-full.js",
     "test": "node --test --test-force-exit tests/quizGenerator.test.js",
-    "test:integration": "node --test --test-force-exit tests/quiz.integration.test.js"
+    "test:integration": "node --test --test-force-exit --test-concurrency=1 tests/quiz.integration.test.js tests/evenement.integration.test.js tests/paiement.integration.test.js",
+    "test:e2e": "node tests/parcours-modes.e2e.js"
   },
   "prisma": {
     "seed": "node prisma/seed-full.js"

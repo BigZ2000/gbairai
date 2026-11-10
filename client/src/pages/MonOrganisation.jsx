@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import Layout from '../components/Layout.jsx'
 import {
   Building2, Users, Loader2, Mail, Link2, Copy, Check, UserMinus, Pause, Play,
-  Shield, ShieldCheck, ArrowLeft, Crown,
+  Shield, ShieldCheck, ArrowLeft, Crown, Upload, ImageIcon, Pencil, Trash2,
 } from 'lucide-react'
 
 const TYPE_LABEL = {
@@ -14,7 +14,7 @@ const TYPE_LABEL = {
 const ROLE_LABEL = { RESPONSABLE: 'Responsable', GESTIONNAIRE: 'Gestionnaire', MEMBRE: 'Membre' }
 
 export default function MonOrganisation() {
-  const { apiFetch, user } = useAuth()
+  const { apiFetch, apiUpload, user } = useAuth()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -42,6 +42,31 @@ export default function MonOrganisation() {
   async function copyLink() {
     await navigator.clipboard.writeText(data.organisation.lienInvitation)
     setCopied(true); setTimeout(() => setCopied(false), 1800)
+  }
+
+  // Habillage : nom et logo affichés sur l'écran public, la salle d'attente et le bilan.
+  const fichierLogo = useRef(null)
+  const [logoBusy, setLogoBusy] = useState(false)
+  const [habillageErreur, setHabillageErreur] = useState('')
+  const [nomEdit, setNomEdit] = useState(null)
+  async function envoyerLogo(f) {
+    if (!f) return
+    setLogoBusy(true); setHabillageErreur('')
+    const fd = new FormData(); fd.append('file', f)
+    const r = await apiUpload(`/organisations/${data.organisation.id}/logo`, fd)
+    setLogoBusy(false)
+    if (!r?.ok) { const d = await r?.json().catch(() => ({})); setHabillageErreur(d?.error ?? 'Logo refusé.'); return }
+    load()
+  }
+  async function retirerLogo() {
+    await apiFetch(`/organisations/${data.organisation.id}/logo`, { method: 'DELETE' })
+    load()
+  }
+  async function enregistrerNom() {
+    const nom = nomEdit?.trim()
+    if (!nom) return
+    const r = await apiFetch(`/organisations/${data.organisation.id}`, { method: 'PATCH', body: { nom } })
+    if (r?.ok) { setNomEdit(null); load() } else setHabillageErreur('Nom refusé.')
   }
 
   async function setMembre(m, body) {
@@ -77,9 +102,11 @@ export default function MonOrganisation() {
       <div className="card p-5 mb-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(14,165,233,0.15)' }}>
-              <Building2 size={22} style={{ color: '#38BDF8' }} />
-            </div>
+            {org.logoUrl
+              ? <img src={org.logoUrl} alt="" className="w-12 h-12 rounded-xl object-contain" style={{ background: 'var(--input-bg)' }} />
+              : <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'var(--hover-overlay)' }}>
+                  <Building2 size={22} style={{ color: 'var(--brand)' }} />
+                </div>}
             <div>
               <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>{org.nom}</h1>
               <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
@@ -98,6 +125,47 @@ export default function MonOrganisation() {
           </div>
         </div>
       </div>
+
+      {/* Habillage (gestionnaires) */}
+      {peutGerer && (
+        <div className="card p-5 mb-5">
+          <h2 className="font-semibold mb-1 flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            <ImageIcon size={16} style={{ color: 'var(--brand-text)' }} />Vos couleurs sur l'écran
+          </h2>
+          <p className="text-2xs mb-4" style={{ color: 'var(--text-dim)' }}>
+            Le logo et le nom s'affichent sur le grand écran, dans la salle d'attente et sur le bilan des parties lancées par vos membres.
+          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-28 h-20 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--input-bg)', border: '1px dashed var(--border-strong)' }}>
+              {org.logoUrl ? <img src={org.logoUrl} alt="Logo actuel" className="max-w-full max-h-full object-contain p-2" /> : <span className="text-2xs" style={{ color: 'var(--text-dim)' }}>Aucun logo</span>}
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+              {nomEdit === null ? (
+                <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
+                  <span className="font-semibold truncate">{org.nom}</span>
+                  <button onClick={() => setNomEdit(org.nom)} className="btn-ghost btn-sm gap-1"><Pencil size={12} />Renommer</button>
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <input value={nomEdit} maxLength={120} onChange={e => setNomEdit(e.target.value)} className="input flex-1" aria-label="Nom de l'organisation"
+                    onKeyDown={e => { if (e.key === 'Enter') enregistrerNom() }} autoFocus />
+                  <button onClick={enregistrerNom} className="btn-primary btn-sm">OK</button>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <input ref={fichierLogo} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                  onChange={e => { envoyerLogo(e.target.files?.[0]); e.target.value = '' }} />
+                <button onClick={() => fichierLogo.current?.click()} disabled={logoBusy} className="btn-secondary btn-sm gap-1.5">
+                  {logoBusy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}{org.logoUrl ? 'Changer le logo' : 'Ajouter le logo'}
+                </button>
+                {org.logoUrl && <button onClick={retirerLogo} className="btn-ghost btn-sm gap-1.5" style={{ color: '#C0392B' }}><Trash2 size={14} />Retirer</button>}
+              </div>
+              <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>PNG à fond transparent conseillé · 5 Mo max.</p>
+              {habillageErreur && <p className="text-xs" role="alert" style={{ color: '#C0392B' }}>{habillageErreur}</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invitation (gestionnaires) */}
       {peutGerer && (

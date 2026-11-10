@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { NOMBRES_EQUIPES } from './Equipes.jsx'
 import { X, Play, Users, Loader2, Smartphone, MonitorPlay, ChevronDown, Star, Pencil, ArrowLeft } from 'lucide-react'
 
 // Feuille de lancement d'un pack ou d'un quiz personnel.
@@ -22,6 +23,7 @@ export default function LaunchSheet({ pack, onClose, onBlocked, editable = false
   const [surPlace, setSurPlace] = useState(false)    // false = chacun son téléphone
   const [animation, setAnimation] = useState(pack.modeRecommande ?? 'auto')
   const [jeJoue, setJeJoue] = useState(false)
+  const [equipes, setEquipes] = useState(0)           // 0 = chacun pour soi
   const [reglages, setReglages] = useState(false)
   const [busy, setBusy] = useState(null)             // 'solo' | 'groupe' | null
   const [erreur, setErreur] = useState('')
@@ -40,7 +42,7 @@ export default function LaunchSheet({ pack, onClose, onBlocked, editable = false
     try {
       const body = solo
         ? { gameMode: 'auto', modeDistanciel: true, solo: true }
-        : { gameMode: animation, modeDistanciel: !surPlace, animateurJoue: animation === 'animateur' ? jeJoue : false }
+        : { gameMode: animation, modeDistanciel: !surPlace, animateurJoue: animation === 'animateur' ? jeJoue : false, equipes }
       const res = await apiFetch(`/packs/${pack.id}/start`, { method: 'POST', body })
       if (!res?.ok) {
         const err = await res?.json().catch(() => ({}))
@@ -130,6 +132,21 @@ export default function LaunchSheet({ pack, onClose, onBlocked, editable = false
                 <Choix actif={surPlace} onClick={() => setSurPlace(true)} icon={MonitorPlay}
                   titre="Un grand écran" desc="Salle, maquis, séminaire : les questions sur l'écran, on répond au téléphone ou au buzzer." />
               </div>
+
+              <p className="label mt-4">On joue comment ?</p>
+              <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Équipes">
+                {[0, ...NOMBRES_EQUIPES].map(n => (
+                  <button key={n} onClick={() => setEquipes(n)} aria-pressed={equipes === n}
+                    className={`chip ${equipes === n ? 'chip-on' : ''}`}>
+                    {n === 0 ? 'Chacun pour soi' : `${n} équipes`}
+                  </button>
+                ))}
+              </div>
+              {equipes > 0 && (
+                <p className="text-2xs mt-1.5" style={{ color: 'var(--text-dim)' }}>
+                  Les joueurs sont répartis à l'arrivée ; chacun peut changer d'équipe avant le lancement.
+                </p>
+              )}
 
               <button onClick={() => setReglages(v => !v)} aria-expanded={reglages}
                 className="flex items-center justify-between w-full mt-4 text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>

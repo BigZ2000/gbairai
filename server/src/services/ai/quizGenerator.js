@@ -125,6 +125,7 @@ export async function chercherMedias({ q = '', type = null, limit = 24 } = {}) {
     ou.push({ questions: { some: { publique: true, OR: [{ reponse: { contains: m, mode: 'insensitive' } }, { tags: { has: m } }] } } })
   }
   const where = {
+    prive: false, // les images personnelles des utilisateurs restent hors médiathèque
     ...(type && ['IMAGE', 'AUDIO', 'VIDEO'].includes(type) ? { type } : {}),
     ...(ou.length ? { OR: ou } : {}),
   }

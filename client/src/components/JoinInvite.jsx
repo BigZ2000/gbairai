@@ -4,12 +4,9 @@ import { Copy, Check } from 'lucide-react'
 
 // Invitation à rejoindre une partie : QR scannable + code + lien copiable.
 // Le QR pointe vers /rejoindre/<code> : le joueur scanne et joue sans compte.
-export default function JoinInvite({ code, compact = false }) {
-  const [copied, setCopied] = useState(false)
+/** Lien d'invitation joignable depuis un autre appareil (IP du réseau local en développement). */
+export function useLienRejoindre(code) {
   const [base, setBase] = useState(window.location.origin)
-
-  // Si l'hôte a ouvert l'app via localhost, le QR serait injoignable depuis un
-  // autre appareil → on remplace par l'IP LAN du serveur (même port).
   useEffect(() => {
     const h = window.location.hostname
     if (h !== 'localhost' && h !== '127.0.0.1') return
@@ -17,8 +14,13 @@ export default function JoinInvite({ code, compact = false }) {
       if (d?.ip) setBase(`${window.location.protocol}//${d.ip}:${window.location.port || '5173'}`)
     }).catch(() => {})
   }, [])
+  return `${base}/rejoindre/${code}`
+}
 
-  const url = `${base}/rejoindre/${code}`
+export default function JoinInvite({ code, compact = false }) {
+  const [copied, setCopied] = useState(false)
+  const url = useLienRejoindre(code)
+
 
   async function copy() {
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch {}

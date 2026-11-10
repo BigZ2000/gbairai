@@ -18,10 +18,27 @@ Chaque affirmation de la partie marché est étiquetée : **[Fait]** (source pri
 | Un plan payé n'expirait jamais | L'échéance (`planExpireAt`) est appliquée partout |
 | Les codes de vérification revenaient dans la réponse de connexion | Retirés (ils permettaient de valider son email sans l'avoir reçu) |
 
+**Deuxième livraison (même jour)**
+
+| Avant | Après |
+|---|---|
+| N'importe quel joueur pouvait, depuis la console du navigateur, valider sa propre réponse, passer la question ou terminer la partie | Commandes de régie réservées à l'hôte ; réponse, vote et buzz liés au compte du joueur ; buzz matériel lié à la connexion du buzzer |
+| En production sans CinetPay, le règlement « simulé » et le webhook acceptaient tout : Premium gratuit pour qui le demandait | Paiement fermé tant que CinetPay n'est pas configuré ; offre activée seulement sur statut vérifié auprès de CinetPay |
+| Chacun pour soi uniquement | Jeu par équipes (2 à 4 au lancement, jusqu'à 6), score d'équipe partout |
+| Fiche de partie : classement et déroulé | Bilan d'événement imprimable (taux de réussite, question piège, plus rapide, équipes) |
+| Le drapeau `branding` existait sans effet | Logo de l'organisation sur l'écran public, la salle d'attente et le bilan |
+| Médias réservés à l'administration | Images personnelles pour les comptes Premium, privées et hors médiathèque |
+| Salle d'attente : QR sous la liste | Invitation en premier, colonnes par équipe ; l'écran public sert de salle d'accueil (QR géant) |
+| Régie inutilisable sur téléphone (débordement) ; animateur listé parmi les joueurs | Régie adaptable ; animateur hors liste |
+| Le joueur ne voyait pas son rang final (mauvais identifiant) | Rang, équipe gagnante et lien vers le bilan |
+| Aucun test frontend, CI sans tests d'intégration | 21 tests de composants, 30 tests d'intégration et un parcours WebSocket réel ; la CI lance les trois premiers |
+
 **Non fait, dit clairement :**
-- La génération par IA n'a **pas été exécutée contre l'API réelle** : aucune clé Anthropic n'est configurée pour Gbairai. Tout le reste de la chaîne (droits, quotas, contrôle, enregistrement, jeu) est testé avec un fournisseur simulé. Il reste à poser `ANTHROPIC_API_KEY` et à juger la qualité sur de vrais quiz.
-- Les écrans de jeu (joueur, animateur, écran public), la salle d'attente, le compte et l'administration ont reçu la nouvelle palette mais **pas de refonte de structure**.
-- Le paiement reste simulé (CinetPay non activé), comme avant.
+- La génération par IA n'a **pas été exécutée contre l'API réelle** (reportée à une session dédiée).
+- CinetPay n'a **pas été appelé pour de vrai** : l'intégration suit le SDK officiel `cinetpay-js` (la documentation web était injoignable) et est testée contre un CinetPay simulé. À faire : compte marchand, clés `sk_test_`, un paiement de bout en bout dans le bac à sable.
+- Les buzzers ont été rejoués avec le **protocole simulé** (même messages que le firmware), pas avec un boîtier ESP32 physique.
+- La mise en page d'impression du bilan n'a pas été contrôlée visuellement (l'outil de test n'imprime pas).
+- L'étiquetage de la médiathèque reste à faire sur vos vraies données : c'est du contenu, pas du code.
 
 ---
 
@@ -129,11 +146,8 @@ Ces seuils sont dans `config/plans.js` et se changent en une ligne. L'essai grat
 ### Fonctions pour les organisations : livré, proposé, écarté
 
 - **Livré — quiz sur l'entreprise.** Le champ « contexte » de la création par IA accepte jusqu'à 6 000 caractères (valeurs, produits, histoire, programme). C'est ce qui rend possibles l'intégration des nouveaux, la connaissance de l'entreprise et la formation, sans nouvelle table.
-- **Proposé, non construit** (à ne lancer qu'après les entretiens de la section 3)
-  1. **Jeu par équipes** (services, agences, tables) avec classement d'équipes. Utilité : c'est le format naturel d'un team building. Coût : moyen (le moteur classe des individus). *Priorité 1.*
-  2. **Bilan d'événement** en une page : participation, classement, questions les plus ratées. Utilité : c'est ce que le RH montre à sa direction, et ce qui justifie la dépense. Coût : faible (`GameEvent` existe déjà).
-  3. **Logo et couleur de l'organisation** sur l'écran public. Coût : faible (le drapeau `branding` existe dans les plans, rien ne l'utilise).
-  4. **Quiz partagés entre membres** d'une organisation. Coût : faible.
+- **Livré (deuxième livraison)** : jeu par équipes, bilan d'événement imprimable, logo de l'organisation. Ils restent à valider par les entretiens de la section 3 : ce qui est construit n'est pas encore prouvé utile.
+- **Proposé, non construit** : **quiz partagés entre membres** d'une organisation. Coût : faible.
 - **Écarté pour l'instant :** parcours de formation avec suivi individuel, intégrations RH, certificats. Cela ferait de Gbairai un outil de formation, un autre métier avec d'autres concurrents.
 
 ---
@@ -200,13 +214,13 @@ Tous les jetons sont dans `client/src/index.css`.
 |---|---|---|---|
 | 1 | Brancher la clé API, générer 20 quiz réels, mesurer coût et taux d'erreurs, choisir le modèle | Rien d'autre sur l'IA n'a de sens avant | 1 jour |
 | 2 | 10 à 15 entretiens entreprises et agences ; 3 à 5 maquis pilotes | Valider les deux hypothèses commerciales | 2 semaines |
-| 3 | Salle d'attente : QR en premier | C'est l'écran que voit toute la salle | 1 à 2 jours |
-| 4 | Activer CinetPay (pass Premium) | Pas de revenu sans cela | Selon l'homologation |
-| 5 | Jeu par équipes + bilan d'événement | Cœur de l'offre entreprise (si l'étape 2 le confirme) | 1 à 2 semaines |
-| 6 | Refonte des écrans de jeu (joueur, écran public, animateur) | L'identité s'arrête aujourd'hui à leur porte | 1 semaine |
-| 7 | Étiqueter la médiathèque ; ouvrir l'envoi d'images aux comptes Premium | L'IA n'associe des médias que si la médiathèque est décrite | Continu |
-| 8 | Quiz de la semaine (éditorial) | Rétention grand public | Continu |
-| 9 | Tests du moteur de jeu | Aucun filet aujourd'hui sur la partie la plus critique | 1 semaine |
+| 3 | CinetPay : compte marchand, clés de test, un paiement réel dans le bac à sable, puis clés `sk_live_` | Pas de revenu sans cela ; l'intégration n'a jamais parlé au vrai CinetPay | 1 jour après l'homologation |
+| 4 | Une soirée réelle avec 2 buzzers ESP32 et l'écran public en équipes | Seul essai qui valide matériel + réseau + écran ensemble | 1 soirée |
+| 5 | Étiqueter la médiathèque | L'IA n'associe des médias que si la médiathèque est décrite | Continu |
+| 6 | Quiz de la semaine (éditorial) | Rétention grand public | Continu |
+| 7 | Quiz partagés entre membres d'une organisation | Demande probable des RH (à confirmer en entretien) | 2 jours |
+
+Faits depuis la première livraison : salle d'attente (QR en premier), jeu par équipes, bilan, logo, envoi d'images Premium, refonte des écrans de jeu, tests du moteur de jeu et du client.
 
 ---
 

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { generateCode } from '../utils/codeGen.js'
+import { construireEquipes, EQUIPES_MAX } from '../services/teamService.js'
 import { pickQuestionsForPack } from '../services/gameService.js'
 import { canAccessPack, isLockedForPlan } from '../services/accessService.js'
 import { canCreatePartie } from '../services/quotaService.js'
@@ -104,6 +105,7 @@ const StartSchema = z.object({
   animateurJoue: z.boolean().optional(),
   modeDistanciel: z.boolean().optional(), // A4/D5 : jeu en ligne vs présentiel
   solo: z.boolean().optional(),           // lancement solo (gratuit, non décompté)
+  equipes: z.number().int().min(0).max(EQUIPES_MAX).optional(), // 0 = chacun pour soi
 })
 
 function buildDynamicPlan(pack, modeId) {
@@ -133,7 +135,8 @@ function buildDynamicPlan(pack, modeId) {
   })
 }
 
-async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animateurJoue = false, modeDistanciel = false, solo = false }) {
+async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animateurJoue = false, modeDistanciel = false, solo = false, equipes: nbEquipes = 0 }) {
+  const equipes = solo ? null : construireEquipes(nbEquipes)
   let code
   for (let i = 0; i < 10; i++) {
     code = generateCode()
@@ -155,11 +158,12 @@ async function createPartieFromPack({ userId, pack, gameMode, nom, mode, animate
       // Masquage des réponses (régie) : défaut du pack, seulement en mode animateur.
       masquerReponses: gameMode === 'animateur' ? (pack.masquerReponsesDefaut ?? false) : false,
       packId: pack.id, packNom: `${pack.emoji ?? ''} ${pack.nom}`.trim(),
+      ...(equipes ? { equipes } : {}),
     },
   })
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { prenom: true } })
   await prisma.participant.create({
-    data: { partieId: partie.id, userId, prenom: user?.prenom ?? 'Créateur', isAnimateur: estMaitre },
+    data: { partieId: partie.id, userId, prenom: user?.prenom ?? 'Créateur', isAnimateur: estMaitre, equipe: equipes && !estMaitre ? 0 : null },
   })
 
   if (pack.contentMode === 'MANUEL') await buildManchesManuel(partie.id, pack)
@@ -267,12 +271,12 @@ router.post('/:packId/start', requireAuth, async (req, res) => {
   const parsed = StartSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })
 
-  const { mode, gameMode, nom, animateurJoue, modeDistanciel, solo } = parsed.data
+  const { mode, gameMode, nom, animateurJoue, modeDistanciel, solo, equipes } = parsed.data
   const user = await guardLaunch(req, res, pack, { solo: !!solo })
   if (!user) return
 
   const partie = await createPartieFromPack({
-    userId: req.userId, pack, animateurJoue, solo: !!solo,
+    userId: req.userId, pack, animateurJoue, solo: !!solo, equipes: equipes ?? 0,
     modeDistanciel: modeDistanciel ?? pack.modeDistanciel ?? false,
     gameMode: gameMode ?? pack.modeRecommande ?? 'animateur',
     nom: nom?.trim() || `${pack.emoji ?? ''} ${pack.nom}`.trim(),

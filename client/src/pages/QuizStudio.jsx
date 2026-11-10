@@ -5,7 +5,7 @@ import Layout from '../components/Layout.jsx'
 import LaunchSheet from '../components/LaunchSheet.jsx'
 import {
   Wand2, Sparkles, Loader2, Plus, Trash2, ArrowUp, ArrowDown, Check, X, Image as ImageIcon, Music, Video,
-  AlertTriangle, Crown, PencilLine, Play, Save, ChevronDown, Search, ArrowLeft, Building2,
+  AlertTriangle, Crown, PencilLine, Play, Save, ChevronDown, Search, ArrowLeft, Building2, Upload,
 } from 'lucide-react'
 
 // Studio de quiz : de l'idée au jeu en trois écrans.
@@ -29,7 +29,7 @@ const vide = () => ({ enonce: '', mecanique: 'QCM', choix: ['', '', '', ''], rep
 
 export default function QuizStudio() {
   const { id } = useParams()
-  const { apiFetch } = useAuth()
+  const { apiFetch, apiUpload } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -329,7 +329,7 @@ export default function QuizStudio() {
       </div>
 
       {mediaPour !== null && (
-        <ChoixMedia apiFetch={apiFetch} suggestion={quiz.questions[mediaPour]?.mediaSuggestion}
+        <ChoixMedia apiFetch={apiFetch} apiUpload={apiUpload} suggestion={quiz.questions[mediaPour]?.mediaSuggestion}
           onClose={() => setMediaPour(null)}
           onPick={m => { majQ(mediaPour, { media: m, mediaSuggestion: null }); setMediaPour(null) }} />
       )}
@@ -464,20 +464,53 @@ function IconBtn({ children, label, onClick, disabled, danger }) {
 }
 
 // Recherche dans la médiathèque Gbairai (lecture seule).
-function ChoixMedia({ apiFetch, suggestion, onPick, onClose }) {
+function ChoixMedia({ apiFetch, apiUpload, suggestion, onPick, onClose }) {
+  const [onglet, setOnglet] = useState('mediatheque') // 'mediatheque' | 'mes'
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const [medias, setMedias] = useState(null)
+  const [mesImages, setMesImages] = useState(null)   // { images, max }
+  const [envoi, setEnvoi] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const fichier = useRef(null)
   const timer = useRef(null)
 
   useEffect(() => {
+    if (onglet !== 'mediatheque') return
     clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       const p = new URLSearchParams({ q, ...(type ? { type } : {}) })
       apiFetch(`/quiz/medias?${p}`).then(r => (r?.ok ? r.json() : { medias: [] })).then(d => setMedias(d.medias ?? []))
     }, 250)
     return () => clearTimeout(timer.current)
-  }, [q, type])
+  }, [q, type, onglet])
+
+  function chargerMesImages() {
+    apiFetch('/quiz/images').then(r => (r?.ok ? r.json() : { images: [], max: 0 })).then(setMesImages)
+  }
+  useEffect(() => { if (onglet === 'mes' && !mesImages) chargerMesImages() }, [onglet])
+
+  async function envoyer(f) {
+    if (!f) return
+    setEnvoi(true); setErreur('')
+    const fd = new FormData()
+    fd.append('file', f)
+    const r = await apiUpload('/quiz/images', fd)
+    const d = await r?.json().catch(() => ({}))
+    setEnvoi(false)
+    if (!r?.ok) { setErreur(d?.error ?? 'Image refusée.'); return }
+    onPick(d.image) // l'image envoyée illustre aussitôt la question
+  }
+
+  async function supprimer(id) {
+    setErreur('')
+    const r = await apiFetch(`/quiz/images/${id}`, { method: 'DELETE' })
+    if (!r?.ok) { const d = await r?.json().catch(() => ({})); setErreur(d?.error ?? 'Suppression impossible.'); return }
+    setMesImages(m => ({ ...m, images: m.images.filter(i => i.id !== id) }))
+  }
+
+  const premium = mesImages && mesImages.max !== 0
+  const plein = mesImages && mesImages.max != null && mesImages.images.length >= mesImages.max
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true" aria-label="Choisir un média"
@@ -486,36 +519,84 @@ function ChoixMedia({ apiFetch, suggestion, onPick, onClose }) {
         style={{ background: 'var(--surface)' }} onClick={e => e.stopPropagation()}>
         <div className="p-4 pb-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-extrabold text-lg" style={{ color: 'var(--text)' }}>Médiathèque</h3>
+            <div className="flex gap-1" role="tablist">
+              {[['mediatheque', 'Médiathèque'], ['mes', 'Mes images']].map(([v, l]) => (
+                <button key={v} role="tab" aria-selected={onglet === v} onClick={() => { setOnglet(v); setErreur('') }}
+                  className={`chip ${onglet === v ? 'chip-on' : ''}`}>{l}</button>
+              ))}
+            </div>
             <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'var(--input-bg)', color: 'var(--text-muted)' }} aria-label="Fermer"><X size={16} /></button>
           </div>
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
-            <input value={q} onChange={e => setQ(e.target.value)} autoFocus placeholder="Chercher : drapeau, attiéké, Ghana…" aria-label="Rechercher un média" className="input pl-9" />
-          </div>
-          <div className="scroll-x mt-2">
-            {[['', 'Tout'], ['IMAGE', 'Images'], ['AUDIO', 'Sons'], ['VIDEO', 'Vidéos']].map(([v, l]) => (
-              <button key={v} onClick={() => setType(v)} className={`chip text-xs ${type === v ? 'chip-on' : ''}`} style={{ padding: '0.3rem 0.7rem' }}>{l}</button>
-            ))}
-          </div>
+          {onglet === 'mediatheque' ? (
+            <>
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+                <input value={q} onChange={e => setQ(e.target.value)} autoFocus placeholder="Chercher : drapeau, attiéké, Ghana…" aria-label="Rechercher un média" className="input pl-9" />
+              </div>
+              <div className="scroll-x mt-2">
+                {[['', 'Tout'], ['IMAGE', 'Images'], ['AUDIO', 'Sons'], ['VIDEO', 'Vidéos']].map(([v, l]) => (
+                  <button key={v} onClick={() => setType(v)} className={`chip text-xs ${type === v ? 'chip-on' : ''}`} style={{ padding: '0.3rem 0.7rem' }}>{l}</button>
+                ))}
+              </div>
+            </>
+          ) : mesImages && premium && (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-2xs" style={{ color: 'var(--text-muted)' }}>
+                Visibles de toi seul{mesImages.max != null ? ` · ${mesImages.images.length}/${mesImages.max}` : ''} · 5 Mo max
+              </p>
+              <input ref={fichier} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" className="hidden"
+                onChange={e => { envoyer(e.target.files?.[0]); e.target.value = '' }} />
+              <button onClick={() => fichier.current?.click()} disabled={envoi || plein} className="btn-primary btn-sm gap-1.5">
+                {envoi ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}Ajouter une image
+              </button>
+            </div>
+          )}
           {suggestion && <p className="text-2xs mt-2" style={{ color: 'var(--text-muted)' }}>Idée de l'IA : {suggestion}</p>}
+          {erreur && <p className="text-xs mt-2" role="alert" style={{ color: '#C0392B' }}>{erreur}</p>}
         </div>
         <div className="p-4 pt-2 overflow-y-auto">
-          {medias === null ? (
+          {onglet === 'mediatheque' ? (
+            medias === null ? (
+              <div className="py-10 flex justify-center"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-dim)' }} /></div>
+            ) : medias.length === 0 ? (
+              <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                Rien dans la médiathèque pour cette recherche. La question reste jouable sans média.
+              </p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {medias.map(m => (
+                  <button key={m.id} onClick={() => onPick(m)} className="rounded-xl overflow-hidden text-left" style={{ background: 'var(--input-bg)' }}>
+                    {m.type === 'IMAGE' || m.thumbUrl
+                      ? <img src={m.thumbUrl ?? m.url} alt={m.titre ?? ''} loading="lazy" className="w-full aspect-square object-cover" />
+                      : <span className="w-full aspect-square flex items-center justify-center" style={{ color: 'var(--text-muted)' }}><MediaIcone type={m.type} /></span>}
+                    <span className="block text-2xs px-1.5 py-1 truncate" style={{ color: 'var(--text-muted)' }}>{m.titre ?? '—'}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          ) : mesImages === null ? (
             <div className="py-10 flex justify-center"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-dim)' }} /></div>
-          ) : medias.length === 0 ? (
-            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
-              Rien dans la médiathèque pour cette recherche. La question reste jouable sans média.
-            </p>
+          ) : !premium ? (
+            <div className="text-center py-6 px-2">
+              <Crown size={22} className="mx-auto mb-2" style={{ color: 'var(--mango)' }} />
+              <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Tes propres photos dans tes quiz</p>
+              <p className="text-xs mt-1 mb-4" style={{ color: 'var(--text-muted)' }}>Le logo de ton entreprise, les collègues, les plats du maquis… C'est compris dans Premium.</p>
+              <Link to="/abonnement" className="btn-primary btn-sm">Voir Premium</Link>
+            </div>
+          ) : mesImages.images.length === 0 ? (
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>Aucune image pour l'instant. Ajoute la première.</p>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              {medias.map(m => (
-                <button key={m.id} onClick={() => onPick(m)} className="rounded-xl overflow-hidden text-left" style={{ background: 'var(--input-bg)' }}>
-                  {m.type === 'IMAGE' || m.thumbUrl
-                    ? <img src={m.thumbUrl ?? m.url} alt={m.titre ?? ''} loading="lazy" className="w-full aspect-square object-cover" />
-                    : <span className="w-full aspect-square flex items-center justify-center" style={{ color: 'var(--text-muted)' }}><MediaIcone type={m.type} /></span>}
-                  <span className="block text-2xs px-1.5 py-1 truncate" style={{ color: 'var(--text-muted)' }}>{m.titre ?? '—'}</span>
-                </button>
+              {mesImages.images.map(m => (
+                <div key={m.id} className="relative rounded-xl overflow-hidden" style={{ background: 'var(--input-bg)' }}>
+                  <button onClick={() => onPick(m)} className="block w-full text-left">
+                    <img src={m.thumbUrl ?? m.url} alt={m.titre ?? ''} loading="lazy" className="w-full aspect-square object-cover" />
+                    <span className="block text-2xs px-1.5 py-1 truncate" style={{ color: 'var(--text-muted)' }}>{m.titre ?? '—'}</span>
+                  </button>
+                  <button onClick={() => supprimer(m.id)} aria-label={`Supprimer ${m.titre ?? 'l’image'}`}
+                    className="absolute top-1 right-1 w-7 h-7 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}><Trash2 size={13} /></button>
+                </div>
               ))}
             </div>
           )}

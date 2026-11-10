@@ -2,6 +2,8 @@ import { prisma } from '../utils/prisma.js'
 import { flattenManchesServer } from '../services/gameService.js'
 import { broadcast, sendToBuzzer } from './wsServer.js'
 import { releaseBuzzersFromGame } from '../services/buzzerService.js'
+import { equipesDe, classementEquipes } from '../services/teamService.js'
+import { isHostDePartie } from '../middleware/auth.js'
 
 const autoTimers = new Map()
 const revealTimers = new Map()
@@ -139,7 +141,7 @@ export async function sendLedSnapshot(mac) {
 // Diffuse le classement « live » (scores à jour) — alimente le tableau des
 // scores de l'écran public et de la page de jeu après chaque validation/vote.
 async function broadcastParticipants(partieCode) {
-  const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { id: true } })
+  const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { id: true, equipes: true } })
   if (!partie) return
   const participants = await prisma.participant.findMany({
     // Le maître du jeu (animateur) n'est pas un joueur → exclu du classement.
@@ -151,9 +153,11 @@ async function broadcastParticipants(partieCode) {
     type: 'participant_update',
     participants: participants.map(p => ({
       id: p.id, userId: p.userId, prenom: p.prenom, score: p.score, rang: p.rang,
-      isEliminated: p.isEliminated ?? false, vies: p.vies ?? null,
+      isEliminated: p.isEliminated ?? false, vies: p.vies ?? null, equipe: p.equipe ?? null,
       buzzer: p.buzzer ? { couleur: p.buzzer.couleur, mac: p.buzzer.mac, status: p.buzzer.status, battery: p.buzzer.battery } : null,
     })),
+    // Jeu par équipes : classement des équipes recalculé à chaque mise à jour.
+    equipes: classementEquipes(equipesDe(partie), participants),
   })
 }
 
@@ -417,6 +421,14 @@ async function scoreAutoQuestion(partieCode) {
       questionId: q.id ?? null, participantId: u.participantId, valide: true,
     })
   }
+  // Les mauvaises réponses sont journalisées aussi : le bilan calcule le taux
+  // de réussite de chaque question.
+  for (const pid of wrong) {
+    recordEvent(partieCode, {
+      type: 'answer', questionIndex: state.currentQuestion,
+      questionId: q.id ?? null, participantId: pid, valide: false,
+    })
+  }
   // Mode « vies » : -1 vie pour chaque mauvaise réponse (élimination à 0).
   if (partie?.viesParJoueur > 0 && wrong.length) {
     for (const pid of wrong) await loseLife(partieCode, pid)
@@ -569,16 +581,55 @@ async function handleBuzz({ ws, partieCode, participantId, mac, source }, broadc
       where: { id: participant.id },
       data: { score: { increment: questionPoints(q, responseMs) } },
     }).catch(() => {})
+    recordEvent(pc, {
+      type: 'answer', questionIndex: state.currentQuestion ?? 0,
+      questionId: q?.id ?? null, participantId: participant.id, valide: true,
+    })
     await broadcastParticipants(pc)
     clearAutoTimer(pc)
     await doReveal(pc) // révèle + programme l'avancement
   }
 }
 
+// ── Contrôle d'accès des messages de jeu ─────────────────────────────────────
+// Le serveur ne fait confiance ni au rôle ni à l'identité annoncés par le
+// client : l'utilisateur est celui authentifié sur la connexion.
+//  • Commandes de régie (avancer, révéler, valider, terminer, buzzers) :
+//    réservées à l'hôte de la partie (animateur ou créateur).
+//  • Actions de joueur (répondre, voter, buzzer depuis le téléphone) : le
+//    participant désigné doit appartenir à l'utilisateur connecté.
+//  • Buzz matériel : seulement depuis la connexion du buzzer lui-même.
+const MESSAGES_HOTE = new Set(['next_question', 'reveal_question', 'end_game', 'validate_answer', 'assign_buzzer', 'unassign_buzzer'])
+const MESSAGES_JOUEUR = new Set(['submit_answer', 'submit_vote', 'submit_selected_answer'])
+
+async function autorise(ws, msg) {
+  const { type, partieCode, participantId } = msg
+  const userId = ws?._gbairai?.userId ?? null
+  if (MESSAGES_HOTE.has(type)) {
+    if (!userId || !partieCode) return false
+    const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { id: true } })
+    return !!partie && isHostDePartie(userId, partie.id)
+  }
+  const buzzWeb = (type === 'buzz' || type === 'buzzer_press') && (msg.source === 'web' || (!msg.source && participantId))
+  if (MESSAGES_JOUEUR.has(type) || buzzWeb) {
+    if (!userId || !participantId || !partieCode) return false
+    const p = await prisma.participant.findFirst({ where: { id: participantId, partie: { code: partieCode } }, select: { userId: true } })
+    return !!p && p.userId === userId
+  }
+  if (type === 'buzz' || type === 'buzzer_press') {
+    // Buzz matériel : la MAC est celle annoncée par la connexion du buzzer.
+    const macSocket = ws?._gbairai?.mac
+    if (!macSocket) return false
+    return !msg.mac || String(msg.mac).toUpperCase() === macSocket
+  }
+  return true
+}
+
 // ── Main WS handler ────────────────────────────────────────────────────────
 
 export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendToBuzzer }) {
   const { type, partieCode, participantId } = msg
+  if (!(await autorise(ws, msg))) return
 
   switch (type) {
 
@@ -807,7 +858,13 @@ export async function handleGameMessage(ws, msg, { broadcast, sendToUser, sendTo
     // diffuse question_display (avec chronomètre) + media_state, ou termine la
     // partie s'il n'y a plus de question.
     case 'next_question': {
-      await goToNextQuestion(partieCode)
+      // Un « Suivant » manuel remplace tout enchaînement déjà programmé
+      // (sinon la question suivante serait sautée à l'expiration du minuteur).
+      clearAutoTimer(partieCode)
+      clearRevealTimer(partieCode)
+      const affichee = await goToNextQuestion(partieCode)
+      const p = await prisma.partie.findUnique({ where: { code: partieCode }, select: { modeAuto: true } })
+      if (affichee && p?.modeAuto) await scheduleReveal(partieCode)
       break
     }
 
@@ -912,7 +969,7 @@ async function endGameInternal(partieCode) {
   // La partie peut avoir été supprimée/annulée pendant qu'un minuteur auto était
   // en attente : on vérifie son existence et on ne lève jamais d'exception
   // (sinon un setTimeout non capturé ferait planter le serveur).
-  const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { id: true, status: true } })
+  const partie = await prisma.partie.findUnique({ where: { code: partieCode }, select: { id: true, status: true, equipes: true } })
   if (!partie || partie.status === 'TERMINEE' || partie.status === 'ANNULEE') {
     clearGameState(partieCode)
     return
@@ -938,9 +995,11 @@ async function endGameInternal(partieCode) {
     score: p.score,
     couleur: p.buzzer?.couleur ?? '#6366F1',
     rang: i + 1,
+    equipe: p.equipe ?? null,
   }))
+  const equipes = classementEquipes(equipesDe(partie), participants)
 
-  broadcast(partieCode, { type: 'game_ended', partieCode, classement })
+  broadcast(partieCode, { type: 'game_ended', partieCode, classement, equipes })
   await pushLedToBuzzers(partieCode, 'idle') // LED buzzers : repos en fin de partie
   await releaseBuzzersFromGame(partie.id)   // statut IN_GAME → ONLINE
   clearGameState(partieCode)

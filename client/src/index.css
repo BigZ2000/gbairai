@@ -316,7 +316,7 @@
     background: var(--surface); color: var(--text-muted); border: 1px solid var(--border-strong);
   }
   .chip:hover { color: var(--text); }
-  .chip-on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .chip-on, .chip-on:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
   .scroll-x { @apply flex gap-2 overflow-x-auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .scroll-x::-webkit-scrollbar { display: none; }
   /* Marge basse quand la barre d'onglets mobile est affichée. */
@@ -324,3 +324,16 @@
   @media (min-width: 768px) { .pb-tabbar { padding-bottom: 2.5rem; } }
   .animate-spin-slow { animation: spin 1.2s linear infinite; }
 }
+
+/* ── Impression (bilan d'événement → PDF) ────────────────────────────────── */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff !important; }
+  :root { --bg: #fff; --surface: #fff; --input-bg: #faf7f3; --hover-overlay: #f3eee8; }
+  body > div header.sticky, nav, .no-print, .pb-tabbar + nav { display: none !important; }
+  main { padding: 0 !important; max-width: none !important; animation: none !important; }
+  .card, .print-bloc { break-inside: avoid; box-shadow: none !important; }
+  .print-only { display: block !important; }
+  details > summary { list-style: none; }
+}
+.print-only { display: none; }

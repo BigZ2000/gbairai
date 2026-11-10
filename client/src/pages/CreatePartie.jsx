@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { NOMBRES_EQUIPES } from '../components/Equipes.jsx'
 import Layout from '../components/Layout.jsx'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Mic2, Timer, Users, Plus, Trash2,
@@ -18,10 +19,10 @@ import {
 // ──────────────────────────────────────────────────────────────────────────────
 
 const MODES = [
-  { value: 'solo',      icon: User,    label: 'Solo',           desc: "Joue seul pour t'entraîner. Tout s'affiche sur ton écran, réponses vérifiées automatiquement." },
-  { value: 'auto',      icon: Timer,   label: 'Automatique',    desc: 'La partie avance toute seule au minuteur. Idéal en groupe pour démarrer vite. (Buzzer en présentiel = jeu de réflexe : le 1er qui buzze marque.)', recommande: true },
-  { value: 'animateur', icon: Mic2,    label: 'Avec animateur', desc: 'Vous présentez et validez chaque réponse. Vous animez — vous n\'apparaissez pas au classement.' },
-  { value: 'vote',      icon: Users,   label: 'Vote collectif', desc: 'Les joueurs votent ensemble pour valider (min. 3 joueurs).' },
+  { value: 'solo',      icon: User,    label: 'Jouer seul',               desc: "Pour t'entraîner : tout s'affiche sur ton écran, réponses vérifiées automatiquement." },
+  { value: 'auto',      icon: Timer,   label: 'Le jeu s\'anime tout seul', desc: 'Chrono, réponses et scores automatiques. Le plus simple en groupe.', recommande: true },
+  { value: 'animateur', icon: Mic2,    label: 'J\'anime la partie',        desc: 'Tu lis les questions et valides les réponses au buzzer. Tu restes hors classement.' },
+  { value: 'vote',      icon: Users,   label: 'La salle vote',             desc: 'Les joueurs jugent la réponse du plus rapide (3 joueurs minimum).' },
 ]
 
 const DIFFS = [
@@ -56,7 +57,7 @@ export default function CreatePartie() {
   const [step, setStep] = useState(1)
   // Défauts « plug & play » : mode AUTO **à distance** (médias + saisie sur le
   // téléphone de chacun — le cas le plus courant) + réponses masquées (régie).
-  const [form, setForm] = useState({ nom: '', mode: 'auto', masquerReponses: true, modeDistanciel: true, eliminationActive: false, viesParJoueur: 0 })
+  const [form, setForm] = useState({ nom: '', mode: 'auto', masquerReponses: true, modeDistanciel: true, eliminationActive: false, viesParJoueur: 0, equipes: 0 })
   const [showOptions, setShowOptions] = useState(false)
   const [manches, setManches] = useState([defaultManche(0)])
   const [categories, setCategories] = useState([]) // [{ nom, count }] — la base est la seule source
@@ -104,6 +105,7 @@ export default function CreatePartie() {
         modeDistanciel: isSolo ? true : !!form.modeDistanciel,
         eliminationActive: isSolo ? false : !!form.eliminationActive,
         viesParJoueur: isSolo ? 0 : (Number(form.viesParJoueur) || 0),
+        equipes: isSolo ? 0 : (Number(form.equipes) || 0),
       }
       const res = await apiFetch('/parties', { method: 'POST', body })
       if (!res?.ok) {
@@ -210,6 +212,20 @@ export default function CreatePartie() {
                 })}
               </div>
             </div>
+
+            {form.mode !== 'solo' && (
+              <div>
+                <p className="label mb-2">On joue comment ?</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {[0, ...NOMBRES_EQUIPES].map(n => (
+                    <button type="button" key={n} onClick={() => setForm(f => ({ ...f, equipes: n }))} aria-pressed={form.equipes === n}
+                      className={`chip ${form.equipes === n ? 'chip-on' : ''}`}>
+                      {n === 0 ? 'Chacun pour soi' : `${n} équipes`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* CTA PRINCIPAL — tout de suite après le mode (zéro friction). */}
             <button onClick={handleCreate} disabled={!form.nom.trim() || loading}

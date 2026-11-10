@@ -54,9 +54,10 @@ services:
       IA_BUDGET_JOUR_USD: ${IA_BUDGET_JOUR_USD:-5.00}
       CINETPAY_ENABLED: ${CINETPAY_ENABLED:-false}
       CINETPAY_API_KEY: ${CINETPAY_API_KEY:-}
-      CINETPAY_SITE_ID: ${CINETPAY_SITE_ID:-}
-      CINETPAY_SECRET_KEY: ${CINETPAY_SECRET_KEY:-}
-      CINETPAY_MODE: ${CINETPAY_MODE:-PRODUCTION}
+      CINETPAY_API_PASSWORD: ${CINETPAY_API_PASSWORD:-}
+      CINETPAY_PAYS: ${CINETPAY_PAYS:-CI}
+      # Règlement simulé : toujours fermé en production.
+      PAIEMENT_SIMULATION: "false"
       CINETPAY_NOTIFY_URL: https://${API_DOMAIN}/api/billing/webhook
       CINETPAY_RETURN_URL: https://${APP_DOMAIN}/abonnement/confirmation
       MAIL_ENABLED: ${MAIL_ENABLED:-false}

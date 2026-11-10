@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useWs } from '../context/WsContext.jsx'
 import { flattenManches } from '../utils/manches.js'
 import QuestionMedia from '../components/QuestionMedia.jsx'
+import { ClassementEquipes, PastilleEquipe, equipeDe, classementLocal } from '../components/Equipes.jsx'
 import { Loader2, Zap, Check, X, Trophy, Hand, AlertTriangle, Tv, Square, Gamepad2, Smartphone, Heart, Skull, PartyPopper, Frown, AlarmClock, Eye } from 'lucide-react'
 
 // Écran JOUEUR — pensé pour le présentiel « lève les yeux » :
@@ -34,6 +35,7 @@ export default function JoueurJeu() {
   const [textAnswer, setTextAnswer] = useState('')  // A4 : saisie libre BUZZER distanciel
   const [endConfirm, setEndConfirm] = useState(false) // confirmation Fin (hôte)
   const [toast, setToast] = useState(null)
+  const [equipesLive, setEquipesLive] = useState(null) // classement des équipes (serveur)
   // ANO-1 — Chronomètre JOUEUR : échéance (ms) + tic. Sans lui, en téléphone-only
   // les questions expirent sans aucun signal (le chrono géant n'est que sur
   // l'écran public). Alimenté par question_display.remainingMs (horloge serveur).
@@ -49,6 +51,9 @@ export default function JoueurJeu() {
   useEffect(() => { myIdRef.current = myParticipant?.id ?? null; myMacRef.current = myParticipant?.buzzer?.mac ?? null })
   function showToast(t) { setToast(t); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 3500) }
   const myScore = myParticipant?.score ?? 0
+  const monEquipe = equipeDe(partie, myParticipant)
+  const equipes = equipesLive ?? classementLocal(partie, participants)
+  const scoreEquipe = monEquipe ? equipes?.find(e => e.index === monEquipe.index)?.score ?? 0 : null
   const totalQuestions = partie ? flattenManches(partie.manches ?? []).length : 0
   const isVote        = !!partie?.modeVote
   const isAuto        = !!partie?.modeAuto
@@ -80,7 +85,7 @@ export default function JoueurJeu() {
     // réinitialise l'état de fin et de question, sinon l'écran « Partie
     // terminée » de la partie précédente reste affiché.
     setClassement(null); setQuestion(null); setRevealed(false); setWinner(null)
-    setMyAnswer(null); setTextAnswer(''); setDeadline(null); setIsEliminated(false)
+    setMyAnswer(null); setTextAnswer(''); setDeadline(null); setIsEliminated(false); setEquipesLive(null)
     load()
     joinRoom(code)
     const unsub = subscribe('joueur_jeu', (msg) => {
@@ -122,6 +127,7 @@ export default function JoueurJeu() {
           if (msg.participantId === myIdRef.current) setIsEliminated(true)
           break
         case 'participant_update':
+          if (msg.equipes) setEquipesLive(msg.equipes)
           if (msg.participants) {
             setParticipants(msg.participants)
             // D6 : mise à jour du statut d'élimination depuis le serveur
@@ -130,6 +136,7 @@ export default function JoueurJeu() {
           }
           break
         case 'game_ended':
+          if (msg.equipes) setEquipesLive(msg.equipes)
           setClassement(msg.classement ?? []); break
         case 'game_started':
           setArmed(true); break
@@ -187,15 +194,30 @@ export default function JoueurJeu() {
 
   // Écran de fin : classement personnel.
   if (classement) {
-    const mine = classement.find(c => c.participantId === myParticipant?.id) ?? classement.find(c => c.userId === user?.id)
-    const rang = mine?.rang ?? (classement.findIndex(c => c.participantId === myParticipant?.id) + 1 || null)
+    // Le classement final identifie chaque joueur par son id de participant.
+    const mine = classement.find(c => c.id === myParticipant?.id)
+    const rang = mine?.rang ?? null
+    const scoreFinal = mine?.score ?? myScore
+    const equipeGagnante = equipes?.[0]
     return (
       <Center>
-        <div className="text-center px-6">
+        <div className="text-center px-6 w-full max-w-sm py-10">
           <Trophy size={56} style={{ color: '#EAB308' }} className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-1" style={{ color: '#FFF3E6' }}>Partie terminée !</h1>
-          {rang && <p className="text-lg mb-1" style={{ color: '#FFF3E6' }}>Tu finis <strong>{rang}{rang === 1 ? 'er' : 'e'}</strong></p>}
-          <p className="text-sm mb-6" style={{ color: '#C9B5A4' }}>{myScore} point{myScore !== 1 ? 's' : ''}</p>
+          {monEquipe && equipeGagnante && (
+            <p className="text-lg mb-1" style={{ color: '#FFF3E6' }}>
+              {equipeGagnante.index === monEquipe.index
+                ? <>Ton équipe <strong style={{ color: monEquipe.couleur }}>{monEquipe.nom}</strong> gagne !</>
+                : <>L'équipe <strong style={{ color: equipeGagnante.couleur }}>{equipeGagnante.nom}</strong> gagne.</>}
+            </p>
+          )}
+          {rang && <p className="text-base mb-1" style={{ color: '#FFF3E6' }}>Tu finis <strong>{rang}{rang === 1 ? 'er' : 'e'}</strong>{classement.length > 1 ? ` sur ${classement.length}` : ''}</p>}
+          <p className="text-sm mb-6" style={{ color: '#C9B5A4' }}>{scoreFinal} point{scoreFinal !== 1 ? 's' : ''}</p>
+          {equipes && (
+            <div className="mb-6 text-left">
+              <ClassementEquipes equipes={equipes} maEquipe={monEquipe?.index ?? null} />
+            </div>
+          )}
           {user?.isGuest ? (
             // Invité → tunnel de conversion (jamais de retour au tableau de bord).
             <div className="w-full max-w-xs mx-auto">
@@ -207,7 +229,10 @@ export default function JoueurJeu() {
               </div>
             </div>
           ) : (
-            <button onClick={() => navigate('/dashboard')} className="btn-primary">Retour au tableau de bord</button>
+            <div className="flex flex-col gap-2 w-full max-w-xs mx-auto">
+              {partie?.id && <button onClick={() => navigate(`/historique/${partie.id}`)} className="btn-primary w-full">Voir le bilan</button>}
+              <button onClick={() => navigate('/dashboard')} className="btn-secondary w-full">Retour à l'accueil</button>
+            </div>
           )}
         </div>
       </Center>
@@ -240,7 +265,9 @@ export default function JoueurJeu() {
             style={{ background: 'rgba(255,255,255,0.04)', color: buzzerLive ? 'var(--brand-text)' : '#C9B5A4' }}>
             {buzzerLive ? <><Gamepad2 size={12} className="inline mr-1 -mt-0.5" />Buzzer</> : <><Smartphone size={12} className="inline mr-1 -mt-0.5" />Téléphone</>}
           </span>
-          <span className="text-2xs" style={{ color: '#8A7566' }}>{myParticipant?.prenom}</span>
+          {monEquipe
+            ? <span title={`Score de l'équipe : ${scoreEquipe} pts`}><PastilleEquipe equipe={monEquipe} /></span>
+            : <span className="text-2xs" style={{ color: '#8A7566' }}>{myParticipant?.prenom}</span>}
           {myParticipant?.vies != null && (
             <span className="text-sm px-2 py-1 rounded-lg" title="Vies restantes"
               style={{ background: 'rgba(239,68,68,0.12)' }}>
@@ -487,7 +514,7 @@ function Explication({ texte }) {
   )
 }
 
-function answersMatchClient(playerAnswer, correctAnswer) {
+export function answersMatchClient(playerAnswer, correctAnswer) {
   const p = normalizeAnswer(playerAnswer)
   const c = normalizeAnswer(correctAnswer)
   if (!p || !c || p.length < 3) return false
@@ -534,6 +561,7 @@ function AnswerPad({ question, myAnswer, revealed, revealReponse, revealCorrectI
           else if (chosen) { bg = 'rgba(242,106,27,0.22)'; border = 'rgba(242,106,27,0.6)'; color = '#FFB27D' }
           return (
             <button key={String(opt.value)} disabled={myAnswer !== null || revealed} onClick={() => onAnswer(opt.value)}
+              aria-label={opt.text ? undefined : `Choix ${Number(opt.value) + 1}`} aria-pressed={chosen}
               className="rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center font-semibold transition-all active:scale-[0.98]"
               style={{ background: bg, border: `2px solid ${border}`, color, minHeight: opt.mediaUrl ? 0 : 64 }}>
               {opt.mediaUrl && (

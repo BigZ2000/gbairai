@@ -53,10 +53,17 @@ npm run dev                   # port 5173 (proxy /api et /ws → 4000)
 ### Tests
 ```bash
 cd server
-npm test                      # unitaires (sans base ni réseau) — lancés par la CI
-DATABASE_URL=… JWT_SECRET=test npm run test:integration   # base réelle, IA simulée
-cd ../client && npm run build # le frontend n'a pas de tests : la CI vérifie qu'il compile
+npm test                      # unitaires (sans base ni réseau)
+DATABASE_URL=… JWT_SECRET=test npm run test:integration
+#   base réelle ; IA et CinetPay simulés : Mes quiz, IA, équipes jouées par le
+#   moteur, bilan, images, logo, paiement, contrôle d'accès du jeu
+BASE=http://localhost:4100 DATABASE_URL=… JWT_SECRET=<celui du serveur> npm run test:e2e
+#   sur un serveur EN MARCHE, par de vraies connexions WebSocket : modes
+#   animateur (avec un buzzer matériel simulé) et vote, tentatives de triche
+cd ../client && npm test      # composants (jsdom) : équipes, lancement, retour de paiement…
 ```
+La CI lance les tests unitaires, les tests du client et les tests d'intégration
+(base PostgreSQL jetable), puis construit les images.
 
 ### Production
 `docker-compose.prod.yml` : Caddy (TLS auto) + serveur Node + PostgreSQL.
@@ -94,8 +101,35 @@ désactivée et l'interface le dit. Détails : `docs/GENERATION_IA.md`.
 
 ### Lancer une partie
 Deux choix au plus : **jouer seul** (démarrage immédiat, gratuit, illimité) ou
-**à plusieurs** — « chacun son téléphone » ou « un grand écran ». Le mode
-conseillé du pack s'applique ; « Qui anime ? » reste accessible, replié.
+**à plusieurs** — « chacun son téléphone » ou « un grand écran », chacun pour
+soi ou **en 2 à 4 équipes**. Le mode conseillé du pack s'applique ; « Qui
+anime ? » reste accessible, replié.
+
+### Équipes, écran public et bilan
+- **Équipes** (`Partie.equipes`, `Participant.equipe`) : les joueurs sont
+  répartis à l'arrivée, chacun peut changer de camp en salle d'attente, l'hôte
+  déplace qui il veut et renomme les équipes. Score d'équipe = somme des scores
+  des membres (à égalité, la plus petite équipe passe devant). Aucun barème
+  propre : tous les modes fonctionnent en équipes.
+- **Écran public** (`/screen/CODE`) : avant le lancement, un QR géant, le code
+  et les prénoms qui arrivent (par équipe) ; en jeu, le score des équipes ;
+  à la fin, équipes et podium côte à côte.
+- **Bilan** (fiche de la partie dans l'historique) : taux de bonnes réponses,
+  question qui a piégé la salle, plus rapide, plus juste, taux par question,
+  classement des équipes. Bouton « Imprimer ou PDF » (mise en page d'impression).
+- **Logo d'organisation** : posé par le responsable (Mon organisation), affiché
+  sur l'écran public, la salle d'attente et le bilan des parties de ses membres.
+
+### Paiement (CinetPay)
+API CinetPay v1, d'après le SDK officiel `cinetpay/cinetpay-js` : jeton
+d'accès, initialisation (`/v1/payment`), statut (`/v1/payment/:id`). Une offre
+n'est activée **qu'après vérification du statut auprès de CinetPay** : la
+notification doit porter le `notify_token` reçu à l'initialisation, puis le
+serveur redemande le statut ; la page de retour re-vérifie aussi. Sans
+identifiants (`CINETPAY_ENABLED`, `CINETPAY_API_KEY`, `CINETPAY_API_PASSWORD`),
+le paiement est **fermé** en production (la page des offres l'annonce) ; le
+règlement simulé n'existe qu'en développement (`PAIEMENT_SIMULATION`).
+Testé contre un CinetPay simulé, **pas encore contre le bac à sable réel**.
 
 ### Packs prêts à jouer
 Catalogue piloté en base (Admin → Packs) : packs thématiques, « jeux TV »
@@ -122,7 +156,8 @@ Inscription par **email** (code + lien) ou **téléphone** (OTP SMS, normalisati
 +225) — vérifications activables dans Admin → Réglages (banc de test d'envoi
 intégré). Connexion par email ou téléphone, Google OAuth. **Invités** : pseudo
 seul via QR/lien, purgés après 7 jours. Freemium : plan FREE = solo illimité, 10 parties
-à plusieurs par mois, 20 joueurs, 3 quiz personnels ; plans PRO (« Premium »)
+à plusieurs par mois, 20 joueurs, 3 quiz personnels ; Premium ajoute ses
+propres images dans ses quiz (privées, 100 max, 5 Mo chacune) ; plans PRO (« Premium »)
 /ENTREPRISE/ECOLE au-delà. Un plan payant est un pass à échéance
 (`planExpireAt`) : passé cette date, le compte retombe en FREE.
 
@@ -138,6 +173,10 @@ Téléphone = repli automatique si le buzzer se déconnecte.
 
 ### Temps réel
 Un seul évènement `buzz` (web ou matériel) résolu en participant côté serveur.
+Le serveur ne croit pas le client sur parole : les commandes de régie (avancer,
+révéler, valider, terminer, attribuer un buzzer) sont réservées à l'hôte ; une
+réponse, un vote ou un buzz doit venir du compte du joueur concerné ; un buzz
+matériel, de la connexion du buzzer lui-même.
 Reconnexion transparente (snapshot complet : question, chrono, média, scores).
 Médias synchronisés par l'horloge serveur (reprise au bon timecode).
 
