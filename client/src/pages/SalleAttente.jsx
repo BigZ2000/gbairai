@@ -265,7 +265,7 @@ export default function SalleAttente() {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <SearchX size={40} className="mb-4" style={{ color: '#2A2A35' }} />
+          <SearchX size={40} className="mb-4" style={{ color: '#4A382C' }} />
           <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Partie introuvable</h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
             Le code <span className="font-mono font-bold" style={{ color: 'var(--text)' }}>{code}</span> ne correspond à aucune partie active.
@@ -295,7 +295,7 @@ export default function SalleAttente() {
     return (
       <Layout>
         <div className="flex items-center justify-center py-24">
-          <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} />
+          <Loader2 size={24} className="animate-spin" style={{ color: '#F26A1B' }} />
         </div>
       </Layout>
     )
@@ -360,7 +360,7 @@ export default function SalleAttente() {
           {/* Participants */}
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Users size={14} style={{ color: '#6366F1' }} />
+              <Users size={14} style={{ color: '#F26A1B' }} />
               <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Participants</h2>
             </div>
 
@@ -371,8 +371,8 @@ export default function SalleAttente() {
                   <li key={p.id}
                     className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-all duration-150"
                     style={{
-                      background: dragOverId === p.id ? 'rgba(99,102,241,0.08)' : 'var(--hover-overlay)',
-                      border: `1px solid ${dragOverId === p.id ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
+                      background: dragOverId === p.id ? 'rgba(242,106,27,0.08)' : 'var(--hover-overlay)',
+                      border: `1px solid ${dragOverId === p.id ? 'rgba(242,106,27,0.3)' : 'var(--border)'}`,
                     }}
                     onDragOver={canManage && showBuzzerZone ? e => { e.preventDefault(); setDragOverId(p.id) } : undefined}
                     onDragLeave={canManage && showBuzzerZone ? () => setDragOverId(null) : undefined}
@@ -401,7 +401,7 @@ export default function SalleAttente() {
                       ) : canManage && showBuzzerZone && !p.isAnimateur && (
                         // Tactile : taper pour attribuer un buzzer (+ glisser sur desktop).
                         <button onClick={() => setPickerFor(p.id)} className="btn-ghost btn-sm gap-1 text-2xs"
-                          style={{ color: '#818CF8' }} title="Attribuer un buzzer">
+                          style={{ color: 'var(--brand-text)' }} title="Attribuer un buzzer">
                           <Radio size={12} />Buzzer
                         </button>
                       )}
@@ -424,7 +424,7 @@ export default function SalleAttente() {
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
                   <input type="text" value={search} placeholder="Ajouter un participant (pseudo ou prénom)…"
                     onChange={e => onSearchChange(e.target.value)} className="input pl-9 text-sm" />
-                  {searching && <Loader2 size={13} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#6366F1' }} />}
+                  {searching && <Loader2 size={13} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#F26A1B' }} />}
 
                   {/* Suggestions */}
                   {results.length > 0 && (
@@ -437,16 +437,16 @@ export default function SalleAttente() {
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           {u.avatarUrl
                             ? <img src={u.avatarUrl} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" />
-                            : <div className="w-7 h-7 rounded-lg flex items-center justify-center text-2xs font-bold text-white shrink-0" style={{ background: '#6366F1' }}>
+                            : <div className="w-7 h-7 rounded-lg flex items-center justify-center text-2xs font-bold text-white shrink-0" style={{ background: '#F26A1B' }}>
                                 {(u.username?.[0] ?? u.prenom?.[0] ?? '?').toUpperCase()}
                               </div>}
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
                               {u.prenom}{u.nom ? ` ${u.nom}` : ''}
                             </p>
-                            {u.username && <p className="text-2xs flex items-center gap-0.5" style={{ color: '#818CF8' }}><AtSign size={9} />{u.username}</p>}
+                            {u.username && <p className="text-2xs flex items-center gap-0.5" style={{ color: 'var(--brand-text)' }}><AtSign size={9} />{u.username}</p>}
                           </div>
-                          <UserPlus size={14} className="ml-auto shrink-0" style={{ color: '#6366F1' }} />
+                          <UserPlus size={14} className="ml-auto shrink-0" style={{ color: '#F26A1B' }} />
                         </button>
                       ))}
                     </div>
@@ -486,7 +486,7 @@ export default function SalleAttente() {
             <div className="card p-5">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
-                  <Radio size={14} style={{ color: '#6366F1' }} />
+                  <Radio size={14} style={{ color: '#F26A1B' }} />
                   <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Buzzers disponibles</h2>
                 </div>
                 {autoAssignCount > 0 && (
@@ -535,7 +535,7 @@ export default function SalleAttente() {
         {manches.length > 0 && (
           <div className="card p-5 mb-4">
             <div className="flex items-center gap-2 mb-4">
-              <Layers size={14} style={{ color: '#6366F1' }} />
+              <Layers size={14} style={{ color: '#F26A1B' }} />
               <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Manches configurées</h2>
               <span className="badge-indigo">{totalQuestions} questions tirées au lancement</span>
             </div>
@@ -545,7 +545,7 @@ export default function SalleAttente() {
                   style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>M{i + 1}</span>
+                      style={{ background: 'rgba(242,106,27,0.12)', color: 'var(--brand-text)' }}>M{i + 1}</span>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{m.nom}</p>
                       <p className="text-2xs" style={{ color: 'var(--text-dim)' }}>
@@ -575,7 +575,7 @@ export default function SalleAttente() {
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
           <form onSubmit={saveEdit} className="card p-6 max-w-sm w-full animate-scaleIn">
             <h3 className="font-semibold mb-4 flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
-              <Pencil size={15} style={{ color: '#6366F1' }} />Modifier la partie
+              <Pencil size={15} style={{ color: '#F26A1B' }} />Modifier la partie
             </h3>
 
             <label className="label">Nom</label>
@@ -624,7 +624,7 @@ export default function SalleAttente() {
             {/* Affichage des réponses côté animateur (mode animateur uniquement). */}
             {editForm.mode === 'animateur' && (
               <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none rounded-lg p-3"
-                style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                style={{ background: 'rgba(242,106,27,0.05)', border: '1px solid rgba(242,106,27,0.15)' }}>
                 <input type="checkbox" checked={!!editForm.masquerReponses} className="check mt-0.5"
                   onChange={e => setEditForm(f => ({ ...f, masquerReponses: e.target.checked }))} />
                 <span>

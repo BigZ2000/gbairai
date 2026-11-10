@@ -294,18 +294,23 @@ function normalizeAnswer(s) {
   return String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
-// Distance d'édition (Levenshtein) — tolère les fautes de frappe.
+// Distance d'édition (Damerau-Levenshtein restreinte) — tolère les fautes de
+// frappe : substitution, oubli, ajout, et inversion de deux lettres voisines.
 function editDistance(a, b) {
   const m = a.length, n = b.length
   if (!m) return n
   if (!n) return m
   let prev = Array.from({ length: n + 1 }, (_, j) => j)
+  let prev2 = prev
   for (let i = 1; i <= m; i++) {
     const cur = [i]
     for (let j = 1; j <= n; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1
       cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+      // Deux lettres voisines inversées (« cacoa » pour « cacao ») = une seule faute.
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1)
     }
+    prev2 = prev
     prev = cur
   }
   return prev[n]
@@ -317,7 +322,7 @@ function editDistance(a, b) {
 //  • une forme courte/longue cohérente (inclusion contrôlée : ≥5 car. et ≥50 %).
 // Garde-fou min 3 caractères : évite que "a" (présente dans tout) soit acceptée.
 // Plus strict que l'inclusion brute d'avant (évitait "mali" ⊂ "malien").
-function answersMatch(playerAnswer, correctAnswer) {
+export function answersMatch(playerAnswer, correctAnswer) {
   const p = normalizeAnswer(playerAnswer)
   const c = normalizeAnswer(correctAnswer)
   if (!p || !c || p.length < 3) return false

@@ -166,7 +166,9 @@ export function AuthProvider({ children }) {
   // suit le thème du compte ; sinon « dark ». (Le toggle écrit dans localStorage.)
   useEffect(() => {
     const device = localStorage.getItem('gbairai_theme')
-    const theme = device ?? (user?.theme === 'light' ? 'light' : 'dark')
+    // `user.theme` vaut 'dark' par défaut en base sans avoir été choisi : seul le
+    // choix fait sur l'appareil compte ; à défaut, thème clair.
+    const theme = device ?? 'light'
     document.documentElement.setAttribute('data-theme', theme)
   }, [user?.theme])
 

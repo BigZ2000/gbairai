@@ -130,7 +130,7 @@ export default function AdminBuzzers() {
         </div>
         {flash && (
           <span className="text-sm px-3 py-1.5 rounded-lg font-medium"
-            style={{ background: 'rgba(99,102,241,0.12)', color: '#A5B4FC', border: '1px solid rgba(99,102,241,0.3)' }}>
+            style={{ background: 'rgba(242,106,27,0.12)', color: 'var(--brand-text)', border: '1px solid rgba(242,106,27,0.3)' }}>
             {flash}
           </span>
         )}
@@ -157,9 +157,9 @@ export default function AdminBuzzers() {
           return (
             <button key={k} onClick={() => { setFiltre(k); pg.setPage(1) }}
               className="card p-3 text-left transition-all"
-              style={{ border: `1px solid ${active ? 'rgba(99,102,241,0.5)' : 'var(--border)'}`, background: active ? 'rgba(99,102,241,0.08)' : undefined }}>
+              style={{ border: `1px solid ${active ? 'rgba(242,106,27,0.5)' : 'var(--border)'}`, background: active ? 'rgba(242,106,27,0.08)' : undefined }}>
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-2 h-2 rounded-full" style={{ background: st ? st.c : '#818CF8' }} />
+                <span className="w-2 h-2 rounded-full" style={{ background: st ? st.c : '#F58A45' }} />
                 <span className="text-2xs uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>{l}</span>
               </div>
               <p className="text-xl font-bold" style={{ color: 'var(--text)' }}>{counts[k] ?? 0}</p>
@@ -171,7 +171,7 @@ export default function AdminBuzzers() {
       {/* Cible OTA */}
       <div className="card p-5 mb-6">
         <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text)' }}>
-          <UploadCloud size={16} style={{ color: '#818CF8' }} />Mise à jour firmware (OTA)
+          <UploadCloud size={16} style={{ color: 'var(--brand-text)' }} />Mise à jour firmware (OTA)
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 items-end">
           <div>
@@ -185,7 +185,7 @@ export default function AdminBuzzers() {
         </div>
 
         {/* Téléversement du binaire sur CE serveur (servi ensuite en HTTPS) */}
-        <div className="mt-3 rounded-lg p-3" style={{ background: 'rgba(99,102,241,0.05)', border: '1px dashed rgba(99,102,241,0.25)' }}>
+        <div className="mt-3 rounded-lg p-3" style={{ background: 'rgba(242,106,27,0.05)', border: '1px dashed rgba(242,106,27,0.25)' }}>
           <label className="flex items-center gap-3 cursor-pointer">
             <span className="btn-secondary btn-sm gap-1.5 shrink-0">
               {uploading ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
@@ -290,7 +290,7 @@ export default function AdminBuzzers() {
             })}
             {filtered.length === 0 && (
               <tr><td colSpan={8} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
-                <Radio size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
+                <Radio size={24} className="mx-auto mb-2" style={{ color: '#4A382C' }} />
                 {buzzers.length === 0 ? 'Aucun buzzer enregistré' : 'Aucun buzzer pour ce filtre'}
               </td></tr>
             )}
@@ -341,7 +341,7 @@ const EVENT_TYPE = {
   DISCONNECT:           { l: 'Déconnecté',             c: 'var(--text-dim)', Icon: LogOut },
   FACTORY_RESET_ADMIN:  { l: "Reset demandé (admin)",  c: '#F59E0B', Icon: RefreshCw },
   FACTORY_RESET_DEVICE: { l: "Reset confirmé (appareil)", c: '#EF4444', Icon: RotateCcw },
-  CLAIM:                { l: 'Appairé',                c: '#818CF8', Icon: Link2 },
+  CLAIM:                { l: 'Appairé',                c: '#F58A45', Icon: Link2 },
   RELEASE:              { l: 'Libéré (utilisateur)',   c: '#38BDF8', Icon: Unlink2 },
   RELEASE_ADMIN:        { l: 'Libéré (admin)',         c: '#38BDF8', Icon: Unlink2 },
   FORGET:               { l: 'Supprimé (admin)',       c: '#F87171', Icon: Ban },
@@ -396,7 +396,7 @@ function JournalTab({ apiFetch }) {
                 <tr><td colSpan={5} className="px-4 py-10 text-center"><Loader2 size={18} className="animate-spin mx-auto" style={{ color: 'var(--text-dim)' }} /></td></tr>
               ) : data.events.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
-                  <ScrollText size={22} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />Aucun évènement journalisé
+                  <ScrollText size={22} className="mx-auto mb-2" style={{ color: '#4A382C' }} />Aucun évènement journalisé
                 </td></tr>
               ) : data.events.map(ev => {
                 const t = EVENT_TYPE[ev.type] ?? { l: ev.type, c: 'var(--text-dim)', Icon: ScrollText }

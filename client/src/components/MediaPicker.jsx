@@ -87,15 +87,15 @@ export default function MediaPicker({ type = 'IMAGE', value, onChange }) {
           onDragOver={(e) => e.preventDefault()}
           onDrop={onDrop}
           className="rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-all"
-          style={{ borderColor: 'rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.03)' }}>
+          style={{ borderColor: 'rgba(242,106,27,0.3)', background: 'rgba(242,106,27,0.03)' }}>
           {uploading ? (
-            <Loader2 size={22} className="animate-spin" style={{ color: '#6366F1', margin: '0 auto' }} />
+            <Loader2 size={22} className="animate-spin" style={{ color: '#F26A1B', margin: '0 auto' }} />
           ) : (
             <>
-              <Icon size={22} style={{ color: '#6366F1', margin: '0 auto 8px' }} />
+              <Icon size={22} style={{ color: '#F26A1B', margin: '0 auto 8px' }} />
               <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Glissez un fichier ou cliquez</p>
               <button type="button" onClick={(e) => { e.stopPropagation(); setLibOpen(true) }}
-                className="text-xs mt-2 underline" style={{ color: '#818CF8' }}>
+                className="text-xs mt-2 underline" style={{ color: 'var(--brand-text)' }}>
                 ou choisir dans la médiathèque
               </button>
             </>
@@ -152,7 +152,7 @@ function MediaLibraryModal({ type, apiFetch, onSelect, onClose }) {
         </div>
         <div className="overflow-y-auto flex-1">
           {loading ? (
-            <div className="flex justify-center py-10"><Loader2 size={22} className="animate-spin" style={{ color: '#6366F1' }} /></div>
+            <div className="flex justify-center py-10"><Loader2 size={22} className="animate-spin" style={{ color: '#F26A1B' }} /></div>
           ) : items.length === 0 ? (
             <p className="text-center text-sm py-10" style={{ color: 'var(--text-dim)' }}>Aucun média</p>
           ) : (

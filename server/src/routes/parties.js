@@ -82,7 +82,7 @@ router.post('/', requireAuth, async (req, res) => {
   // Quota : seules les parties MULTIJOUEURS sont décomptées. Le solo est illimité.
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
-    select: { id: true, prenom: true, plan: true, isAdmin: true, credits: true },
+    select: { id: true, prenom: true, plan: true, planExpireAt: true, isAdmin: true, credits: true },
   })
   const quota = await canCreatePartie(user, { solo })
   if (!quota.allowed) {
@@ -213,7 +213,7 @@ router.post('/join', requireAuth, async (req, res) => {
   // Capacité : limite de joueurs selon le plan de l'hôte (null = illimité).
   const hostId = partie.animateurId ?? partie.creatorId
   if (hostId) {
-    const host = await prisma.user.findUnique({ where: { id: hostId }, select: { plan: true, isAdmin: true } })
+    const host = await prisma.user.findUnique({ where: { id: hostId }, select: { plan: true, planExpireAt: true, isAdmin: true } })
     const max = joueursMax(host)
     if (max != null) {
       const count = await prisma.participant.count({ where: { partieId: partie.id } })

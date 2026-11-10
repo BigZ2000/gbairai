@@ -26,7 +26,7 @@ export default function JoinInvite({ code, compact = false }) {
 
   return (
     <div className="rounded-2xl p-4 flex items-center gap-4"
-      style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)' }}>
+      style={{ background: 'rgba(242,106,27,0.05)', border: '1px solid rgba(242,106,27,0.15)' }}>
       <div className="bg-white rounded-xl p-2 shrink-0">
         <QRCodeSVG value={url} size={compact ? 96 : 112} level="M" includeMargin={false} />
       </div>
@@ -35,7 +35,7 @@ export default function JoinInvite({ code, compact = false }) {
         <p className="text-2xs mb-2" style={{ color: 'var(--text-dim)' }}>Pas besoin de compte — un pseudo suffit.</p>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-2xs uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Code</span>
-          <span className="font-mono font-black text-lg tracking-widest" style={{ color: '#818CF8' }}>{code}</span>
+          <span className="font-mono font-black text-lg tracking-widest" style={{ color: 'var(--brand-text)' }}>{code}</span>
           <button onClick={copy} className="btn-ghost btn-sm gap-1 text-2xs">
             {copied ? <Check size={12} style={{ color: '#22C55E' }} /> : <Copy size={12} />}{copied ? 'Copié' : 'Copier le lien'}
           </button>

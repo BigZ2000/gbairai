@@ -11,8 +11,8 @@ export function fmtFCFA(n) {
 // 3 familles côté UX. L'Organisation regroupe toutes les offres multi-utilisateurs.
 const FAMILLES = {
   gratuit: { icon: Sparkles, couleur: 'var(--text-muted)', titre: 'Gratuit', sousTitre: 'Pour découvrir Gbairai' },
-  pro:     { icon: Crown,    couleur: '#6366F1', titre: 'Pro',     sousTitre: 'Animateurs, associations, événements et créateurs' },
-  org:     { icon: Building2, couleur: '#0EA5E9', titre: 'Organisation', sousTitre: 'Écoles, entreprises et structures à plusieurs' },
+  pro:     { icon: Crown,    couleur: '#F26A1B', titre: 'Premium', sousTitre: 'Crée tes quiz avec l\'IA et joue sans limite' },
+  org:     { icon: Building2, couleur: '#0EA5E9', titre: 'Organisation', sousTitre: 'Entreprises, écoles, associations : animez vos équipes' },
 }
 
 export default function Abonnements() {
@@ -70,13 +70,13 @@ export default function Abonnements() {
       </button>
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Choisis ton offre</h1>
-        <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Simple, sans engagement. Change ou arrête quand tu veux.</p>
+        <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Un pass de 30 jours, payé une fois. Aucun prélèvement automatique.</p>
       </div>
 
       {/* Invité : consultation libre, mais il faut un compte pour s'abonner. */}
       {isGuest && (
-        <div className="card p-4 mb-6 flex items-center gap-3" style={{ border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.06)' }}>
-          <Sparkles size={18} style={{ color: '#818CF8' }} className="shrink-0" />
+        <div className="card p-4 mb-6 flex items-center gap-3" style={{ border: '1px solid rgba(242,106,27,0.3)', background: 'rgba(242,106,27,0.06)' }}>
+          <Sparkles size={18} style={{ color: 'var(--brand-text)' }} className="shrink-0" />
           <p className="text-sm flex-1" style={{ color: 'var(--text-muted)' }}>Tu es en mode invité — <strong style={{ color: 'var(--text)' }}>crée un compte</strong> pour t'abonner.</p>
           <button onClick={() => navigate('/register')} className="btn-primary btn-sm shrink-0">Créer un compte</button>
         </div>
@@ -102,12 +102,12 @@ export default function Abonnements() {
             cta={current === 'FREE' ? { label: 'Offre actuelle', disabled: true } : null} />
 
           {/* Pro */}
-          <Carte famille="pro" populaire prixLabel={`${fmtFCFA(pro?.prix)} / mois`}
+          <Carte famille="pro" populaire prixLabel={`${fmtFCFA(pro?.prix)} / 30 jours`}
             avantages={pro?.fonctionnalites ?? []}
-            cta={isPro ? { label: 'Offre actuelle', disabled: true } : { label: 'Choisir Pro', onClick: () => subscribe(pro), loading: subscribing === pro?.id }} />
+            cta={isPro ? { label: 'Offre actuelle', disabled: true } : { label: 'Passer en Premium', onClick: () => subscribe(pro), loading: subscribing === pro?.id }} />
 
           {/* Organisation */}
-          <Carte famille="org" prixLabel={orgSize ? `dès ${fmtFCFA(orgOffres[0]?.prix)} / mois` : 'Sur mesure'}
+          <Carte famille="org" prixLabel={orgSize ? `dès ${fmtFCFA(orgOffres[0]?.prix)} / 30 jours` : 'Sur mesure'}
             avantages={orgSize?.fonctionnalites ?? []}
             extra={
               <div className="mb-4">
@@ -125,7 +125,7 @@ export default function Abonnements() {
                     </button>
                   ))}
                 </div>
-                {orgSize && <p className="text-2xs mt-2" style={{ color: 'var(--text-muted)' }}>{fmtFCFA(orgSize.prix)} / mois · {orgSize.sieges} utilisateurs</p>}
+                {orgSize && <p className="text-2xs mt-2" style={{ color: 'var(--text-muted)' }}>{fmtFCFA(orgSize.prix)} / 30 jours · {orgSize.sieges} utilisateurs</p>}
               </div>
             }
             cta={isOrg ? { label: 'Offre actuelle', disabled: true } : { label: 'Choisir Organisation', onClick: () => subscribe(orgSize), loading: subscribing === orgSize?.id }} />
@@ -169,7 +169,7 @@ function Carte({ famille, prixLabel, avantages, cta, extra, populaire }) {
       {cta ? (
         cta.disabled
           ? <button disabled className="btn-secondary w-full opacity-60">{cta.label}</button>
-          : <button onClick={cta.onClick} disabled={cta.loading} className="btn-primary w-full gap-2" style={{ background: f.couleur }}>
+          : <button onClick={cta.onClick} disabled={cta.loading} className="btn-primary w-full gap-2" style={{ background: f.couleur, boxShadow: '0 3px 0 rgba(0,0,0,0.2)' }}>
               {cta.loading ? <Loader2 size={14} className="animate-spin" /> : <>{cta.label}<ChevronRight size={15} /></>}
             </button>
       ) : <div className="h-9" />}
@@ -178,7 +178,7 @@ function Carte({ famille, prixLabel, avantages, cta, extra, populaire }) {
 }
 
 function hex(color, alpha) {
-  const c = (color ?? '#6366F1').replace('#', '')
+  const c = (color ?? '#F26A1B').replace('#', '')
   const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16)
   return `rgba(${r},${g},${b},${alpha})`
 }

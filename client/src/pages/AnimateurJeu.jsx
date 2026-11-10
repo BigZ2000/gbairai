@@ -11,7 +11,7 @@ import {
   Users, Hash, Loader2, Eye, EyeOff, Play, Pause, RotateCcw, Tv, Mic2, Check, X,
 } from 'lucide-react'
 
-const WEB_COLORS = ['#6366F1', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
+const WEB_COLORS = ['#F26A1B', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
 
 export default function AnimateurJeu() {
   const { partieCode } = useParams()
@@ -211,7 +211,7 @@ export default function AnimateurJeu() {
   if (!partie) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} />
+        <Loader2 size={24} className="animate-spin" style={{ color: '#F26A1B' }} />
       </div>
     )
   }
@@ -248,7 +248,7 @@ export default function AnimateurJeu() {
         style={{ background: 'var(--surface)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', minHeight: '52px' }}>
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white"
-            style={{ background: '#6366F1' }}>G</div>
+            style={{ background: '#F26A1B' }}>G</div>
           <div>
             <p className="text-sm font-semibold leading-none" style={{ color: 'var(--text)' }}>{partie.nom}</p>
             <p className="text-2xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
@@ -268,7 +268,7 @@ export default function AnimateurJeu() {
           {isHost && (
             <a href={`/screen/${partieCode}`} target="_blank" rel="noopener noreferrer"
               className="btn-sm gap-1.5" title="Ouvrir l'écran de projection"
-              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#818CF8' }}>
+              style={{ background: 'rgba(242,106,27,0.12)', border: '1px solid rgba(242,106,27,0.3)', color: 'var(--brand-text)' }}>
               <Tv size={13} />Écran public
             </a>
           )}
@@ -276,7 +276,7 @@ export default function AnimateurJeu() {
           {/* Reveal button — shows when answer not yet revealed */}
           {isAnimateur && !isModeAuto && !isModeVote && currentQ && !revealed && (
             <button onClick={revealAnswer} className="btn-sm gap-1.5"
-              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', color: '#818CF8' }}>
+              style={{ background: 'rgba(242,106,27,0.12)', border: '1px solid rgba(242,106,27,0.3)', color: 'var(--brand-text)' }}>
               <Eye size={13} />Révéler
             </button>
           )}
@@ -330,7 +330,7 @@ export default function AnimateurJeu() {
                   {currentQ.choix.map((c, i) => (
                     <div key={i} className="rounded-lg px-3 py-2 text-sm"
                       style={{ background: 'var(--input-bg)', border: '1px solid var(--border)' }}>
-                      <span className="font-bold mr-2" style={{ color: '#818CF8' }}>{['A','B','C','D'][i]}</span>
+                      <span className="font-bold mr-2" style={{ color: 'var(--brand-text)' }}>{['A','B','C','D'][i]}</span>
                       <span style={{ color: 'var(--text)' }}>{c}</span>
                     </div>
                   ))}
@@ -406,7 +406,7 @@ export default function AnimateurJeu() {
             (currentQ.type === 'QCM' || currentQ.type === 'VRAI_FAUX' || currentQ.choix?.length > 0) && (
             <div className="card p-4 max-w-md w-full text-center animate-fadeUp">
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                <span className="text-2xl font-black" style={{ color: '#818CF8' }}>{answersCount.count}</span>
+                <span className="text-2xl font-black" style={{ color: 'var(--brand-text)' }}>{answersCount.count}</span>
                 <span className="mx-1">/</span>{answersCount.total} joueur{answersCount.total !== 1 ? 's' : ''} ont répondu
               </p>
               <p className="text-2xs mt-1" style={{ color: 'var(--text-dim)' }}>
@@ -439,8 +439,8 @@ export default function AnimateurJeu() {
               {/* A2 — Bonne réponse visible par l'animateur pour comparaison */}
               {!isModeAuto && !isModeVote && isAnimateur && !revealed && (
                 <div className="rounded-lg px-3 py-2 mb-3 text-sm text-left"
-                  style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)' }}>
-                  <p className="text-2xs uppercase tracking-widest mb-1" style={{ color: '#818CF8' }}>Bonne réponse</p>
+                  style={{ background: 'rgba(242,106,27,0.1)', border: '1px solid rgba(242,106,27,0.25)' }}>
+                  <p className="text-2xs uppercase tracking-widest mb-1" style={{ color: 'var(--brand-text)' }}>Bonne réponse</p>
                   <p className="font-bold" style={{ color: 'var(--text)' }}>
                     {regieAnticipee ? answers[questionIndex]?.reponse : '(masquée — projection directe)'}
                   </p>

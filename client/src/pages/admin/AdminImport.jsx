@@ -81,7 +81,7 @@ export default function AdminImport() {
       {/* Template */}
       <div className="card p-5 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileText size={20} style={{ color: '#6366F1' }} />
+          <FileText size={20} style={{ color: '#F26A1B' }} />
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Modèle CSV</p>
             <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Colonnes attendues, dont les références médias</p>
@@ -93,7 +93,7 @@ export default function AdminImport() {
       <div className="grid md:grid-cols-3 gap-4 mb-4">
         {/* CSV */}
         <div className="card p-5 cursor-pointer" onClick={() => csvRef.current?.click()}>
-          <FileText size={22} style={{ color: '#818CF8', marginBottom: 8 }} />
+          <FileText size={22} style={{ color: 'var(--brand-text)', marginBottom: 8 }} />
           <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>1. Fichier CSV *</p>
           <p className="text-xs mt-1 truncate" style={{ color: csvFile ? '#4ADE80' : 'var(--text-dim)' }}>
             {csvFile ? csvFile.name : 'Aucun fichier'}
@@ -170,7 +170,7 @@ export default function AdminImport() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <Stat label="Questions" value={result.questionsCreated} color="#4ADE80" />
-            <Stat label="Médias ajoutés" value={result.mediaIngested} color="#818CF8" />
+            <Stat label="Médias ajoutés" value={result.mediaIngested} color="#F58A45" />
             <Stat label="Doublons média" value={result.mediaDeduplicated} color="#FCD34D" />
             <Stat label="Erreurs" value={result.errors?.length ?? 0} color="#F87171" />
           </div>

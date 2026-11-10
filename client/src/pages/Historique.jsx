@@ -10,7 +10,7 @@ import {
 const TYPE_META = {
   auto:      { label: 'Auto', icon: Bot, color: '#06B6D4' },
   vote:      { label: 'Vote', icon: Vote, color: '#8B5CF6' },
-  animateur: { label: 'Animateur', icon: Gamepad2, color: '#6366F1' },
+  animateur: { label: 'Animateur', icon: Gamepad2, color: '#F26A1B' },
 }
 const STATUS_META = {
   EN_ATTENTE: { label: 'En attente', cls: 'badge-wait' },
@@ -70,7 +70,7 @@ export default function Historique() {
   return (
     <Layout>
       <div className="flex items-center gap-2 mb-1">
-        <HistoryIcon size={20} style={{ color: '#6366F1' }} />
+        <HistoryIcon size={20} style={{ color: '#F26A1B' }} />
         <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Historique</h1>
       </div>
       <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
@@ -88,7 +88,7 @@ export default function Historique() {
           <Filter size={13} />Filtres
           {activeFilters > 0 && (
             <span className="w-4 h-4 rounded-full text-2xs flex items-center justify-center text-white"
-              style={{ background: '#6366F1' }}>{activeFilters}</span>
+              style={{ background: '#F26A1B' }}>{activeFilters}</span>
           )}
         </button>
       </div>
@@ -140,7 +140,7 @@ export default function Historique() {
 
       {/* Liste */}
       {items === null ? (
-        <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: '#6366F1' }} /></div>
+        <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: '#F26A1B' }} /></div>
       ) : filtered.length === 0 ? (
         <div className="card p-10 text-center">
           <HistoryIcon size={28} className="mx-auto mb-3" style={{ color: 'var(--text-dim)' }} />

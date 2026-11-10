@@ -40,7 +40,7 @@ export default function HistoriquePartie() {
     )
   }
   if (!data) {
-    return <Layout><div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: '#6366F1' }} /></div></Layout>
+    return <Layout><div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: '#F26A1B' }} /></div></Layout>
   }
 
   const finished = data.status === 'TERMINEE'
@@ -49,7 +49,7 @@ export default function HistoriquePartie() {
 
   const summary = restricted
     ? [
-        { label: 'Joueurs', value: data.participants.length, icon: Users, color: '#6366F1' },
+        { label: 'Joueurs', value: data.participants.length, icon: Users, color: '#F26A1B' },
         { label: 'Questions', value: data.totalQuestions, icon: HelpCircle, color: '#8B5CF6' },
         {
           label: 'Progression',
@@ -58,7 +58,7 @@ export default function HistoriquePartie() {
         },
       ]
     : [
-        { label: 'Joueurs', value: data.participants.length, icon: Users, color: '#6366F1' },
+        { label: 'Joueurs', value: data.participants.length, icon: Users, color: '#F26A1B' },
         { label: 'Questions', value: data.totalQuestions, icon: HelpCircle, color: '#8B5CF6' },
         { label: 'Buzz total', value: data.totalBuzz, icon: Zap, color: '#F59E0B' },
         { label: 'Temps moyen', value: fmtMs(data.tempsMoyenMs), icon: Timer, color: '#06B6D4' },
@@ -157,7 +157,7 @@ export default function HistoriquePartie() {
       {/* Déroulé : manches & questions — masqué tant que la partie n'est pas terminée */}
       <div className="card p-5">
         <h2 className="font-semibold text-sm flex items-center gap-2 mb-4" style={{ color: 'var(--text)' }}>
-          <HelpCircle size={15} style={{ color: '#6366F1' }} />Déroulé de la partie
+          <HelpCircle size={15} style={{ color: '#F26A1B' }} />Déroulé de la partie
         </h2>
         {restricted ? (
           <p className="text-xs rounded-lg p-2.5" style={{ background: 'rgba(245,158,11,0.08)', color: '#FCD34D' }}>
@@ -172,7 +172,7 @@ export default function HistoriquePartie() {
                 <button onClick={() => setOpenManche(open ? -1 : idx)}
                   className="w-full flex items-center justify-between gap-3 p-3" style={{ background: 'var(--input-bg)' }}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-2xs font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.15)', color: '#A5B4FC' }}>
+                    <span className="text-2xs font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(242,106,27,0.15)', color: 'var(--brand-text)' }}>
                       Manche {m.ordre}
                     </span>
                     <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{m.nom}</p>

@@ -47,6 +47,11 @@ services:
       CORS_STRICT: "true"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Création de quiz par IA (clé vide = fonction désactivée, sans erreur).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      IA_MODELE: ${IA_MODELE:-claude-haiku-5-5}
+      IA_REQUETES_PAR_HEURE: ${IA_REQUETES_PAR_HEURE:-10}
+      IA_BUDGET_JOUR_USD: ${IA_BUDGET_JOUR_USD:-5.00}
       CINETPAY_ENABLED: ${CINETPAY_ENABLED:-false}
       CINETPAY_API_KEY: ${CINETPAY_API_KEY:-}
       CINETPAY_SITE_ID: ${CINETPAY_SITE_ID:-}

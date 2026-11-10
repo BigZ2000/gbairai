@@ -1,6 +1,7 @@
 // Thème clair/sombre — persistant en localStorage, applicable AVANT toute
 // connexion (écran d'entrée, page de jonction, landing). La préférence de
-// l'appareil prime ; à défaut on retombe sur le thème du compte, sinon « dark ».
+// l'appareil prime ; à défaut on retombe sur le thème du compte, sinon « clair »
+// (identité chaude, lisible en plein jour ; le sombre « cacao » reste à un clic).
 const KEY = 'gbairai_theme'
 
 export function storedTheme() {
@@ -9,7 +10,7 @@ export function storedTheme() {
 }
 
 export function currentTheme() {
-  return document.documentElement.getAttribute('data-theme') || 'dark'
+  return document.documentElement.getAttribute('data-theme') || 'light'
 }
 
 export function applyTheme(t, persist = true) {
@@ -19,9 +20,9 @@ export function applyTheme(t, persist = true) {
   return theme
 }
 
-// Au démarrage : applique la préférence appareil si elle existe (sinon dark).
+// Au démarrage : applique la préférence appareil si elle existe (sinon clair).
 export function initTheme() {
-  applyTheme(storedTheme() ?? 'dark', false)
+  applyTheme(storedTheme() ?? 'light', false)
 }
 
 export function toggleTheme() {

@@ -8,7 +8,7 @@ const CATS = [['PERSONNEL', 'Personnel'], ['ORGANISATION', 'Organisation']]
 const PLANS = ['FREE', 'PRO', 'ENTREPRISE', 'ECOLE']
 const EMPTY = {
   code: '', nom: '', description: '', categorie: 'PERSONNEL', plan: 'PRO',
-  prix: 0, dureeJours: 30, sieges: 1, fonctionnalites: [], couleur: '#6366F1',
+  prix: 0, dureeJours: 30, sieges: 1, fonctionnalites: [], couleur: '#F26A1B',
   populaire: false, visible: true, ordre: 10,
 }
 
@@ -149,7 +149,7 @@ function OffreEditor({ offre, onClose, onSaved }) {
         <F label="Avantages affichés">
           <div className="flex flex-wrap gap-1.5 mb-2">
             {(form.fonctionnalites ?? []).map((t, i) => (
-              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs" style={{ background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs" style={{ background: 'rgba(242,106,27,0.12)', color: 'var(--brand-text)' }}>
                 {t}<button onClick={() => set('fonctionnalites', form.fonctionnalites.filter((_, j) => j !== i))}><X size={10} /></button>
               </span>
             ))}
@@ -175,7 +175,7 @@ function F({ label, children }) { return (<div><label className="label">{label}<
 function Toggle({ label, checked, onChange }) {
   return (
     <button onClick={() => onChange(!checked)} className="flex items-center gap-2 py-1">
-      <span className="w-9 h-5 rounded-full transition-all relative shrink-0" style={{ background: checked ? '#6366F1' : 'rgba(255,255,255,0.1)' }}>
+      <span className="w-9 h-5 rounded-full transition-all relative shrink-0" style={{ background: checked ? '#F26A1B' : 'rgba(255,255,255,0.1)' }}>
         <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: checked ? '18px' : '2px' }} />
       </span>
       <span className="text-sm" style={{ color: 'var(--text)' }}>{label}</span>

@@ -129,6 +129,8 @@ model User {
   orgMemberships  OrganisationMembre[]
   userPacks          UserPack[]
   creditTransactions CreditTransaction[]
+  packsPerso         Pack[]         @relation("PacksPerso")
+  aiGenerations      AiGeneration[]
 }
 
 // Médiathèque centrale — fichiers uploadés réutilisables (dédupliqués par hash).
@@ -515,6 +517,14 @@ model Pack {
   noteMoyenne Float? // moyenne des notes
   nbAvis      Int    @default(0)
 
+  // Quiz PERSONNEL : pack privé appartenant à un utilisateur (« Mes quiz »).
+  // null = pack du catalogue public (géré par l'admin). Un pack privé n'apparaît
+  // jamais au catalogue et n'est jouable que par son propriétaire.
+  ownerId String?
+  owner   User?   @relation("PacksPerso", fields: [ownerId], references: [id], onDelete: Cascade)
+  // Origine du contenu d'un quiz personnel : 'IA' (généré puis validé) | 'MANUEL'.
+  origine String?
+
   // Promotion & cycle de vie
   priorite  Int        @default(50)   // tri décroissant (100 = top)
   vedette   Boolean    @default(false) // carrousel principal / recommandations
@@ -531,6 +541,29 @@ model Pack {
   @@index([statut])
   @@index([priorite])
   @@index([tier])
+  @@index([ownerId])
+}
+
+// Journal des générations de quiz par IA (ajout seul). Sert aux quotas par
+// utilisateur (mois / heure), au budget quotidien global et au suivi des coûts.
+// Le texte de la demande n'est PAS la source des quotas : seules les lignes comptent.
+model AiGeneration {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fournisseur   String   // 'anthropic'
+  modele        String
+  demande       String   // demande de l'utilisateur (tronquée à 600 car.)
+  nbQuestions   Int      @default(0) // questions valides rendues
+  jetonsEntree  Int      @default(0)
+  jetonsSortie  Int      @default(0)
+  coutEstimeUsd Float    @default(0)
+  statut        String   // 'ok' | 'refus' | 'erreur' | 'invalide'
+  erreur        String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 // Propriété d'un pack : achat unique = droit de jeu ILLIMITÉ de ce pack

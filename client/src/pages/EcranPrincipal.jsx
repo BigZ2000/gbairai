@@ -8,7 +8,7 @@ import Podium from '../components/Podium.jsx'
 import { Trophy, Hash, Eye, Timer, Zap, Heart, Skull, AlertTriangle, Check, X } from 'lucide-react'
 
 // Palette stable pour les buzzers virtuels (joueurs sur téléphone, sans matériel).
-const WEB_COLORS = ['#6366F1', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
+const WEB_COLORS = ['#F26A1B', '#22C55E', '#F59E0B', '#EC4899', '#0EA5E9', '#A855F7', '#EF4444', '#14B8A6']
 
 export default function EcranPrincipal() {
   const { partieCode } = useParams()
@@ -191,7 +191,7 @@ export default function EcranPrincipal() {
       {mancheRecap && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-12 animate-fadeUp"
           style={{ background: 'rgba(10,10,15,0.96)', backdropFilter: 'blur(6px)' }}>
-          <p className="text-base uppercase tracking-[0.3em] mb-2" style={{ color: '#818CF8' }}>Fin de manche</p>
+          <p className="text-base uppercase tracking-[0.3em] mb-2" style={{ color: 'var(--brand-text)' }}>Fin de manche</p>
           <h2 className="text-5xl font-black mb-10" style={{ color: 'var(--text)' }}>{mancheRecap.nom}</h2>
           <div className="w-full max-w-2xl space-y-3">
             {sortedParticipants.map((p, i) => (
@@ -204,13 +204,13 @@ export default function EcranPrincipal() {
                   style={{ color: i === 0 ? '#F59E0B' : i === 1 ? '#9CA3AF' : i === 2 ? '#A16207' : 'var(--text-dim)' }}>
                   {i + 1}
                 </span>
-                <BuzzerAnime couleur={p.buzzer?.couleur ?? '#6366F1'} statut="ready" size="sm" />
+                <BuzzerAnime couleur={p.buzzer?.couleur ?? '#F26A1B'} statut="ready" size="sm" />
                 <span className="text-2xl font-bold flex-1" style={{ color: 'var(--text)' }}>{p.prenom}</span>
                 {p.vies != null && (
                   <span className="inline-flex items-center gap-1 mr-3" title="Vies">
                     {p.vies > 0
                       ? Array.from({ length: p.vies }).map((_, k) => <Heart key={k} size={18} fill="#F87171" color="#F87171" />)
-                      : <Skull size={20} color="#9090A0" />}
+                      : <Skull size={20} color="#C9B5A4" />}
                   </span>
                 )}
                 <span className="text-2xl font-black" style={{ color: '#F59E0B' }}>{p.score} pts</span>
@@ -225,7 +225,7 @@ export default function EcranPrincipal() {
         style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-4">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl font-black text-white"
-            style={{ background: '#6366F1' }}>G</div>
+            style={{ background: '#F26A1B' }}>G</div>
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{partie?.nom ?? 'Gbairai'}</h1>
             {q && (
@@ -268,7 +268,7 @@ export default function EcranPrincipal() {
       {totalQuestions > 0 && (
         <div className="h-1 w-full" style={{ background: 'var(--hover-overlay)' }}>
           <div className="h-full transition-all duration-500"
-            style={{ width: `${Math.min(100, ((questionIndex + 1) / totalQuestions) * 100)}%`, background: '#6366F1' }} />
+            style={{ width: `${Math.min(100, ((questionIndex + 1) / totalQuestions) * 100)}%`, background: '#F26A1B' }} />
         </div>
       )}
 
@@ -286,7 +286,7 @@ export default function EcranPrincipal() {
         {winner && (
           <div className="flex flex-col items-center gap-6 animate-fadeUp">
             <BuzzerAnime
-              couleur={participants.find(p => p.id === winner.participantId)?.buzzer?.couleur ?? '#6366F1'}
+              couleur={participants.find(p => p.id === winner.participantId)?.buzzer?.couleur ?? '#F26A1B'}
               statut="winner"
               prenom={winner.prenom}
               size="xl"
@@ -352,8 +352,8 @@ export default function EcranPrincipal() {
                       <div key={i}
                         className="flex flex-col items-center justify-center gap-3 rounded-xl px-4 py-4 transition-all duration-500"
                         style={{
-                          background: isCorrect ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.10)',
-                          border: `2px solid ${isCorrect ? 'rgba(34,197,94,0.6)' : 'rgba(99,102,241,0.3)'}`,
+                          background: isCorrect ? 'rgba(34,197,94,0.15)' : 'rgba(242,106,27,0.10)',
+                          border: `2px solid ${isCorrect ? 'rgba(34,197,94,0.6)' : 'rgba(242,106,27,0.3)'}`,
                           transform: isCorrect ? 'scale(1.03)' : 'none',
                         }}>
                         {c?.mediaUrl && (
@@ -372,7 +372,7 @@ export default function EcranPrincipal() {
                 <div className="grid grid-cols-2 gap-4 mt-8">
                   {q.choix.map((c, i) => {
                     const colors = [
-                      { bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.3)', text: '#818CF8' },
+                      { bg: 'rgba(242,106,27,0.12)', border: 'rgba(242,106,27,0.3)', text: 'var(--brand-text)' },
                       { bg: 'rgba(34,197,94,0.10)',  border: 'rgba(34,197,94,0.3)',  text: '#4ADE80' },
                       { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', text: '#FCD34D' },
                       { bg: 'rgba(239,68,68,0.10)',  border: 'rgba(239,68,68,0.3)',  text: '#F87171' },

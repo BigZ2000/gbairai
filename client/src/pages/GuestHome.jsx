@@ -25,7 +25,7 @@ export default function GuestHome() {
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       <header className="px-5 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white" style={{ background: '#6366F1' }}>G</div>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white" style={{ background: '#F26A1B' }}>G</div>
           <span className="font-bold text-sm">Gbairai</span>
         </div>
         <ThemeToggle />
@@ -33,8 +33,8 @@ export default function GuestHome() {
 
       <main className="flex-1 flex flex-col items-center justify-center px-5 text-center">
         <div className="w-full max-w-sm animate-fadeUp">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(99,102,241,0.15)' }}>
-            <Gamepad2 size={26} style={{ color: '#818CF8' }} />
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(242,106,27,0.15)' }}>
+            <Gamepad2 size={26} style={{ color: 'var(--brand-text)' }} />
           </div>
           <h1 className="text-2xl font-bold">Salut {user.prenom}</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Tu joues en invité.</p>
@@ -50,7 +50,7 @@ export default function GuestHome() {
             </div>
           </form>
 
-          <div className="card p-4 mt-3 text-left" style={{ border: '1px solid rgba(99,102,241,0.25)' }}>
+          <div className="card p-4 mt-3 text-left" style={{ border: '1px solid rgba(242,106,27,0.25)' }}>
             <p className="text-sm font-semibold">Garde ta progression</p>
             <p className="text-2xs mt-0.5 mb-3" style={{ color: 'var(--text-muted)' }}>
               Crée ton compte pour conserver ton score, ton historique et débloquer plus de jeux.

@@ -8,7 +8,7 @@ import MediaPicker from '../../components/MediaPicker.jsx'
 
 const TYPES      = ['BUZZER', 'QCM', 'VRAI_FAUX', 'IMAGE', 'AUDIO', 'VIDEO']
 const DIFFS      = ['FACILE', 'MOYEN', 'DIFFICILE']
-const TYPE_COLOR = { BUZZER: '#818CF8', QCM: '#4ADE80', VRAI_FAUX: '#FCD34D', IMAGE: '#F87171', AUDIO: '#C084FC', VIDEO: '#2DD4BF' }
+const TYPE_COLOR = { BUZZER: '#F58A45', QCM: '#4ADE80', VRAI_FAUX: '#FCD34D', IMAGE: '#F87171', AUDIO: '#C084FC', VIDEO: '#2DD4BF' }
 
 const EMPTY = {
   enonce: '', type: 'BUZZER', reponse: '', indice: '', choix: [], explication: '', source: '',
@@ -168,7 +168,7 @@ export default function AdminQuestions() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin" style={{ color: '#6366F1' }} /></div>
+        <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin" style={{ color: '#F26A1B' }} /></div>
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
@@ -278,7 +278,7 @@ export default function AdminQuestions() {
                   <div className="flex flex-wrap gap-2">
                     {(editing.choix ?? []).map((c, i) => (
                       <span key={i} className="flex items-center gap-1 px-2 py-1 rounded text-xs"
-                        style={{ background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>
+                        style={{ background: 'rgba(242,106,27,0.12)', color: 'var(--brand-text)' }}>
                         <span className="font-bold mr-1">{['A','B','C','D','E','F'][i]}</span>{c}
                         <button onClick={() => removeChoix(i)} className="ml-1"><X size={10} /></button>
                       </span>

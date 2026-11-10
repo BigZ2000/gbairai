@@ -27,7 +27,7 @@ const STATUT_STYLE = {
 }
 
 const EMPTY_PACK = {
-  nom: '', description: '', emoji: '🎮', couleur: '#6366F1',
+  nom: '', description: '', emoji: '🎮', couleur: '#F26A1B',
   imageUrl: '', banniereUrl: '', categorie: '', tags: [],
   difficulte: 'MIXTE', duree: 'STANDARD', categories: [], typesAutorises: [],
   modeRecommande: 'animateur', contentMode: 'DYNAMIQUE',
@@ -102,8 +102,8 @@ export default function AdminPacks() {
             <button key={v || 'all'} onClick={() => setFilterStatut(v)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
               style={{
-                background: filterStatut === v ? 'rgba(99,102,241,0.15)' : 'var(--hover-overlay)',
-                color: filterStatut === v ? '#818CF8' : 'var(--text-muted)',
+                background: filterStatut === v ? 'rgba(242,106,27,0.15)' : 'var(--hover-overlay)',
+                color: filterStatut === v ? 'var(--brand-text)' : 'var(--text-muted)',
               }}>{l}</button>
           ))}
         </div>
@@ -142,7 +142,7 @@ export default function AdminPacks() {
                           {p.signature && <span className="badge-wait">Signature</span>}
                           {p.tier && p.tier !== 'GRATUIT' && (
                             <span className="text-2xs font-semibold px-1.5 py-0.5 rounded-full"
-                              style={{ background: 'rgba(99,102,241,0.15)', color: '#818CF8' }}>
+                              style={{ background: 'rgba(242,106,27,0.15)', color: 'var(--brand-text)' }}>
                               {p.tier}{p.prix > 0 ? ` · ${p.prix} F` : ''}
                             </span>
                           )}
@@ -186,7 +186,7 @@ export default function AdminPacks() {
             })}
             {!loading && packs.length === 0 && (
               <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-dim)' }}>
-                <Package size={24} className="mx-auto mb-2" style={{ color: '#2A2A35' }} />
+                <Package size={24} className="mx-auto mb-2" style={{ color: '#4A382C' }} />
                 Aucun pack
               </td></tr>
             )}
@@ -297,7 +297,7 @@ function PackEditor({ pack, onClose, onSaved }) {
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {form.tags.map(t => (
                   <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs"
-                    style={{ background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>
+                    style={{ background: 'rgba(242,106,27,0.12)', color: 'var(--brand-text)' }}>
                     {t}<button onClick={() => set('tags', form.tags.filter(x => x !== t))}><X size={10} /></button>
                   </span>
                 ))}
@@ -339,8 +339,8 @@ function PackEditor({ pack, onClose, onSaved }) {
                   <button key={t} onClick={() => toggleType(t)}
                     className="px-2.5 py-1 rounded-lg text-2xs font-medium transition-all"
                     style={{
-                      background: form.typesAutorises.includes(t) ? 'rgba(99,102,241,0.18)' : 'var(--hover-overlay)',
-                      color: form.typesAutorises.includes(t) ? '#818CF8' : 'var(--text-muted)',
+                      background: form.typesAutorises.includes(t) ? 'rgba(242,106,27,0.18)' : 'var(--hover-overlay)',
+                      color: form.typesAutorises.includes(t) ? 'var(--brand-text)' : 'var(--text-muted)',
                     }}>{t}</button>
                 ))}
               </div>
@@ -490,7 +490,7 @@ function ManualQuestions({ pack }) {
               className="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-white/[0.03] transition-colors"
               style={{ borderBottom: '1px solid var(--input-bg)' }}>
               <span className="text-xs truncate" style={{ color: 'var(--text)' }}>{q.enonce}</span>
-              <Plus size={13} style={{ color: '#818CF8' }} />
+              <Plus size={13} style={{ color: 'var(--brand-text)' }} />
             </button>
           ))}
         </div>
@@ -633,7 +633,7 @@ function MediaPicker({ onClose, onSelect }) {
 function Section({ title, children }) {
   return (
     <div className="space-y-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#818CF8' }}>{title}</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--brand-text)' }}>{title}</h3>
       {children}
     </div>
   )
@@ -645,7 +645,7 @@ function Toggle({ label, checked, onChange }) {
   return (
     <button onClick={() => onChange(!checked)} className="flex items-center gap-2 py-1">
       <span className="w-9 h-5 rounded-full transition-all relative shrink-0"
-        style={{ background: checked ? '#6366F1' : 'rgba(255,255,255,0.1)' }}>
+        style={{ background: checked ? '#F26A1B' : 'rgba(255,255,255,0.1)' }}>
         <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
           style={{ left: checked ? '18px' : '2px' }} />
       </span>
@@ -655,7 +655,7 @@ function Toggle({ label, checked, onChange }) {
 }
 
 function hex(color, alpha) {
-  const c = (color ?? '#6366F1').replace('#', '')
+  const c = (color ?? '#F26A1B').replace('#', '')
   const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16)
   return `rgba(${r},${g},${b},${alpha})`
 }

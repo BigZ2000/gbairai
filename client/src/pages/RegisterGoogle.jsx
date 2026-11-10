@@ -94,10 +94,10 @@ export default function RegisterGoogle() {
 
         <div className="flex flex-col items-center mb-8">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg mb-4"
-            style={{ background: '#6366F1', boxShadow: '0 4px 20px rgba(99,102,241,0.4)' }}>G</div>
+            style={{ background: '#F26A1B', boxShadow: '0 4px 20px rgba(242,106,27,0.4)' }}>G</div>
           <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Finalise ton profil</h1>
           <p className="text-sm mt-1 text-center" style={{ color: 'var(--text-muted)' }}>
-            Compte Google : <span style={{ color: '#818CF8' }}>{googleInfo?.email}</span>
+            Compte Google : <span style={{ color: 'var(--brand-text)' }}>{googleInfo?.email}</span>
           </p>
         </div>
 
@@ -147,7 +147,7 @@ export default function RegisterGoogle() {
                         <button key={s} type="button"
                           onClick={() => setUsername(s)}
                           className="text-2xs px-2 py-0.5 rounded font-medium transition-colors"
-                          style={{ background: 'rgba(99,102,241,0.12)', color: '#A5B4FC', border: '1px solid rgba(99,102,241,0.2)' }}>
+                          style={{ background: 'rgba(242,106,27,0.12)', color: 'var(--brand-text)', border: '1px solid rgba(242,106,27,0.2)' }}>
                           {s}
                         </button>
                       ))}

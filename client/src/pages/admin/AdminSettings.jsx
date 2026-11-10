@@ -42,7 +42,7 @@ export default function AdminSettings() {
 
       <div className="max-w-2xl space-y-4">
         {/* Vérification email à l'inscription */}
-        <Row icon={Mail} color="#6366F1" title="Vérifier l'email à l'inscription"
+        <Row icon={Mail} color="#F26A1B" title="Vérifier l'email à l'inscription"
           desc="Envoie un code/lien de confirmation. Désactivé → les comptes par email sont validés automatiquement (aucun mail).">
           <Toggle on={s.emailVerifyOnRegister} onClick={() => save({ emailVerifyOnRegister: !s.emailVerifyOnRegister })} disabled={saving} />
         </Row>
@@ -186,7 +186,7 @@ function Row({ icon: Icon, color, title, desc, children }) {
 function Toggle({ on, onClick, disabled }) {
   return (
     <button onClick={onClick} disabled={disabled} className="w-11 h-6 rounded-full relative transition-all shrink-0"
-      style={{ background: on ? '#6366F1' : 'var(--border-strong)', opacity: disabled ? 0.6 : 1 }}>
+      style={{ background: on ? '#F26A1B' : 'var(--border-strong)', opacity: disabled ? 0.6 : 1 }}>
       <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style={{ left: on ? '22px' : '2px' }} />
     </button>
   )

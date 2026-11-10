@@ -10,12 +10,15 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "node prisma/seed-full.js"
+    "db:seed": "node prisma/seed-full.js",
+    "test": "node --test --test-force-exit tests/quizGenerator.test.js",
+    "test:integration": "node --test --test-force-exit tests/quiz.integration.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed-full.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0",
     "@prisma/client": "^5.10.0",
     "adm-zip": "^0.5.17",
     "bcryptjs": "^2.4.3",

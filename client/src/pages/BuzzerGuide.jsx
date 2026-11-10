@@ -19,7 +19,7 @@ export default function BuzzerGuide() {
       <header className="sticky top-0 z-30 px-5 h-14 flex items-center justify-between"
         style={{ background: 'color-mix(in srgb, var(--surface-2) 82%, transparent)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border)' }}>
         <Link to={user ? '/dashboard' : '/login'} className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white" style={{ background: '#6366F1' }}>G</div>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-black text-white" style={{ background: '#F26A1B' }}>G</div>
           <span className="font-bold text-sm">Gbairai · Buzzers</span>
         </Link>
         <Link to={user ? '/dashboard' : '/login'} className="btn-ghost btn-sm gap-1.5"><ArrowLeft size={13} />Retour</Link>
@@ -28,8 +28,8 @@ export default function BuzzerGuide() {
       <main className="max-w-3xl mx-auto px-5 py-8">
         {/* Hero */}
         <div className="text-center mb-10">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(99,102,241,0.15)' }}>
-            <Gamepad2 size={30} style={{ color: '#818CF8' }} />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(242,106,27,0.15)' }}>
+            <Gamepad2 size={30} style={{ color: 'var(--brand-text)' }} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Joue avec un buzzer</h1>
           <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
@@ -79,7 +79,7 @@ export default function BuzzerGuide() {
         <div className="space-y-3 mb-10">
           <Step n="1" icon={Power} color="#22C55E" title="Allume / ouvre ton buzzer"
             text="Buzzer physique : mets-le sous tension. Simulateur : ouvre-le et clique « Allumer »." />
-          <Step n="2" icon={Link2} color="#6366F1" title="Appaire-le (une seule fois)"
+          <Step n="2" icon={Link2} color="#F26A1B" title="Appaire-le (une seule fois)"
             text="Dans l'app : « Mes buzzers » → ajoute-le par sa MAC. Ensuite, il est reconnu automatiquement." />
           <Step n="3" icon={QrCode} color="#F59E0B" title="Rejoins une partie"
             text="Scanne le QR de la partie (ou saisis le code). Pas besoin de compte : un pseudo suffit." />
@@ -93,7 +93,7 @@ export default function BuzzerGuide() {
             <QRCodeSVG value={`${origin}/buzzer`} size={104} level="M" />
           </div>
           <div>
-            <h3 className="font-bold flex items-center gap-2"><QrCode size={16} style={{ color: '#818CF8' }} />Le QR sous ton buzzer</h3>
+            <h3 className="font-bold flex items-center gap-2"><QrCode size={16} style={{ color: 'var(--brand-text)' }} />Le QR sous ton buzzer</h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
               Chaque buzzer physique porte un QR Code imprimé. Le scanner ouvre <b>cette page</b> :
               démarrage immédiat, sans notice. Le buzzer simulé propose le même lien.
@@ -141,8 +141,8 @@ export default function BuzzerGuide() {
             Aucun souci : rejoins la partie et joue avec le bouton BUZZ à l'écran. Le buzzer est un bonus, jamais obligatoire.
           </FAQ>
           <FAQ q="Comment tester sans matériel ?">
-            Ouvre le <a href="/buzzer.html" style={{ color: '#818CF8' }}>simulateur</a> (sur n'importe quel appareil du réseau),
-            ou regarde l'<a href="/esp32-portal.html" style={{ color: '#818CF8' }}>aperçu du boîtier</a>.
+            Ouvre le <a href="/buzzer.html" style={{ color: 'var(--brand-text)' }}>simulateur</a> (sur n'importe quel appareil du réseau),
+            ou regarde l'<a href="/esp32-portal.html" style={{ color: 'var(--brand-text)' }}>aperçu du boîtier</a>.
           </FAQ>
         </div>
 

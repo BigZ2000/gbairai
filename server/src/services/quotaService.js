@@ -1,7 +1,7 @@
 // ── SERVICE QUOTAS (FREEMIUM) ─────────────────────────────────────────────────
 // Calcule l'usage courant d'un utilisateur et vérifie ses quotas avant action.
 import { prisma } from '../utils/prisma.js'
-import { getLimites, resolvePlan, INF } from '../config/plans.js'
+import { getLimites, resolvePlan, effectivePlan, INF } from '../config/plans.js'
 
 function startOfMonth(d = new Date()) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -23,7 +23,7 @@ export async function getUsage(userId) {
 
 // Construit un état complet plan + limites + usage (pour le Dashboard).
 export async function getQuotaState(user) {
-  const offre = resolvePlan(user.plan)
+  const offre = resolvePlan(effectivePlan(user))
   const limites = offre.limites
   const usage = await getUsage(user.id)
   const isAdmin = !!user.isAdmin
@@ -42,6 +42,9 @@ export async function getQuotaState(user) {
       statsAvancees: limites.statsAvancees,
       branding: limites.branding,
       packTiers: limites.packTiers,
+      quizPersoMax: limites.quizPersoMax === INF ? null : limites.quizPersoMax,
+      iaGenerationsParMois: limites.iaGenerationsParMois,
+      iaQuestionsMax: limites.iaQuestionsMax,
     },
     usage: {
       // « parties à plusieurs » consommées ce mois (le solo n'est jamais compté).
@@ -79,7 +82,7 @@ export async function canCreatePartie(user, { solo = false, pack = null } = {}) 
 
   if (await packEstIllimite(user.id, pack)) return { allowed: true, illimite: true }
 
-  const limites = getLimites(user.plan)
+  const limites = getLimites(effectivePlan(user))
   if (limites.partiesParMois === INF) return { allowed: true }
 
   const { partiesCeMois } = await getUsage(user.id)
@@ -104,12 +107,12 @@ export async function canCreatePartie(user, { solo = false, pack = null } = {}) 
 // Vérifie une capacité booléenne (exports, statsAvancees, branding…).
 export function hasFeature(user, feature) {
   if (user?.isAdmin) return true
-  return !!getLimites(user.plan)[feature]
+  return !!getLimites(effectivePlan(user))[feature]
 }
 
 // Plafond de joueurs autorisé pour le plan de l'utilisateur (null = illimité).
 export function joueursMax(user) {
   if (user?.isAdmin) return null
-  const v = getLimites(user.plan).joueursMax
+  const v = getLimites(effectivePlan(user)).joueursMax
   return v === INF ? null : v
 }

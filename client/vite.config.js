@@ -7,6 +7,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 // tablette, PC). Vite affiche alors « Network: http://<ton-ip>:5173/ ».
 // Le proxy /api + /ws vers localhost:4000 reste correct : il s'exécute sur la
 // machine de dev, à côté du backend.
+// Cible du proxy API : http://localhost:4000 par défaut ; surchargable par
+// GBAIRAI_API (ex. GBAIRAI_API=http://localhost:4100 quand le port 4000 est pris).
+const API = process.env.GBAIRAI_API || 'http://localhost:4000'
+
 export default defineConfig({
   plugins: [
     react(),
@@ -24,8 +28,8 @@ export default defineConfig({
         short_name: 'Gbairai',
         description: 'Quiz et buzzers connectés. Scanner, jouer, s\'amuser.',
         lang: 'fr',
-        theme_color: '#6366F1',
-        background_color: '#14161d',
+        theme_color: '#F26A1B',
+        background_color: '#FFF7EC',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/dashboard',
@@ -47,9 +51,9 @@ export default defineConfig({
     // « Blocked request. This host is not allowed » pour tout hôte non-IP.
     allowedHosts: true,
     proxy: {
-      '/api': 'http://localhost:4000',
-      '/uploads': 'http://localhost:4000',
-      '/ws': { target: 'ws://localhost:4000', ws: true },
+      '/api': API,
+      '/uploads': API,
+      '/ws': { target: API.replace(/^http/, 'ws'), ws: true },
     },
   },
 })

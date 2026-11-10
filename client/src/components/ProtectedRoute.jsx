@@ -11,8 +11,8 @@ export default function ProtectedRoute() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base font-black text-white"
-            style={{ background: '#6366F1' }}>G</div>
-          <Loader2 size={18} className="animate-spin" style={{ color: '#6366F1' }} />
+            style={{ background: '#F26A1B' }}>G</div>
+          <Loader2 size={18} className="animate-spin" style={{ color: '#F26A1B' }} />
         </div>
       </div>
     )

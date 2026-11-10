@@ -11,7 +11,7 @@ import { canAccessPack, isLockedForPlan } from '../services/accessService.js'
 import { canCreatePartie } from '../services/quotaService.js'
 import { debitOne } from '../services/creditService.js'
 import { recomputePackRating } from '../services/ratingService.js'
-import { TIER_REQUIRED_PLAN } from '../config/plans.js'
+import { TIER_REQUIRED_PLAN, effectivePlan } from '../config/plans.js'
 
 const router = Router()
 
@@ -30,7 +30,8 @@ export function invalidatePackCache() { _cache = { at: 0, packs: null } }
 async function getActivePacksCached() {
   if (_cache.packs && Date.now() - _cache.at < CACHE_TTL) return _cache.packs
   const packs = await prisma.pack.findMany({
-    where: { statut: 'ACTIF' },
+    // Catalogue PUBLIC uniquement : les quiz personnels (ownerId) n'y figurent jamais.
+    where: { statut: 'ACTIF', ownerId: null },
     orderBy: [{ priorite: 'desc' }, { createdAt: 'desc' }],
   })
   _cache = { at: Date.now(), packs }
@@ -39,7 +40,7 @@ async function getActivePacksCached() {
 
 function publicPack(p, { lancements = 0, user } = {}) {
   const tier = p.tier ?? 'GRATUIT'
-  const verrouille = isLockedForPlan(user?.plan, user?.isAdmin, tier)
+  const verrouille = isLockedForPlan(effectivePlan(user), user?.isAdmin, tier)
   return {
     id: p.id, slug: p.slug, nom: p.nom, description: p.description,
     emoji: p.emoji, couleur: p.couleur, imageUrl: p.imageUrl, banniereUrl: p.banniereUrl,
@@ -58,7 +59,7 @@ function publicPack(p, { lancements = 0, user } = {}) {
 // GET /api/packs — catalogue (packs actifs) pour le Dashboard.
 // Optionnel : ?q= &tier= &difficulte= &duree= &sort=priorite|recent|populaire &page= &limit=
 router.get('/', requireAuth, async (req, res) => {
-  const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { plan: true, isAdmin: true } })
+  const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { plan: true, planExpireAt: true, isAdmin: true } })
   let packs = await getActivePacksCached()
 
   // Lancements par pack.
@@ -239,7 +240,7 @@ async function findPlayablePack(idOrSlug) {
 async function guardLaunch(req, res, pack, { solo = false } = {}) {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
-    select: { id: true, plan: true, isAdmin: true, credits: true },
+    select: { id: true, plan: true, planExpireAt: true, isAdmin: true, credits: true },
   })
   // 1. Droits d'accès au pack (plan / achat).
   const access = await canAccessPack(user, pack)

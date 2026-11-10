@@ -69,12 +69,12 @@ export default function RejoindrePartie() {
       <div className="fixed top-4 right-4"><ThemeToggle /></div>
       <div className="card p-7 w-full max-w-sm text-center">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-          style={{ background: 'rgba(99,102,241,0.15)' }}>
-          <Gamepad2 size={26} style={{ color: '#818CF8' }} />
+          style={{ background: 'rgba(242,106,27,0.15)' }}>
+          <Gamepad2 size={26} style={{ color: 'var(--brand-text)' }} />
         </div>
 
         {checking ? (
-          <Loader2 size={24} className="animate-spin mx-auto my-4" style={{ color: '#6366F1' }} />
+          <Loader2 size={24} className="animate-spin mx-auto my-4" style={{ color: '#F26A1B' }} />
         ) : error && !partieNom ? (
           <>
             <h1 className="text-lg font-bold mb-2" style={{ color: 'var(--text)' }}>Partie introuvable</h1>

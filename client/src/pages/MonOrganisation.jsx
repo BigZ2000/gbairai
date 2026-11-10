@@ -58,7 +58,7 @@ export default function MonOrganisation() {
   if (notFound) return (
     <Layout maxWidth="max-w-lg">
       <div className="card p-10 text-center">
-        <Building2 size={28} className="mx-auto mb-3" style={{ color: '#2A2A35' }} />
+        <Building2 size={28} className="mx-auto mb-3" style={{ color: '#4A382C' }} />
         <h1 className="text-lg font-bold mb-1" style={{ color: 'var(--text)' }}>Aucune organisation</h1>
         <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Passe à l'offre Organisation pour gérer une équipe, une école ou une entreprise.</p>
         <button onClick={() => navigate('/abonnement')} className="btn-primary gap-2"><Crown size={15} />Voir l'offre Organisation</button>
@@ -103,7 +103,7 @@ export default function MonOrganisation() {
       {peutGerer && (
         <div className="card p-5 mb-5">
           <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text)' }}>
-            <Mail size={16} style={{ color: '#818CF8' }} />Inviter un collaborateur
+            <Mail size={16} style={{ color: 'var(--brand-text)' }} />Inviter un collaborateur
           </h2>
           <div className="flex flex-col sm:flex-row gap-2">
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -126,7 +126,7 @@ export default function MonOrganisation() {
       {/* Membres */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
-          <Users size={15} style={{ color: '#818CF8' }} />
+          <Users size={15} style={{ color: 'var(--brand-text)' }} />
           <h2 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Membres ({membres.length})</h2>
         </div>
         <div className="overflow-x-auto">
@@ -140,7 +140,7 @@ export default function MonOrganisation() {
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-2xs font-bold text-white"
-                        style={{ background: m.statut === 'SUSPENDU' ? 'var(--text-dim)' : '#6366F1' }}>
+                        style={{ background: m.statut === 'SUSPENDU' ? 'var(--text-dim)' : '#F26A1B' }}>
                         {(m.prenom?.[0] ?? m.email?.[0] ?? '?').toUpperCase()}
                       </div>
                       <div>
@@ -153,7 +153,7 @@ export default function MonOrganisation() {
                   </td>
                   <td className="px-3 py-3">
                     <span className="text-2xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
-                      style={{ background: isResp ? 'rgba(234,179,8,0.12)' : 'rgba(99,102,241,0.12)', color: isResp ? '#EAB308' : '#818CF8' }}>
+                      style={{ background: isResp ? 'rgba(234,179,8,0.12)' : 'rgba(242,106,27,0.12)', color: isResp ? '#EAB308' : 'var(--brand-text)' }}>
                       {isResp ? <ShieldCheck size={10} /> : <Shield size={10} />}{ROLE_LABEL[m.role]}
                     </span>
                   </td>

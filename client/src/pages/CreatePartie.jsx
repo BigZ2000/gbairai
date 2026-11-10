@@ -188,15 +188,15 @@ export default function CreatePartie() {
                     <label key={m.value}
                       className="flex items-start gap-3 p-3.5 rounded-lg cursor-pointer transition-all"
                       style={{
-                        background: sel ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${sel ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
+                        background: sel ? 'rgba(242,106,27,0.08)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${sel ? 'rgba(242,106,27,0.3)' : 'var(--border)'}`,
                       }}>
                       <input type="radio" name="mode" value={m.value} checked={sel}
                         onChange={e => setForm(f => ({ ...f, mode: e.target.value }))}
-                        className="mt-0.5 accent-indigo-500" />
+                        className="mt-0.5 accent-brand" />
                       <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                          <Icon size={14} style={{ color: sel ? '#818CF8' : 'var(--text-dim)' }} />
+                          <Icon size={14} style={{ color: sel ? 'var(--brand-text)' : 'var(--text-dim)' }} />
                           <p className="text-sm font-semibold" style={{ color: sel ? 'var(--text)' : 'var(--text-muted)' }}>{m.label}</p>
                           {m.recommande && (
                             <span className="text-2xs font-bold px-1.5 py-0.5 rounded-full"
@@ -264,7 +264,7 @@ export default function CreatePartie() {
                           <label key={String(opt.value)} className="flex items-start gap-2.5 py-1.5 cursor-pointer">
                             <input type="radio" name="masquerReponses" checked={!!form.masquerReponses === opt.value}
                               onChange={() => setForm(f => ({ ...f, masquerReponses: opt.value }))}
-                              className="mt-0.5 accent-indigo-500" />
+                              className="mt-0.5 accent-brand" />
                             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                               {opt.label}
                               <span className="block text-2xs" style={{ color: 'var(--text-dim)' }}>{opt.desc}</span>
@@ -294,7 +294,7 @@ export default function CreatePartie() {
               <div key={m.id} className="card p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text)' }}>
-                    <Layers size={14} style={{ color: '#6366F1' }} />Manche {i + 1}
+                    <Layers size={14} style={{ color: '#F26A1B' }} />Manche {i + 1}
                   </span>
                   {manches.length > 1 && (
                     <button onClick={() => removeManche(i)} className="btn-ghost btn-sm" title="Supprimer la manche"
@@ -344,9 +344,9 @@ export default function CreatePartie() {
                         <button key={t.value} type="button" onClick={() => toggleType(i, t.value)}
                           className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
                           style={{
-                            background: active ? 'rgba(99,102,241,0.18)' : 'var(--hover-overlay)',
-                            color: active ? '#818CF8' : 'var(--text-muted)',
-                            border: `1px solid ${active ? 'rgba(99,102,241,0.45)' : 'var(--border)'}`,
+                            background: active ? 'rgba(242,106,27,0.18)' : 'var(--hover-overlay)',
+                            color: active ? 'var(--brand-text)' : 'var(--text-muted)',
+                            border: `1px solid ${active ? 'rgba(242,106,27,0.45)' : 'var(--border)'}`,
                           }}>
                           {active && <Check size={11} className="inline mr-1 -mt-0.5" />}{t.label}
                         </button>
@@ -419,7 +419,7 @@ export default function CreatePartie() {
 
             {/* Récap compact intégré (remplace l'ancien écran « Confirmation »). */}
             <div className="rounded-xl px-4 py-3 flex items-center justify-between text-sm"
-              style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+              style={{ background: 'rgba(242,106,27,0.06)', border: '1px solid rgba(242,106,27,0.2)' }}>
               <span style={{ color: 'var(--text-muted)' }}>
                 {manches.length} manche{manches.length > 1 ? 's' : ''} · {totalQuestions} questions
               </span>

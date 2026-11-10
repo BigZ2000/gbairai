@@ -1,43 +1,65 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* ── Design tokens (themeable via [data-theme]) ── */
-  :root, html[data-theme="dark"] {
-    --bg: #0E0E12;
-    --surface: #1C1C22;
-    --surface-2: #141418;
-    --surface-hover: #222228;
-    --text: #ECECF0;
-    --text-muted: #9090A0;
-    --text-dim: #5A5A6E;
-    --border: rgba(255,255,255,0.07);
-    --border-strong: rgba(255,255,255,0.11);
-    --input-bg: rgba(255,255,255,0.04);
-    --hover-overlay: rgba(255,255,255,0.05);
-    --shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
-    --scrollbar: rgba(255,255,255,0.1);
-    /* Fin de dégradé des cartes colorées (packs, offres) — s'adapte au thème. */
-    --card-tint: rgba(20,20,24,0.7);
+  /* ── Identité Gbairai : « soleil & cacao » ───────────────────────────────
+     Orange solaire (marque) + vert feuille (réussite) + jaune mangue (éclat),
+     posés sur un fond crème le jour et cacao la nuit. Les couleurs de marque
+     sont identiques dans les deux thèmes ; seuls les fonds et les textes
+     changent. Tout écran lit ces variables : on ne code aucune couleur de
+     fond ou de texte en dur dans les pages. */
+  :root {
+    --brand: #F26A1B;
+    --brand-strong: #D9540A;       /* survol / tranche des boutons */
+    --brand-rgb: 242,106,27;
+    --leaf: #12995F;               /* réussite, « en ligne » */
+    --mango: #FFC23D;              /* éclat, Premium, étoiles */
+    --font-display: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif;
   }
-  html[data-theme="light"] {
-    --bg: #F4F4F7;
+  /* Thème clair (défaut) — crème chaude. */
+  :root, html[data-theme="light"], [data-theme="light"] {
+    --bg: #FFF7EC;
     --surface: #FFFFFF;
-    --surface-2: #FAFAFC;
-    --surface-hover: #F0F0F4;
-    --text: #18181B;
-    --text-muted: #52525B;
-    --text-dim: #A1A1AA;
-    --border: rgba(0,0,0,0.09);
-    --border-strong: rgba(0,0,0,0.14);
-    --input-bg: rgba(0,0,0,0.03);
-    --hover-overlay: rgba(0,0,0,0.04);
-    --shadow: 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
-    --scrollbar: rgba(0,0,0,0.18);
-    --card-tint: rgba(255,255,255,0.92);
+    --surface-2: #FFF1DF;
+    --surface-hover: #FFF4E6;
+    --text: #2B1A10;
+    --text-muted: #6B574A;
+    --text-dim: #A39082;
+    --border: rgba(92,52,20,0.12);
+    --border-strong: rgba(92,52,20,0.2);
+    --input-bg: rgba(92,52,20,0.04);
+    --hover-overlay: rgba(92,52,20,0.06);
+    --shadow: 0 1px 2px rgba(92,52,20,0.06), 0 6px 20px rgba(92,52,20,0.06);
+    --scrollbar: rgba(92,52,20,0.22);
+    --brand-text: #B8430A;         /* texte orange lisible sur fond clair */
+    --brand-soft: rgba(242,106,27,0.1);
+    --header-bg: rgba(255,247,236,0.86);
+    /* Fin de dégradé des cartes colorées (packs, offres) — s'adapte au thème. */
+    --card-tint: rgba(255,255,255,0.94);
+  }
+  /* Thème sombre — cacao. Aussi applicable à un sous-arbre (écran joueur). */
+  html[data-theme="dark"], [data-theme="dark"] {
+    --bg: #1A120E;
+    --surface: #261B15;
+    --surface-2: #20160F;
+    --surface-hover: #30231B;
+    --text: #FFF3E6;
+    --text-muted: #C9B5A4;
+    --text-dim: #8A7566;
+    --border: rgba(255,236,214,0.09);
+    --border-strong: rgba(255,236,214,0.16);
+    --input-bg: rgba(255,236,214,0.05);
+    --hover-overlay: rgba(255,236,214,0.06);
+    --shadow: 0 2px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,236,214,0.04);
+    --scrollbar: rgba(255,236,214,0.14);
+    --brand-text: #FF9E5E;
+    --brand-soft: rgba(242,106,27,0.16);
+    --header-bg: rgba(32,22,15,0.86);
+    --card-tint: rgba(38,27,21,0.78);
+    color: var(--text);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -46,12 +68,16 @@
     background-color: var(--bg);
     color: var(--text);
     font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss03';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.5;
     transition: background-color 0.2s ease, color 0.2s ease;
   }
-  ::selection { background: rgba(99,102,241,0.3); color: #fff; }
+  ::selection { background: rgba(var(--brand-rgb),0.28); }
+  h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.015em; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 99px; }
@@ -64,7 +90,7 @@
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 18px;
     box-shadow: var(--shadow);
   }
   .card-hover {
@@ -73,35 +99,40 @@
   .card-hover:hover {
     background: var(--surface-hover);
     border-color: var(--border-strong);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-    transform: translateY(-1px);
+    box-shadow: 0 10px 28px rgba(92,52,20,0.14);
+    transform: translateY(-2px);
   }
+
+  /* Panneau « encre » : bloc sombre cacao, identique dans les deux thèmes
+     (mise en avant : rejoindre, créer avec l'IA). */
+  .panel-ink { background: #2B1A10; color: #FFF7EC; border: 1px solid rgba(255,236,214,0.12); }
 
   /* ── Buttons ────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 font-medium text-sm rounded-lg transition-all duration-150 select-none;
-    padding: 0.5rem 1rem;
+    @apply inline-flex items-center justify-center gap-2 font-semibold text-sm transition-all duration-150 select-none;
+    border-radius: 12px;
+    padding: 0.5625rem 1.0625rem;
     line-height: 1.25;
   }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
   .btn:active:not(:disabled) { transform: scale(0.97); }
 
+  /* Bouton principal : touche « à enfoncer » (tranche pleine, s'écrase au clic). */
   .btn-primary {
     @apply btn;
-    background: #6366F1;
+    background: var(--brand);
     color: #fff;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 0 0 1px rgba(99,102,241,0.5) inset;
+    box-shadow: 0 3px 0 var(--brand-strong);
   }
-  .btn-primary:hover:not(:disabled) {
-    background: #4F46E5;
-    box-shadow: 0 4px 20px rgba(99,102,241,0.4), 0 0 0 1px rgba(99,102,241,0.6) inset;
-  }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+  .btn-primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 var(--brand-strong); }
 
   .btn-secondary {
     @apply btn;
-    background: var(--input-bg);
+    background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border-strong);
+    box-shadow: 0 2px 0 var(--border-strong);
   }
   .btn-secondary:hover:not(:disabled) {
     background: var(--hover-overlay);
@@ -145,24 +176,24 @@
   }
 
   /* Size modifiers */
-  .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
-  .btn-lg { padding: 0.625rem 1.25rem; font-size: 0.9375rem; }
-  .btn-xl { padding: 0.75rem 1.5rem; font-size: 1rem; }
+  .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; border-radius: 10px; }
+  .btn-lg { padding: 0.6875rem 1.25rem; font-size: 0.9375rem; }
+  .btn-xl { padding: 0.875rem 1.5rem; font-size: 1.0625rem; border-radius: 14px; }
 
   /* ── Inputs ─────────────────────────────── */
   .input {
     @apply w-full text-sm transition-all duration-150 focus:outline-none;
     background: var(--input-bg);
     border: 1px solid var(--border-strong);
-    border-radius: 8px;
+    border-radius: 12px;
     color: var(--text);
-    padding: 0.5625rem 0.875rem;
+    padding: 0.625rem 0.875rem;
     line-height: 1.25;
   }
   .input:focus {
-    border-color: #6366F1;
-    background: rgba(99,102,241,0.05);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.18);
+    border-color: var(--brand);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb),0.18);
   }
   .input::placeholder { color: var(--text-dim); }
   .input.input-error {
@@ -204,8 +235,8 @@
     transition: all 0.15s;
   }
   input[type="checkbox"].check:checked {
-    background: #6366F1;
-    border-color: #6366F1;
+    background: var(--brand);
+    border-color: var(--brand);
   }
   input[type="checkbox"].check:checked::after {
     content: '';
@@ -221,7 +252,7 @@
   }
   input[type="checkbox"].check:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.18);
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb),0.18);
   }
 
   /* ── Labels ─────────────────────────────── */
@@ -236,15 +267,19 @@
     @apply inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    white-space: nowrap;
   }
-  .badge-wait   { @apply badge; background: rgba(245,158,11,0.12); color: #FCD34D; }
-  .badge-active { @apply badge; background: rgba(34,197,94,0.12);  color: #4ADE80; }
-  .badge-done   { @apply badge; background: rgba(255,255,255,0.05); color: #5A5A6E; }
-  .badge-indigo { @apply badge; background: rgba(99,102,241,0.15); color: #A5B4FC; }
+  .badge-wait   { @apply badge; background: rgba(255,194,61,0.22); color: #9A6400; }
+  [data-theme="dark"] .badge-wait { color: #FFD67A; }
+  .badge-active { @apply badge; background: rgba(18,153,95,0.14);  color: var(--leaf); }
+  .badge-done   { @apply badge; background: var(--hover-overlay); color: var(--text-dim); }
+  .badge-indigo { @apply badge; background: var(--brand-soft); color: var(--brand-text); }
+  .badge-ia     { @apply badge; background: rgba(255,194,61,0.25); color: #8A5A00; }
+  [data-theme="dark"] .badge-ia { color: #FFD67A; }
 
   /* ── Skeleton ───────────────────────────── */
   .skeleton {
-    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background: linear-gradient(90deg, var(--hover-overlay) 25%, var(--border-strong) 50%, var(--hover-overlay) 75%);
     background-size: 400px 100%;
     @apply animate-shimmer rounded-lg;
   }
@@ -265,14 +300,27 @@
   /* ── Tooltip-like inline code ───────────── */
   .code-tag {
     @apply font-mono text-xs px-2 py-0.5 rounded;
-    background: rgba(99,102,241,0.12);
-    color: #A5B4FC;
-    border: 1px solid rgba(99,102,241,0.2);
+    background: var(--brand-soft);
+    color: var(--brand-text);
+    border: 1px solid rgba(var(--brand-rgb),0.22);
   }
 }
 
 /* ── Utility extras ─────────────────────── */
 @layer utilities {
-  .text-2xs { font-size: 0.65rem; line-height: 1rem; }
+  .text-2xs { font-size: 0.6875rem; line-height: 1rem; }
+  /* Puce de filtre / onglet (une seule ligne défilante sur mobile). */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold transition-all duration-150 select-none shrink-0;
+    padding: 0.4375rem 0.875rem; border-radius: 999px;
+    background: var(--surface); color: var(--text-muted); border: 1px solid var(--border-strong);
+  }
+  .chip:hover { color: var(--text); }
+  .chip-on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .scroll-x { @apply flex gap-2 overflow-x-auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .scroll-x::-webkit-scrollbar { display: none; }
+  /* Marge basse quand la barre d'onglets mobile est affichée. */
+  .pb-tabbar { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  @media (min-width: 768px) { .pb-tabbar { padding-bottom: 2.5rem; } }
   .animate-spin-slow { animation: spin 1.2s linear infinite; }
 }

@@ -16,7 +16,7 @@ const OFFRES = [
   },
   {
     code: 'PRO', nom: 'Pro', categorie: 'PERSONNEL', plan: 'PRO',
-    prix: 5000, dureeJours: 30, sieges: 1, couleur: '#6366F1', ordre: 1, populaire: true,
+    prix: 5000, dureeJours: 30, sieges: 1, couleur: '#F26A1B', ordre: 1, populaire: true,
     description: 'Pour les animateurs, associations, événements et créateurs.',
     fonctionnalites: PLANS.PRO.avantages,
   },
@@ -25,25 +25,25 @@ const OFFRES = [
     code: 'ORG_50', nom: 'Organisation 50', categorie: 'ORGANISATION', plan: 'ENTREPRISE',
     prix: 25000, dureeJours: 30, sieges: 50, couleur: '#0EA5E9', ordre: 2,
     description: "Jusqu'à 50 utilisateurs. Idéal petites structures et classes.",
-    fonctionnalites: ['Jusqu\'à 50 utilisateurs', 'Joueurs illimités', 'Gestion centralisée', 'Statistiques avancées'],
+    fonctionnalites: ['Jusqu\'à 50 utilisateurs', 'Création de quiz par IA (100 / mois par membre)', 'Joueurs illimités', 'Gestion centralisée', 'Statistiques avancées'],
   },
   {
     code: 'ORG_100', nom: 'Organisation 100', categorie: 'ORGANISATION', plan: 'ENTREPRISE',
     prix: 45000, dureeJours: 30, sieges: 100, couleur: '#0EA5E9', ordre: 3,
     description: "Jusqu'à 100 utilisateurs.",
-    fonctionnalites: ['Jusqu\'à 100 utilisateurs', 'Joueurs illimités', 'Gestion centralisée', 'Branding personnalisé'],
+    fonctionnalites: ['Jusqu\'à 100 utilisateurs', 'Création de quiz par IA (100 / mois par membre)', 'Joueurs illimités', 'Gestion centralisée', 'Branding personnalisé'],
   },
   {
     code: 'ORG_250', nom: 'Organisation 250', categorie: 'ORGANISATION', plan: 'ENTREPRISE',
     prix: 100000, dureeJours: 30, sieges: 250, couleur: '#0EA5E9', ordre: 4,
     description: "Jusqu'à 250 utilisateurs. Écoles et entreprises.",
-    fonctionnalites: ['Jusqu\'à 250 utilisateurs', 'Joueurs illimités', 'Groupes & classes', 'Branding personnalisé'],
+    fonctionnalites: ['Jusqu\'à 250 utilisateurs', 'Création de quiz par IA (100 / mois par membre)', 'Joueurs illimités', 'Groupes & classes', 'Branding personnalisé'],
   },
   {
     code: 'ORG_500', nom: 'Organisation 500', categorie: 'ORGANISATION', plan: 'ENTREPRISE',
     prix: 180000, dureeJours: 30, sieges: 500, couleur: '#0EA5E9', ordre: 5,
     description: "Jusqu'à 500 utilisateurs. Grandes structures.",
-    fonctionnalites: ['Jusqu\'à 500 utilisateurs', 'Joueurs illimités', 'Groupes & classes', 'Accompagnement dédié'],
+    fonctionnalites: ['Jusqu\'à 500 utilisateurs', 'Création de quiz par IA (100 / mois par membre)', 'Joueurs illimités', 'Groupes & classes', 'Accompagnement dédié'],
   },
 ]
 

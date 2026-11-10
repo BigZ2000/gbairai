@@ -345,7 +345,13 @@ router.post('/login', async (req, res) => {
   await storeRefreshToken(user.id, refresh, req)
   await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } }).catch(() => {})
 
-  const { password: _, ...safe } = user
+  // Ne jamais renvoyer les secrets du compte : mot de passe, mais aussi les codes
+  // de vérification / réinitialisation (les lire permettrait de valider son
+  // email ou son téléphone sans avoir reçu le message).
+  const {
+    password: _, verifyCode, verifyToken, verifyExpiry, resetCode, resetExpiry,
+    phoneCode, phoneCodeExpiry, googleId, ...safe
+  } = user
   res.json({ user: safe, access, refresh })
 })
 

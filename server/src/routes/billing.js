@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { prisma } from '../utils/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { getSettings } from '../config/settings.js'
-import { PLANS } from '../config/plans.js'
+import { PLANS, effectivePlan } from '../config/plans.js'
 import { cinetpayConfig } from '../config/cinetpay.js'
 import { getQuotaState } from '../services/quotaService.js'
 import { getUserOrganisation, activeSeats } from '../services/orgService.js'
@@ -52,7 +52,7 @@ router.get('/plans', requireAuth, loadUser, async (req, res) => {
       categorie: o.categorie, prix: o.prix, dureeJours: o.dureeJours, sieges: o.sieges,
       couleur: o.couleur, populaire: o.populaire, fonctionnalites: o.fonctionnalites,
     })),
-    current: req.fullUser.plan,
+    current: effectivePlan(req.fullUser),
     paiementsActifs: cinetpayConfig.enabled,
   })
 })
